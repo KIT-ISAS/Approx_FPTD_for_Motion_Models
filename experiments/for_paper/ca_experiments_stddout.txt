@@ -1,0 +1,104 @@
+MAX CDF 1.0 0.10409427895450125
+EV 0.05477751646603232
+EV integration time: 0.1969ms. Abs dev: 3.051922763844944e-05, Rel. dev: 0.0005568385593861705
+Var integration time: 0.0763ms. Abs dev: 1.2659033448812949e-09, Rel. dev: 0.0005573133019840281
+E3 integration time: 0.246ms. Abs dev: 2.0791634602677309e-10, Rel. dev: 0.16182357526834243
+Temporal mean of Taylor approximation: 0.054724
+Temporal stddev of Taylor approximation: 0.001489
+Temporal mean of Engineering approx.: 0.054778
+Temporal stddev of Engineering approx.: 0.001507
+Pairwise relative deviations of temporal stddevs in percent: 
+ [[0.   1.14]
+ [1.14 0.  ]]
+Temporal skewness of Taylor approximation: 0.0
+Temporal skewness of Engineering approx.: 0.314843
+Pairwise relative deviations of temporal skewness in percent: 
+ [[ nan 100.]
+ [100.   0.]]
+Spatial mean of Taylor method: 66.926633
+Spatial stddev of Taylor method: 1.172068
+E4 integration time: 0.2642ms. Abs dev: 2.0791634602677309e-10, Rel. dev: 0.16182357526834243
+E5 integration time: 0.3192ms. Abs dev: 2.51625693844608e-15, Rel. dev: 0.09152524532586614
+Spatial mean of Engineering approx.: 66.929521
+Spatial stddev of Engineering approx.: 1.174349
+Pairwise relative deviations of spatial stddevs in percent: 
+ [[0.   0.19]
+ [0.19 0.  ]]
+MAX CDF 0.9085122505642523 0.09219883467063908
+EV 0.05034340760895501
+EV integration time: 0.3219ms. Abs dev: 0.00011776613681199061, Rel. dev: 0.0023337970179869143
+Var integration time: 0.1369ms. Abs dev: 1.2100419968603726e-06, Rel. dev: 0.015531777915112906
+E3 integration time: 0.2387ms. Abs dev: 3.0061727070576595e-08, Rel. dev: 0.02075395503340925
+Temporal mean of Taylor approximation: 0.054724
+Temporal stddev of Taylor approximation: 0.007796
+Temporal mean of Engineering approx.: 0.050343
+Temporal stddev of Engineering approx.: 0.008758
+Pairwise relative deviations of temporal stddevs in percent: 
+ [[ 0.   10.98]
+ [10.98  0.  ]]
+Temporal skewness of Taylor approximation: 0.0
+Temporal skewness of Engineering approx.: 2.111706
+Pairwise relative deviations of temporal skewness in percent: 
+ [[ nan 100.]
+ [100.   0.]]
+Spatial mean of Taylor method: 66.926633
+Spatial stddev of Taylor method: 4.923924
+E4 integration time: 0.2596ms. Abs dev: 3.0061727070576595e-08, Rel. dev: 0.02075395503340925
+E5 integration time: 0.2425ms. Abs dev: 2.191216427440007e-11, Rel. dev: 0.024302411193959584
+Spatial mean of Engineering approx.: 66.743061
+Spatial stddev of Engineering approx.: 6.263729
+Pairwise relative deviations of spatial stddevs in percent: 
+ [[ 0.   21.39]
+ [21.39  0.  ]]
+MAX CDF 0.43053816172640347 4.594484243014322
+EV -0.4680064316059416
+EV integration time: 0.3738ms. Abs dev: 0.004888669142151969, Rel. dev: -0.010555995771235843
+Var integration time: 0.2553ms. Abs dev: 0.005998087728837698, Rel. dev: -0.006077850742024846
+E3 integration time: 0.2487ms. Abs dev: 0.033723707759312216, Rel. dev: -0.014900656284450886
+Temporal mean of Taylor approximation: 0.057956
+Temporal stddev of Taylor approximation: 0.00186
+Temporal mean of Engineering approx.: -0.468006
+Temporal stddev of Engineering approx.: nan
+Pairwise relative deviations of temporal stddevs in percent: 
+ [[ 0. nan]
+ [nan nan]]
+Temporal skewness of Taylor approximation: 0.0
+Temporal skewness of Engineering approx.: nan
+Pairwise relative deviations of temporal skewness in percent: 
+ [[nan nan]
+ [nan nan]]
+Spatial mean of Taylor method: 67.076855
+Spatial stddev of Taylor method: 1.297501
+E4 integration time: 0.3047ms. Abs dev: 0.033723707759312216, Rel. dev: -0.014900656284450886
+E5 integration time: 0.212ms. Abs dev: 0.3138247316781584, Rel. dev: -0.020790190387672
+Spatial mean of Engineering approx.: -86.86273
+Spatial stddev of Engineering approx.: nan
+Pairwise relative deviations of spatial stddevs in percent: 
+ [[ 0. nan]
+ [nan nan]]
+MAX CDF 1.0 0.10367198581385152
+EV 0.05374103893223699
+EV integration time: 0.2112ms. Abs dev: 2.8206173748948626e-05, Rel. dev: 0.0005245781988077146
+Var integration time: 0.0818ms. Abs dev: 1.0988639402642572e-09, Rel. dev: 0.0005600803064738245
+E3 integration time: 0.283ms. Abs dev: 1.6597836512484217e-10, Rel. dev: 0.1705524433745041
+Temporal mean of Taylor approximation: 0.053696
+Temporal stddev of Taylor approximation: 0.001387
+Temporal mean of Engineering approx.: 0.053741
+Temporal stddev of Engineering approx.: 0.0014
+Pairwise relative deviations of temporal stddevs in percent: 
+ [[0.   0.98]
+ [0.98 0.  ]]
+Temporal skewness of Taylor approximation: 0.0
+Temporal skewness of Engineering approx.: 0.293973
+Pairwise relative deviations of temporal skewness in percent: 
+ [[ nan 100.]
+ [100.   0.]]
+Spatial mean of Taylor method: 66.879656
+Spatial stddev of Taylor method: 1.133822
+E4 integration time: 0.2284ms. Abs dev: 1.6597836512484217e-10, Rel. dev: 0.1705524433745041
+E5 integration time: 0.407ms. Abs dev: 1.719372314369793e-15, Rel. dev: 0.09708901379551717
+Spatial mean of Engineering approx.: 66.882074
+Spatial stddev of Engineering approx.: 1.135654
+Pairwise relative deviations of spatial stddevs in percent: 
+ [[0.   0.16]
+ [0.16 0.  ]]

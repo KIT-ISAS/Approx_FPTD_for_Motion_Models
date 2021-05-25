@@ -1,0 +1,39 @@
+root@a76d8cd93b8a:/# python3 /mnt/wiener_process.py
+2021-05-11 09:59:33.112239: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libnvinfer.so.6
+2021-05-11 09:59:33.114443: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libnvinfer_plugin.so.6
+I0511 09:59:34.147736 139898054395712 wiener_process.py:533] Timestep 0, x equals approx. 29.0304
+I0511 09:59:37.095950 139898054395712 wiener_process.py:533] Timestep 100, x equals approx. 31.235488603326218
+I0511 09:59:40.034137 139898054395712 wiener_process.py:533] Timestep 200, x equals approx. 34.5889483719958
+I0511 09:59:42.976515 139898054395712 wiener_process.py:533] Timestep 300, x equals approx. 38.267779110290604
+I0511 09:59:45.889335 139898054395712 wiener_process.py:533] Timestep 400, x equals approx. 41.75243404342831
+I0511 09:59:48.869802 139898054395712 wiener_process.py:533] Timestep 500, x equals approx. 44.6696524500161
+I0511 09:59:51.822364 139898054395712 wiener_process.py:533] Timestep 600, x equals approx. 48.290150167100805
+I0511 09:59:54.809211 139898054395712 wiener_process.py:533] Timestep 700, x equals approx. 51.15467808629317
+I0511 09:59:57.725158 139898054395712 wiener_process.py:533] Timestep 800, x equals approx. 53.00683861842538
+I0511 10:00:00.643589 139898054395712 wiener_process.py:533] Timestep 900, x equals approx. 55.59977119951077
+I0511 10:00:03.582726 139898054395712 wiener_process.py:533] Timestep 1000, x equals approx. 58.35326037227867
+I0511 10:00:06.836327 139898054395712 wiener_process.py:533] Timestep 1100, x equals approx. 61.631189401389726
+I0511 10:00:10.484706 139898054395712 wiener_process.py:533] Timestep 1200, x equals approx. 62.444742570365136
+I0511 10:00:13.486073 139898054395712 wiener_process.py:533] Timestep 1300, x equals approx. 62.444742570365136
+I0511 10:00:16.272953 139898054395712 wiener_process.py:533] Timestep 1400, x equals approx. 62.444742570365136
+I0511 10:00:18.990311 139898054395712 wiener_process.py:533] Timestep 1500, x equals approx. 62.444742570365136
+/usr/local/lib/python3.6/dist-packages/scipy/stats/_distn_infrastructure.py:1824: RuntimeWarning: invalid value encountered in double_scalars
+  x = np.asarray((x - loc)/scale, dtype=dtyp)
+Mass inside invalid region: 0.07520740245898294
+Temporal mean of Analytic solution: 0.055783
+Temporal stddev of Analytic solution: 0.003936
+W0511 10:00:41.431932 139898054395712 wiener_process.py:436] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+W0511 10:00:41.432216 139898054395712 wiener_process.py:440] Relative Difference between lower and upper some is greater than 0.001. Try increasing integration points
+EV 0.05587709827769102
+EV integration time: 0.555ms. Abs dev: 7.72848642860216e-05, Rel. dev: 0.0013812119792281725, 
+EV (Riemann) 0.055915737660951925
+EV integration time (Riemann): 0.0587ms. Abs dev: 0.0, Rel. dev: 0.0, 
+Var integration time: 0.071ms. Abs dev: 6.83732477160123e-09, Rel. dev: 0.0004390912486298609
+VAR (Riemann) 0.055915737660951925
+VAR integration time (Riemann): 0.041ms. Abs dev: 0.0, Rel. dev: 0.0
+Temporal mean of Engineering approx.: 0.055877
+Temporal stddev of Engineering approx.: 0.003945
+Pairwise relative deviations of temporal stddevs in percent: 
+ [[0.   0.22]
+ [0.22 0.  ]]
+

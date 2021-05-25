@@ -1,0 +1,70 @@
+root@a76d8cd93b8a:/# python3 /mnt/wiener_process.py --sw_fifty
+2021-05-11 09:56:21.268891: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libnvinfer.so.6
+2021-05-11 09:56:21.272196: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libnvinfer_plugin.so.6
+I0511 09:56:22.431399 139650067089216 wiener_process.py:533] Timestep 0, x equals approx. 29.0304
+I0511 09:56:25.364647 139650067089216 wiener_process.py:533] Timestep 100, x equals approx. 27.795284703752795
+I0511 09:56:28.329839 139650067089216 wiener_process.py:533] Timestep 200, x equals approx. 34.48876059276975
+I0511 09:56:31.274883 139650067089216 wiener_process.py:533] Timestep 300, x equals approx. 36.79620590141913
+I0511 09:56:34.236973 139650067089216 wiener_process.py:533] Timestep 400, x equals approx. 39.146839051806026
+I0511 09:56:37.164906 139650067089216 wiener_process.py:533] Timestep 500, x equals approx. 38.412327968479545
+I0511 09:56:40.151872 139650067089216 wiener_process.py:533] Timestep 600, x equals approx. 45.20904463843813
+I0511 09:56:43.015989 139650067089216 wiener_process.py:533] Timestep 700, x equals approx. 47.92327962991837
+I0511 09:56:46.136477 139650067089216 wiener_process.py:533] Timestep 800, x equals approx. 48.44962777755118
+I0511 09:56:49.546171 139650067089216 wiener_process.py:533] Timestep 900, x equals approx. 54.24924788821465
+I0511 09:56:53.189144 139650067089216 wiener_process.py:533] Timestep 1000, x equals approx. 55.57473458058643
+I0511 09:56:56.903246 139650067089216 wiener_process.py:533] Timestep 1100, x equals approx. 61.25708568581071
+I0511 09:57:00.631248 139650067089216 wiener_process.py:533] Timestep 1200, x equals approx. 62.26500765428786
+I0511 09:57:04.198296 139650067089216 wiener_process.py:533] Timestep 1300, x equals approx. 62.26500765428786
+I0511 09:57:07.681678 139650067089216 wiener_process.py:533] Timestep 1400, x equals approx. 62.26500765428786
+I0511 09:57:11.028053 139650067089216 wiener_process.py:533] Timestep 1500, x equals approx. 62.26500765428786
+I0511 09:57:14.284289 139650067089216 wiener_process.py:533] Timestep 1600, x equals approx. 62.26500765428786
+I0511 09:57:17.390099 139650067089216 wiener_process.py:533] Timestep 1700, x equals approx. 62.26500765428786
+I0511 09:57:20.415039 139650067089216 wiener_process.py:533] Timestep 1800, x equals approx. 62.26500765428786
+I0511 09:57:23.452203 139650067089216 wiener_process.py:533] Timestep 1900, x equals approx. 62.26500765428786
+I0511 09:57:26.357266 139650067089216 wiener_process.py:533] Timestep 2000, x equals approx. 62.26500765428786
+I0511 09:57:29.193037 139650067089216 wiener_process.py:533] Timestep 2100, x equals approx. 62.26500765428786
+I0511 09:57:31.992113 139650067089216 wiener_process.py:533] Timestep 2200, x equals approx. 62.26500765428786
+I0511 09:57:34.779986 139650067089216 wiener_process.py:533] Timestep 2300, x equals approx. 62.26500765428786
+I0511 09:57:37.567618 139650067089216 wiener_process.py:533] Timestep 2400, x equals approx. 62.26500765428786
+I0511 09:57:40.371596 139650067089216 wiener_process.py:533] Timestep 2500, x equals approx. 62.26500765428786
+I0511 09:57:43.087721 139650067089216 wiener_process.py:533] Timestep 2600, x equals approx. 62.26500765428786
+I0511 09:57:45.826434 139650067089216 wiener_process.py:533] Timestep 2700, x equals approx. 62.26500765428786
+I0511 09:57:48.502350 139650067089216 wiener_process.py:533] Timestep 2800, x equals approx. 62.26500765428786
+I0511 09:57:51.202052 139650067089216 wiener_process.py:533] Timestep 2900, x equals approx. 62.26500765428786
+I0511 09:57:53.902367 139650067089216 wiener_process.py:533] Timestep 3000, x equals approx. 62.26500765428786
+W0511 09:57:53.929095 139650067089216 wiener_process.py:541] Sampling interrupted because 3000. reached. Please adjust break_after_n_timesteps if you want to move the particles more timesteps.
+/usr/local/lib/python3.6/dist-packages/scipy/stats/_distn_infrastructure.py:1824: RuntimeWarning: invalid value encountered in double_scalars
+  x = np.asarray((x - loc)/scale, dtype=dtyp)
+Mass inside invalid region: 0.29549425876698643
+Temporal mean of Analytic solution: 0.055783
+Temporal stddev of Analytic solution: 0.019682
+W0511 09:58:30.904486 139650067089216 wiener_process.py:436] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+W0511 09:58:30.904723 139650067089216 wiener_process.py:440] Relative Difference between lower and upper some is greater than 0.001. Try increasing integration points
+EV 0.059011229170813764
+EV integration time: 0.5023ms. Abs dev: 0.00046433473818592585, Rel. dev: 0.007807151503370007, 
+EV (Riemann) 0.0592433841915786
+EV integration time (Riemann): 0.0625ms. Abs dev: 0.0, Rel. dev: 0.0, 
+Var integration time: 0.0775ms. Abs dev: 2.211090527208569e-07, Rel. dev: 0.0004951254657291415
+VAR (Riemann) 0.0592433841915786
+VAR integration time (Riemann): 0.0374ms. Abs dev: 0.0, Rel. dev: 0.0
+Temporal mean of Engineering approx.: 0.059011
+Temporal stddev of Engineering approx.: 0.021127
+Pairwise relative deviations of temporal stddevs in percent: 
+ [[0.   6.84]
+ [6.84 0.  ]]
+/mnt/wiener_process.py:238: RuntimeWarning: divide by zero encountered in double_scalars
+  z1 = np.sqrt(self.lambdaa/t)*(t/self.ev - 1)
+/mnt/wiener_process.py:239: RuntimeWarning: divide by zero encountered in double_scalars
+  z2 = - np.sqrt(self.lambdaa / t) * (t / self.ev + 1)
+/mnt/wiener_process.py:234: RuntimeWarning: divide by zero encountered in double_scalars
+  return np.sqrt(self.lambdaa/(2*np.pi*t**3)) * np.exp(-self.lambdaa*(t - self.ev)**2/(2*self.ev**2*t))
+/mnt/wiener_process.py:234: RuntimeWarning: invalid value encountered in double_scalars
+  return np.sqrt(self.lambdaa/(2*np.pi*t**3)) * np.exp(-self.lambdaa*(t - self.ev)**2/(2*self.ev**2*t))
+/usr/local/lib/python3.6/dist-packages/scipy/stats/_distn_infrastructure.py:1824: RuntimeWarning: divide by zero encountered in double_scalars
+  x = np.asarray((x - loc)/scale, dtype=dtyp)
+/mnt/wiener_process.py:272: RuntimeWarning: divide by zero encountered in double_scalars
+  mulipl = der_ev/np.sqrt(self.var_t(t)) + (self.x_predTo - self.ev_t(t))*der_var/(2*self.var_t(t)**(3.0/2.0))
+/mnt/wiener_process.py:273: RuntimeWarning: divide by zero encountered in double_scalars
+  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self.ev_t(t))**2/(2*self.var_t(t)))
+/mnt/wiener_process.py:273: RuntimeWarning: invalid value encountered in double_scalars
+  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self.ev_t(t))**2/(2*self.var_t(t)))
