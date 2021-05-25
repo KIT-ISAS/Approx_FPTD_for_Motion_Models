@@ -1,6 +1,6 @@
 # Approx FPTD for Motion Models
 
-<img align="right" height="250" src="https://github.com/KIT-ISAS/Approx-FPTD-for-Motion-Models/blob/master/experiments/for_paper/Long_Track_Sw10_denorm/long_track_sw10_denorm_fptd.png">
+<img align="right" height="250" src="https://github.com/KIT-ISAS/Approx_FPTD_for_Motion_Models/blob/master/experiments/for_paper/Long_Track_Sw10_denorm/long_track_sw10_denorm_fptd.png">
 
 Code belonging to the paper
 
@@ -94,17 +94,17 @@ docker run -u $(id -u):$(id -g) --gpus all -it --rm -e DISPLAY=$DISPLAY -v /tmp/
 
 *CV model* with a power spectral density of 93 640 mm<sup>2</sup>s<sup>-3</sup> (experiment *Long_Track_Sw10_denorm* in `cv_experiments.py`).
  
-![alt text](https://github.com/KIT-ISAS/Approx-FPTD-for-Motion-Models/blob/master/experiments/for_paper/Long_Track_Sw10_denorm/long_track_sw10_denorm_fptd.png)
+![alt text](https://github.com/KIT-ISAS/Approx_FPTD_for_Motion_Models/blob/master/experiments/for_paper/Long_Track_Sw10_denorm/long_track_sw10_denorm_fptd.png)
 
 *Wiener process with drift* with sigma of 10 (default of `wiener_process.py`).
 
-![alt text](https://github.com/KIT-ISAS/Approx-FPTD-for-Motion-Models/blob/master/experiments/for_paper/Wiener_process_Sigma_10/wiener_process_sigma_10_fptd.png)
+![alt text](https://github.com/KIT-ISAS/Approx_FPTD_for_Motion_Models/blob/master/experiments/for_paper/Wiener_process_Sigma_10/wiener_process_sigma_10_fptd.png)
 
 **Example Tracks**
 
 Some example tracks for the *CV model* with a power spectral density of 93 640 mm<sup>2</sup>s<sup>-3</sup>.
 
-![alt text](https://github.com/KIT-ISAS/Approx-FPTD-for-Motion-Models/blob/master/experiments/for_paper/Long_Track_Sw10_denorm/long_track_sw10_denorm_mean_and_stddev_over_time.png)
+![alt text](https://github.com/KIT-ISAS/Approx_FPTD_for_Motion_Models/blob/master/experiments/for_paper/Long_Track_Sw10_denorm/long_track_sw10_denorm_mean_and_stddev_over_time.png)
 
 ## Additional Notes
 
