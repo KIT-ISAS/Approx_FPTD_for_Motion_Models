@@ -28,7 +28,7 @@ from absl import flags
 
 import numpy as np
 
-from cv_process import run_experiment
+from cv_process import run_experiment, measure_computation_times
 
 
 # Delete all FLAGS defined by CV process as we here not want them to be overwritten by the following flags.
@@ -49,6 +49,8 @@ flags.DEFINE_string('result_dir', default='/mnt/results/',
                     help='The directory where to save the results.')
 flags.DEFINE_bool('no_show', default=False,
                     help='Whether to show the plots.')
+flags.DEFINE_bool('measure_computational_times', default=False,
+                    help='Whether to measure the computational times (using the first defined experiment).')
 
 flags.DEFINE_string('verbosity_level', default='INFO', help='Verbosity options.')
 flags.register_validator('verbosity_level',
@@ -260,12 +262,17 @@ def main(args):
     add_defaults(experiments_list)
 
     # run the experiments and store the configs
-    for config in experiments_list:
+    for i, config in enumerate(experiments_list):
         store_config(config)
         convert_to_numpy(config)  # convert the configs entries to numpy arrays
         logging.info('Running experiment {}.'.format(config['experiment_name']))
         del config['experiment_name']  # name cannot be passed to run_experiment
         run_experiment(**config)
+
+        # measure computational times
+        if FLAGS.measure_computational_times and i == 0:
+            # by default, takes the first defined experiment for measuring the computational times.
+            measure_computation_times(config['x_L'], config['C_L'], config['t_L'], config['S_w'],  config['x_predTo'])
 
 
 def get_experiments_by_name(names_ls):

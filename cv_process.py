@@ -40,6 +40,7 @@ from scipy.stats import norm
 from scipy.stats import uniform
 from scipy.misc import derivative
 from scipy.special import cbrt
+from scipy.stats import rv_histogram
 
 from hitting_time_uncertainty_utils import HittingTimeEvaluator
 
@@ -54,6 +55,8 @@ flags.DEFINE_bool('save_results', default=False,
                     help='Whether to save the results.')
 flags.DEFINE_string('result_dir', default='/mnt/results/',
                     help='The directory where to save the results.')
+flags.DEFINE_bool('measure_computational_times', default=False,
+                    help='Whether to measure the computational times.')
 
 flags.DEFINE_string('verbosity_level', default='INFO', help='Verbosity options.')
 flags.register_validator('verbosity_level',
@@ -91,6 +94,10 @@ def main(args):
                    save_results=FLAGS.save_results,
                    result_dir=FLAGS.result_dir,
                    )
+
+    # Measure the computational times
+    if FLAGS.measure_computational_times:
+        measure_computation_times(x_L, C_L, t_L, S_w, x_predTo)
 
 
 def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
@@ -190,6 +197,65 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     # Plot histogram of samples and hitting time distributions
     hte.plot_first_hitting_time_distributions(t_samples, approaches_temp_ls, plot_hist_for_all_particles=True)
     hte.plot_fptd_and_paths_in_one(ev_fn, var_fn, t_samples, approaches_temp_ls, plot_hist_for_all_particles=True)
+
+
+def measure_computation_times(x_L, C_L, t_L, S_w, x_predTo, num_runs=10):  # TODO: Das auch für CA?
+    """Measure the computational times required for calculating the PDF, CDF, PPF, EV, Var.
+
+    Note that all times are measured including the initialization times for the respective classes. Thus, calling
+    function from already build instances may be much faster.
+
+    :param x_L: A np.array of shape [4] representing the expected value of the initial state. We use index L here
+        because it corresponds to the last time we see a particle in our optical belt sorting scenario.
+        Format: [pos_x, vel_x, pos_y, vel_y].
+    :param C_L: A np.array of shape [4, 4] representing the covariance matrix of the initial state.
+    :param t_L: A float, the time of the last state/measurement (initial time).
+    :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
+    :param x_predTo: A float, position of the boundary.
+    :param num_runs: An integer, the number of runs to average the computational times.
+    """
+
+    # build a general function for measuring computational times
+
+    def measure_comp_times(model_class, attribute, values):
+        comp_times = []
+        for v in values:
+            start_time = time.time()
+            model_instance = model_class(x_L, C_L, S_w, x_predTo, t_L)
+            getattr(model_instance, attribute)(v)
+            comp_times.append(1000 * (time.time() - start_time))
+        print('Computational time {0} {1} (means, stddev): {2}ms, {3}ms'.format(attribute,
+                                                                                model_instance.name,
+                                                                                np.mean(comp_times),
+                                                                                np.std(comp_times)))
+        return np.array(comp_times)
+
+    # for pdf & cdf
+    theta_t = (x_predTo - x_L[0]) / x_L[1] + t_L
+    t_values = np.random.uniform(low=x_L, high=1.5 * theta_t, size=num_runs)
+
+    measure_comp_times(MCHittingTimeModel, 'pdf', t_values)
+    measure_comp_times(TaylorHittingTimeModel, 'pdf', t_values)
+    measure_comp_times(EngineeringApproxHittingTimeModel, 'pdf', t_values)
+    measure_comp_times(MCHittingTimeModel, 'cdf', t_values)
+    measure_comp_times(TaylorHittingTimeModel, 'cdf', t_values)
+    measure_comp_times(EngineeringApproxHittingTimeModel, 'cdf', t_values)
+
+    # for ppf
+    q_values = np.random.uniform(low=0.0, high=1.0, size=num_runs)
+
+    measure_comp_times(MCHittingTimeModel, 'ppf', q_values)
+    measure_comp_times(TaylorHittingTimeModel, 'ppf', q_values)
+    measure_comp_times(EngineeringApproxHittingTimeModel, 'ppf', q_values)
+
+    # for ev and var
+    values = num_runs * [None]
+    measure_comp_times(MCHittingTimeModel, 'ev', values)
+    measure_comp_times(TaylorHittingTimeModel, 'ev', values)
+    measure_comp_times(EngineeringApproxHittingTimeModel, 'ev', values)
+    measure_comp_times(MCHittingTimeModel, 'var', values)
+    measure_comp_times(TaylorHittingTimeModel, 'var', values)
+    measure_comp_times(EngineeringApproxHittingTimeModel, 'var', values)
 
 
 # Approaches to solve the problem
@@ -416,7 +482,7 @@ class TaylorHittingTimeModel(HittingTimeModel):
         """
         return norm.ppf(q, loc=self.ev, scale=self.stddev)
 
-    def get_statistics(self):
+    def get_statistics(self):  # TODO: Property?
         """Get some statistics from the model as a dict."""
         hit_stats = {}
         hit_stats['PDF'] = self.pdf
@@ -708,6 +774,7 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
 
         roots = np.roots([A, B, C, D])
         t_q_max = roots[np.isreal(roots)].real[-1]  # get the highest one (it should be only one)
+        # TODO: Hier war etwas falsch!
 
         # Get the CDF Value
         q_max = self._cdf(t_q_max)
@@ -974,7 +1041,78 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
         plt.close()
 
 
-def create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L=0.0,
+class MCHittingTimeModel(HittingTimeModel):
+    """Wraps the histogram derived by a Monte-Carlo approach to solve the first-passage time problem to a distribution
+     using scipy.stats.rv_histogram.
+
+    """
+
+    def __init__(self, x_L, C_L, S_w, x_predTo, t_L, bins=100, name='MCHittingTimeModel'):
+        """Initialize the model.
+
+        :param x_L: A np.array of shape [4] representing the expected value of the initial state. We use index L here
+            because it corresponds to the last time we see a particle in our optical belt sorting scenario.
+            Format: [pos_x, vel_x, pos_y, vel_y].
+        :param C_L: A np.array of shape [4, 4] representing the covariance matrix of the initial state.
+        :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
+        :param x_predTo: A float, position of the boundary.
+        :param t_L: A float, the time of the last state/measurement (initial time).
+        :param bins: An integer, the number of bins to use to represent the histogram.
+        :param name: String, name for the model.
+        """
+        super().__init__(x_L=x_L,
+                         C_L=C_L,
+                         S_w=S_w,
+                         x_predTo=x_predTo,
+                         t_L=t_L,
+                         name=name)
+
+        self.t_samples, _ = create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L)
+        hist = np.histogram(self.t_samples, bins=bins, density=False)
+        self._density = rv_histogram(hist, density=True)
+
+    @property
+    def ev(self):
+        """The expected value of the first passage time distribution."""
+        return self._density.mean
+
+    @property
+    def var(self):
+        """The variance of the first passage time distribution."""
+        return self._density.var
+
+    @property
+    def third_central_moment(self):
+        """The third central moment of the first passage time distribution."""
+        return self._third_moment - 3 * self.ev * self.var - self.ev ** 3
+
+    def third_moment(self):
+        """The third moment of the first passage time distribution."""
+        return self._density.moment(3)
+
+    def pdf(self, t):
+        """The first passage time distribution (FPTD).
+
+        :param t: A float or np.array, the time parameter of the distribution.
+        """
+        return self._density.pdf(t)
+
+    def cdf(self, t):
+        """The CDF of the first passage time distribution.
+
+        :param t: A float or np.array, the time parameter of the distribution.
+        """
+        return self._density.pdf(t)
+
+    def ppf(self, q):
+        """The quantile function / percent point function (PPF) of the first passage time distribution.
+
+        :param q: A float or np.array, the confidence parameter of the distribution, 0 <= q <= 1.
+        """
+        return self._density.ppf(q)
+
+
+def create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L=0.0,   # TODO: Hiervon werden in diesem Repo ja nur die t genutzt, die y rausschmeißen?
                                       N=100000, dt=1 / 1000,
                                       break_after_n_timesteps=1000):
     """Monte Carlo approach to solve the first passage time problem. Propagates particles through the 2D discrete-time
@@ -999,6 +1137,8 @@ def create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L=0.0,
     Note that particles that do not reach the boundary after break_after_n_timesteps timesteps are handled with a
     fallback value of max(t_samples) + 1 in the t_samples and np.nan in the y_samples.
     """
+    start_time = time.time()
+
     samples = np.random.multivariate_normal(mean=x_L, cov=C_L, size=N)
     # Let the samples move to the boundary
     F = np.array([[1, dt, 0, 0], [0, 1, 0, 0], [0, 0, 1, dt], [0, 0, 0, 1]])
@@ -1073,6 +1213,8 @@ def create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L=0.0,
 
     t_samples = time_of_arrival
     y_samples = y
+
+    print('MC time: {0}ms'.format(round(1000 * (time.time() - start_time))))
 
     return t_samples, y_samples
 

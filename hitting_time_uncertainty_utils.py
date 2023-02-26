@@ -11,6 +11,7 @@ from matplotlib.lines import Line2D
 
 import numpy as np
 from cycler import cycler
+from ot.lp import emd2
 
 
 class HittingTimeEvaluator(ABC):
@@ -132,6 +133,25 @@ class HittingTimeEvaluator(ABC):
                 rel_devs[i, j] = 100 * np.abs(skew_t_ls[i] - skew_t_ls[j]) / np.max([skew_t_ls[i], skew_t_ls[j]])
 
         print('Pairwise relative deviations of temporal skewness in percent: \n', np.round(rel_devs, 2))
+
+    def compare_wasserstein_distances(self, t_samples, approaches_ls, bins=100):
+        """Compares the Wasserstein distance of the approaches to the MC-solution.
+
+        :param t_samples: A np.array of shape [N] containing the first passage times of the particles.
+        :param approaches_ls: A list of first passage time model objects for the same process to be compared against the
+            MC histogram.
+        :param bins: An integer, the number of bins to use to represent the histogram.
+        """
+        mc_distribution = np.histogram(t_samples, bins=bins, density=True)
+
+        wasserstein_distances = []
+        for approach in approaches_ls:
+            hit_stats = approach.get_statistics()
+            plot_f = np.array([hit_stats['PDF'](t) for t in self.plot_t])
+            M = np.ones((bins, plot_f.shape[0]))  # TODO: Passt das? Kann man die auch weglassen?
+            wasserstein_distances.append(emd2(mc_distribution, plot_f, M))
+
+        print('Wasserstein distances compared against MC histogram: \n', wasserstein_distances)
 
     def compare_moments_spatial(self, approaches_ls):
         """Compare the means and standard deviations of different approaches for calculating the
@@ -330,7 +350,7 @@ class HittingTimeEvaluator(ABC):
         ax1.set_ylabel("PDF")
         ax2.set_ylabel("CDF")
 
-    def plot_y_at_first_hitting_time_distributions(self, y_samples, approaches_ls):
+    def plot_y_at_first_hitting_time_distributions(self, y_samples, approaches_ls):  # TODO: Die kann auch raus!, was noch?
         """Plots the distribution of y at the first passage time.
 
         :param y_samples: A np.array of shape [N] containing the y-position at the first passage times of the particles.
