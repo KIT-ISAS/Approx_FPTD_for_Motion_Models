@@ -7,16 +7,16 @@ approaches. Furthermore it provides some methods for calculating the distributio
 the process at the first passage, where y is orthogonal to x and indepent of the movement in x.
 
 usage:
- - run docker container - tested with tracksort_neural:2.1.0-gpu-py3 image:
+ - run docker container - tested with tensorflow/approx_fptd:2.8.0-gpu image:
     $ docker run -u $(id -u):$(id -g) \\
             -it --rm \\
             -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix \\
             -v </path/to/repo>:/mnt \\
-            tensorflow/tracksort_neural:2.1.0-gpu-py3
+            tensorflow/approx_fptd:2.8.0-gpu
  - within container:
      $   python3 /mnt/cv_process.py \\
 requirements:
-  - Required packages/tracksort_neural:2.1.0-gpu-py3 image: See corresponding dockerfile.
+  - Required packages/tensorflow/approx_fptd:2.8.0-gpu image: See corresponding dockerfile.
   - Volume mounts: Specify a path </path/to/repo/> that points to the repo.
 '''
 
@@ -44,6 +44,12 @@ from scipy.stats import rv_histogram
 
 from hitting_time_uncertainty_utils import HittingTimeEvaluator
 
+# # Delete all FLAGS defined by CV process as we here not want them to be overwritten by the following flags.
+# for name in list(flags.FLAGS):
+#     if name in ['load_samples', 'save_samples', 'save_path', 'save_results', 'result_dir', 'no_show', 'for_paper',
+#                 'measure_computational_times', 'verbosity_level']:
+#         delattr(flags.FLAGS, name)  # TODO: Wieder raus
+
 
 flags.DEFINE_bool('load_samples', default=False,
                     help='Whether the samples should be loaded from a .npz  file.')
@@ -55,6 +61,10 @@ flags.DEFINE_bool('save_results', default=False,
                     help='Whether to save the results.')
 flags.DEFINE_string('result_dir', default='/mnt/results/',
                     help='The directory where to save the results.')
+flags.DEFINE_bool('no_show', default=False,
+                  help='Set this to True if you do not want to show evaluation graphics and only save them.')
+flags.DEFINE_bool('for_paper', default=False,
+                  help='Boolean, whether to use the plots for publication (omit headers, etc.)..')
 flags.DEFINE_bool('measure_computational_times', default=False,
                     help='Whether to measure the computational times.')
 
@@ -73,7 +83,7 @@ def main(args):
 
     # Define system parameters
     # System noise
-    S_w = 10
+    S_w = 10  # TODO
     # Covariance matrix at last timestep
     C_L = np.array([[2E-7, 2E-5, 0, 0], [2E-5, 6E-3, 0, 0], [0, 0, 2E-7, 2E-5], [0, 0, 2E-5, 6E-3]])
     # Short track (does not make much difference)
@@ -93,6 +103,8 @@ def main(args):
                    save_path=FLAGS.save_path,
                    save_results=FLAGS.save_results,
                    result_dir=FLAGS.result_dir,
+                   for_paper=FLAGS.for_paper,
+                   no_show=FLAGS.no_show,
                    )
 
     # Measure the computational times
@@ -108,7 +120,8 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
                    save_path=None,
                    save_results=False,
                    result_dir=None,
-                   no_show=False):
+                   no_show=False,
+                   for_paper=False):
     """Runs an experiment including a comparision with Monte Carlo simulation with the given settings.
 
     The underlying process is a 2D (x, y) constant velocity (CV) model with independent components in x, y.
@@ -129,6 +142,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     :param save_results: Boolean, whether to save the plots.
     :param result_dir: String, directory where to save the plots.
     :param no_show: Boolean, whether to show the plots (False).
+    :param for_paper: Boolean, whether to use the plots for a publication (omit headers, etc.).
     """
     # Deterministic predictions
     t_predicted = t_L + (x_predTo - x_L[0]) / x_L[1]
@@ -150,11 +164,12 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
                                save_results=save_results,
                                result_dir=result_dir,
                                no_show=no_show,
-                               for_paper=True)
+                               for_paper=for_paper)
 
     # Create samples
+    dt = 1 / 1000
     if not load_samples:
-        t_samples, y_samples = create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L)
+        t_samples, y_samples, fraction_of_returns = create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L, dt=dt)
         #t_samples, y_samples = create_ty_cv_samples_closest_value(x_L, C_L, S_w, x_predTo, t_L) # alternative method
         if save_samples:
             np.savez(save_path, name1=t_samples, name2=y_samples)
@@ -164,14 +179,15 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
         data = np.load(save_path)
         t_samples = data['name1']
         y_samples = data['name2']
-    hte.plot_sample_histogram(t_samples)
+        fraction_of_returns = None
+    # hte.plot_sample_histogram(t_samples)
     hte.plot_sample_histogram(y_samples, x_label='y-Coordinate')
 
     # Show example tracks and visualize uncertainties over time
-    #hte.plot_example_tracks(N=5)
+    # hte.plot_example_tracks(N=5)
     ev_fn = lambda t: x_L[0] + x_L[1] * (t - t_L)
     var_fn = lambda t: C_L[0, 0] + 2 * C_L[1, 0] * (t - t_L) + C_L[1, 1] * (t - t_L)**2 + S_w * pow(t - t_L, 3)/3
-    hte.plot_mean_and_stddev_over_time(ev_fn, var_fn, show_example_tracks=True)
+    # hte.plot_mean_and_stddev_over_time(ev_fn, var_fn, show_example_tracks=True)
 
     # Set up the hitting time approaches
     taylor_model = TaylorHittingTimeModel(x_L, C_L, S_w, x_predTo, t_L)
@@ -179,13 +195,15 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
 
     # Results for temporal uncertainties
     print('MAX CDF', approx_model.q_max, approx_model.t_max)
-    approx_model.plot_valid_regions(theta=t_predicted, save_results=save_results, result_dir=result_dir, for_paper=True, no_show=no_show)
-    #approx_model.plot_valid_regions(save_results=save_results, result_dir=result_dir, for_paper=True, no_show_no_show)
+    approx_model.plot_valid_regions(theta=t_predicted, save_results=save_results, result_dir=result_dir, for_paper=True,
+                                    no_show=no_show)
+    # approx_model.plot_valid_regions(save_results=save_results, result_dir=result_dir, for_paper=True, no_show_no_show)
     print('tau_max', approx_model.trans_dens_ppf(t_predicted)[0])
     print('Mass inside invalid region:',
           1 - approx_model.cdf(t_predicted + approx_model.trans_dens_ppf(t_predicted)[0]))
+    print('Approximate returning probs after a crossing until time t_max:',
+          approx_model.returning_probs(approx_model.t_max))
 
-    #approaches_temp_ls = [taylor_model, jakob_model, bayes_model, approx_model]
     approaches_temp_ls = [taylor_model, approx_model]
 
     # Plot the quantile functions
@@ -194,9 +212,20 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     hte.compare_moments_temporal(approaches_temp_ls)
     # Calculate the skewness and compare the results
     hte.compare_skewness_temporal(approaches_temp_ls)
+    # Calculate wasserstein distance and compare results
+    hte.compare_wasserstein_distances(t_samples, approaches_temp_ls)
     # Plot histogram of samples and hitting time distributions
     hte.plot_first_hitting_time_distributions(t_samples, approaches_temp_ls, plot_hist_for_all_particles=True)
     hte.plot_fptd_and_paths_in_one(ev_fn, var_fn, t_samples, approaches_temp_ls, plot_hist_for_all_particles=True)
+    # Plot histogram of samples for returning distribution and estimated returning distribution
+    # hte.plot_returning_probs_from_fptd_histogram(ev_fn, var_fn, t_samples, approaches_temp_ls)   # this is too noisy
+    # for this, we require longer samples paths, but we can use a reduced time resolution
+    # dt = 1/250
+    # t_samples, y_samples, fraction_of_returns = create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L,
+    #                                                                               dt=dt,
+    #                                                                               break_min_time=3*approx_model.t_max,
+    #                                                                               break_after_n_timesteps=10000)
+    # hte.plot_returning_probs_from_sample_paths(fraction_of_returns, dt, approaches_temp_ls)
 
 
 def measure_computation_times(x_L, C_L, t_L, S_w, x_predTo, num_runs=10):  # TODO: Das auch für CA?
@@ -217,22 +246,28 @@ def measure_computation_times(x_L, C_L, t_L, S_w, x_predTo, num_runs=10):  # TOD
 
     # build a general function for measuring computational times
 
-    def measure_comp_times(model_class, attribute, values):
+    def measure_comp_times(model_class, attribute, values=None):
         comp_times = []
-        for v in values:
+        if values is not None:
+            for v in values:
+                start_time = time.time()
+                model_instance = model_class(x_L, C_L, S_w, x_predTo, t_L)
+                getattr(model_instance, attribute)(v)
+                comp_times.append(1000 * (time.time() - start_time))
+        else:
             start_time = time.time()
             model_instance = model_class(x_L, C_L, S_w, x_predTo, t_L)
-            getattr(model_instance, attribute)(v)
+            getattr(model_instance, attribute)
             comp_times.append(1000 * (time.time() - start_time))
-        print('Computational time {0} {1} (means, stddev): {2}ms, {3}ms'.format(attribute,
-                                                                                model_instance.name,
-                                                                                np.mean(comp_times),
-                                                                                np.std(comp_times)))
+        logging.info('Computational time {0} {1} (means, stddev): {2}ms, {3}ms'.format(attribute,
+                                                                                       model_instance.name,
+                                                                                       np.mean(comp_times),
+                                                                                       np.std(comp_times)))
         return np.array(comp_times)
 
     # for pdf & cdf
     theta_t = (x_predTo - x_L[0]) / x_L[1] + t_L
-    t_values = np.random.uniform(low=x_L, high=1.5 * theta_t, size=num_runs)
+    t_values = np.random.uniform(low=t_L, high=1.5 * theta_t, size=num_runs)
 
     measure_comp_times(MCHittingTimeModel, 'pdf', t_values)
     measure_comp_times(TaylorHittingTimeModel, 'pdf', t_values)
@@ -249,13 +284,12 @@ def measure_computation_times(x_L, C_L, t_L, S_w, x_predTo, num_runs=10):  # TOD
     measure_comp_times(EngineeringApproxHittingTimeModel, 'ppf', q_values)
 
     # for ev and var
-    values = num_runs * [None]
-    measure_comp_times(MCHittingTimeModel, 'ev', values)
-    measure_comp_times(TaylorHittingTimeModel, 'ev', values)
-    measure_comp_times(EngineeringApproxHittingTimeModel, 'ev', values)
-    measure_comp_times(MCHittingTimeModel, 'var', values)
-    measure_comp_times(TaylorHittingTimeModel, 'var', values)
-    measure_comp_times(EngineeringApproxHittingTimeModel, 'var', values)
+    measure_comp_times(MCHittingTimeModel, 'ev')
+    measure_comp_times(TaylorHittingTimeModel, 'ev')
+    measure_comp_times(EngineeringApproxHittingTimeModel, 'ev')
+    measure_comp_times(MCHittingTimeModel, 'var')
+    measure_comp_times(TaylorHittingTimeModel, 'var')
+    measure_comp_times(EngineeringApproxHittingTimeModel, 'var')
 
 
 # Approaches to solve the problem
@@ -422,7 +456,7 @@ class TaylorHittingTimeModel(HittingTimeModel):
 
     __metaclass__ = HittingTimeModel
 
-    def __init__(self, x_L, C_L, S_w, x_predTo, t_L, name='Taylor approximation'):
+    def __init__(self, x_L, C_L, S_w, x_predTo, t_L, name='Gauß--Taylor approx.'):
         """Initialize the model.
 
         :param x_L: A np.array of shape [4] representing the expected value of the initial state. We use index L here
@@ -501,7 +535,7 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
 
     __metaclass__ = HittingTimeModel
 
-    def __init__(self, x_L, C_L, S_w, x_predTo, t_L, name="Engineering approx."):
+    def __init__(self, x_L, C_L, S_w, x_predTo, t_L, name="No-return approx."):
         """Initialize the model.
 
         :param x_L: A np.array of shape [4] representing the expected value of the initial state. We use index L here
@@ -559,7 +593,7 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
         t = np.asarray([t]) if np.isscalar(t) else np.asarray(t)
         pdf_value = self._pdf(t)
         pdf_value[t > self.t_max] = 0  # piecewise function
-        return pdf_value
+        return np.squeeze(pdf_value)
 
     def ppf(self, q):
         """The quantile function / percent point function (PPF) of the first passage time distribution.
@@ -581,8 +615,8 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
               1 - q = int(N(x, mu(t), var(t)), x = -inf .. x_predTo) = PHI ( (x_predTo - mu(t)) / sqrt(var(t))
               PHI^-1(1 -q) = (x_predTo - mu(t)) / sqrt(var(t)) -> solve for t...
 
-       :param q: A float or np.array, the confidence parameter of the distribution, 0 <= q <= 1.
-       """
+        :param q: A float or np.array, the confidence parameter of the distribution, 0 <= q <= 1.
+        """
         if q < 0.0 or q > 1.0:
             raise ValueError('Confidence level q must be between 0 and 1.')
 
@@ -713,7 +747,13 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
             # Function must be positive for all confidence levels (because t is starting at 0),
             # but we have a sign shift at q=0.5. Thus:
 
-            t = float(result[1].real if q < 0.5 else result[2].real)
+            # t = float(result[1].real if q < 0.5 else result[2].real)
+            real_result = np.zeros(result.shape)
+            real_result[np.isreal(result)] = result[np.isreal(result)].real
+            real_result[np.logical_not(np.isreal(result))] = np.nan
+            real_result[real_result < 0] = np.nan
+            t = real_result[1] if q < 0.5 else real_result[2]
+
             # Do not use only real solution since in the vicinity of 0.5, due to numerical problems, there
             # are some solutions with small imaginary parts
             #
@@ -739,10 +779,11 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
             return t
 
         # t = find_cubic_roots_numpy(A, B, C, D) # works fine for all q
-        # t = find_cubic_roots_cardano_trigonometry(A, B, C, D)  # works fine for all q except for q approx. 0.5
-        # t = find_cubic_roots_cardano_complex(A, B, C, D)  # works fine for all q except for small q
+        # # t = find_cubic_roots_cardano_trigonometry(A, B, C, D)  # works fine for all q except for q approx. 0.5
+        # # t = find_cubic_roots_cardano_complex(A, B, C, D)  # works fine for all q except for small q
         if q > 0.4 and q < 0.6:
-            t = find_cubic_roots_cardano_complex(A, B, C, D)
+            # t = find_cubic_roots_cardano_complex(A, B, C, D)
+            t = find_cubic_roots_numpy(A, B, C, D)
         else:
             t = find_cubic_roots_cardano_trigonometry(A, B, C, D)
 
@@ -898,8 +939,23 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
         hit_stats['Median'] = self.ppf(0.5)
         hit_stats['FirstQuantile'] = self.ppf(0.25)
         hit_stats['ThirdQuantile'] = self.ppf(0.75)
+        hit_stats['ReturningProbs'] = self.returning_probs
+        # hit_stats['ReturningProbs'] = self.returning_probs_uniform_samples
+        hit_stats['t_max'] = self.t_max
 
         return hit_stats
+
+    def general_trans_density(self, dt, theta, x0):
+        cov_theta = np.array([[self.C_L[0, 0] + 2 * self.C_L[1, 0] * (theta - self.t_L)
+                               + self.C_L[1, 1] * (theta - self.t_L) ** 2 + self.S_w * pow(theta - self.t_L, 3) / 3,
+                              self.C_L[1, 0] + self.C_L[1, 1] * (theta - self.t_L) + self.S_w * pow(theta - self.t_L, 2) / 2],
+                              [self.C_L[1, 0] + self.C_L[1, 1] * (theta - self.t_L) + self.S_w * pow(theta - self.t_L, 2) / 2,
+                              self.C_L[1, 1] + self.S_w * (theta - self.t_L)]])
+        trans_mu = self.x_predTo + dt * (self.x_L[1] + cov_theta[1, 0]/cov_theta[0, 0]*(x0 - self.ev_t(theta)))
+        trans_var = dt**2*(cov_theta[1, 1] - cov_theta[1, 0]/cov_theta[0, 0]*cov_theta[0,1]) + self.S_w*1/3*dt**3
+
+        return norm(loc=trans_mu, scale=np.sqrt(trans_var))
+
 
     def trans_density(self, dt, theta):
         """The transition density p(x(dt+theta)| x(thetha) = x_predTo) from going from x_predTo at time theta to
@@ -911,7 +967,7 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
         :param dt: A float or np.array, the time difference. dt is zero at time = theta.
         :param theta: A float or np.array, the (assumed) time at which x(thetha) = x_pred_to.
 
-        :return: The value of the transition density for the given dt and theta.
+        :returns: A scipy.stats.norm object, the transition density for the given dt and theta.
         """
         cov_theta = np.array([[self.C_L[0, 0] + 2 * self.C_L[1, 0] * (theta - self.t_L)
                                + self.C_L[1, 1] * (theta - self.t_L) ** 2 + self.S_w * pow(theta - self.t_L, 3) / 3,
@@ -956,10 +1012,15 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
 
         return positive_roots
 
-    def plot_valid_regions(self, theta=None, q=0.95,
-                           plot_t_min=0.0, plot_t_max=None,
-                           save_results=False, result_dir=None,
-                           for_paper=True, no_show=False):
+    def plot_valid_regions(self,
+                           theta=None,
+                           q=0.95,
+                           plot_t_min=0.0,
+                           plot_t_max=None,
+                           save_results=False,
+                           result_dir=None,
+                           for_paper=True,
+                           no_show=False):
         """Plot the (approximate) probabilities that the track doesn't intersect with x_predTo once it has reached
         it at time theta in dependency on the time difference dt (t = dt + theta) and theta.
 
@@ -975,7 +1036,7 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
         :param result_dir: String, directory where to save the plots.
         :param for_paper: Boolean, whether to use a publication (omit headers, etc.).
         :param no_show: Boolean, whether to show the plots (False).
-        """
+        """  # TODO Die ist etwas anders wie die von der base class -< anschauen!
         t_pred = self.t_L + (self.x_predTo - self.x_L[0]) / self.x_L[1]
         if theta is None:
             #multipliers = np.arange(start=0.4, stop=1.8, step=0.2)
@@ -995,7 +1056,6 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
 
         # Probability of the event that the transition density for x(theta + dt) is higher than x_pred_to.
         trans_fpt = lambda dt, theta: 1 - self.trans_density(dt, theta).cdf(self.x_predTo)
-
 
         fig, ax = plt.subplots()
         plt.hlines(q, xmin=plot_t_min, xmax=plot_t_max, color='black', linestyle='dashdot',
@@ -1023,6 +1083,7 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
 
             ax.plot(plot_t, plot_prob, label=label)
 
+        ax.set_xlim(0, None)
         plt.ylabel('Confidence')
         plt.xlabel('Time difference in s')
         plt.legend(loc='upper right')
@@ -1039,6 +1100,74 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
         if not no_show:
             plt.show()
         plt.close()
+
+    def returning_probs(self, t, num_samples=101, deterministic_samples=True, mc_hitting_time_model=None):
+        """Calculates approximate returning probabilities based on a numerical integration (MC integration) based on
+        samples from the approximate first passage time distribution (using inverse transform sampling).
+
+        Approach:
+
+         P(t < T_a , x(t) < a) = int_{t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta
+
+                               ≈ 1 / N sum_{theta_i} P(x(t) < a | x(theta_i) = a) ,  theta_i samples from the
+                                    approximation (N samples in total) in [t_L, t].
+
+          with theta the time where x(theta) = a.
+
+        :param t:  # TODO
+        :param num_samples: An integer, the number of samples to approximate the integral.
+        :param deterministic_samples: A Boolean, whether to use random samples (False) or deterministic samples (True).
+
+        :returns: An approximation for the probability P(t < T_a , x(t) < a), i.e., the probability that a sample path
+            has crossed the boundary at a time theta < t, but is smaller than the boundary at time t.
+        """
+        q_max_to_use = self.cdf(t)
+
+        if not deterministic_samples:
+            q_samples = np.random.uniform(low=0, high=q_max_to_use, size=num_samples)
+        else:
+            # low=0, high=1, num_samples=5 -> [0.16, 0.33, 0.5, 0.67, 0.83]
+            q_samples = np.linspace(0, q_max_to_use, num=num_samples + 1, endpoint=False)[1:]  # TODO: passt das?
+
+        theta_samples = [self.ppf(q) for q in q_samples]
+        # theta_samples = [mc_hitting_time_model.ppf(q) for q in q_samples]
+
+        return np.nanmean(
+            [self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo) for theta in theta_samples])
+
+    def returning_probs_uniform_samples(self, t, num_samples=101, deterministic_samples=True, mc_hitting_time_model=None):
+        """Calculates approximate returning probabilities based on a numerical integration (MC integration) based on
+        samples from a uniform distribution.
+
+        Approach:
+
+         P(t < T_a , x(t) < a) = int_{t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta
+
+                               ≈  (t - t_L) / N sum_{theta_i} FPTD(theta_i) * P(x(t) < a | x(theta_i) = a) ,  theta_i
+                                    samples from a uniform distribution (N samples in total) in [t_L, t].
+
+          with theta the time where x(theta) = a.
+
+        :param t: TODO
+        :param num_samples: An integer, the number of samples to approximate the integral.
+        :param deterministic_samples: A Boolean, whether to use random samples (False) or deterministic samples (True).
+
+        :returns: An approximation for the probability P(t < T_a , x(t) < a), i.e., the probability that a sample path
+            has crossed the boundary at a time theta < t, but is smaller than the boundary at time t.
+        """
+        if not deterministic_samples:
+            theta_samples = np.random.uniform(low=self.t_L, high=t, size=num_samples)
+        else:
+            # low=0, high=1, num_samples=5 -> [0.16, 0.33, 0.5, 0.67, 0.83]
+            theta_samples = np.linspace(self.t_L, t, num=num_samples + 1, endpoint=False)[1:]  # TODO: passt das?
+
+        # return (t - self.t_L) * np.nanmean(
+        #     [mc_hitting_time_model.pdf(theta) * self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo) for
+        #      theta in theta_samples])
+
+        return (t - self.t_L) * np.nanmean(
+            [self.pdf(theta) * self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo) for
+             theta in theta_samples])
 
 
 class MCHittingTimeModel(HittingTimeModel):
@@ -1067,7 +1196,7 @@ class MCHittingTimeModel(HittingTimeModel):
                          t_L=t_L,
                          name=name)
 
-        self.t_samples, _ = create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L)
+        self.t_samples, _, _ = create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L)
         hist = np.histogram(self.t_samples, bins=bins, density=False)
         self._density = rv_histogram(hist, density=True)
 
@@ -1113,8 +1242,10 @@ class MCHittingTimeModel(HittingTimeModel):
 
 
 def create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L=0.0,   # TODO: Hiervon werden in diesem Repo ja nur die t genutzt, die y rausschmeißen?
-                                      N=100000, dt=1 / 1000,
-                                      break_after_n_timesteps=1000):
+                                      N=100000,
+                                      dt=1 / 1000,
+                                      break_after_n_timesteps=1000,
+                                      break_min_time=None):
     """Monte Carlo approach to solve the first passage time problem. Propagates particles through the 2D discrete-time
     CV motion model and determines their first passage at x_predTo as well as the location in y at the first passage by
     interpolating the positions between the last time before and the first time after the boundary.
@@ -1128,11 +1259,13 @@ def create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L=0.0,   # TODO
     :param t_L: A float, the time of the last state/measurement (initial time).
     :param N: Integer, number of samples to use.
     :param dt: A float, time increment.
-    :param break_after_n_timesteps: Integer, maximum number of timesteps for the simulation.
+    :param break_after_n_timesteps: None or an integer, maximum number of timesteps for the simulation.
+    :param min_time: TODO
 
     :return:
         t_samples: A np.array of shape [N] containing the first passage times of the particles.
         y_samples: A np.array of shape [N] containing the y-position at the first passage times of the particles.
+        # TODO: Docstrings anpassen!
 
     Note that particles that do not reach the boundary after break_after_n_timesteps timesteps are handled with a
     fallback value of max(t_samples) + 1 in the t_samples and np.nan in the y_samples.
@@ -1174,32 +1307,54 @@ def create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L=0.0,   # TODO
     t = t_L
     ind = 0
     time_before_arrival = np.full(N, t_L, dtype=np.float64)
+    x_before_arrival = np.empty((samples.shape[0], 4))
+    x_before_arrival[:] = np.nan
+    x_after_arrival = np.empty((samples.shape[0], 4))
+    x_after_arrival[:] = np.nan
+    fraction_of_returns = []
     while True:
         if ind % 100 == 0:
             logging.info('Timestep {0}, x equals approx. {1}'.format(ind, x_curr[0, 0]))
+        fraction_of_returns.append(np.sum(np.logical_and(x_curr[:, 0] < x_predTo, x_term)) / N)
         x_curr_tf = tf.convert_to_tensor(x_curr)
         x_next = tf.linalg.matvec(F, x_curr_tf).numpy()
         w_k = np.random.multivariate_normal(mean=mean_w, cov=Q, size=N)
         x_next = x_next + w_k
-        x_term[x_next[:, 0] >= x_predTo] = True
-        if np.all(x_term):
-            break
-        if ind == break_after_n_timesteps:
+        # x_term[x_next[:, 0] >= x_predTo] = True
+        first_passage = np.logical_and(np.logical_not(x_term), x_next[:, 0] >= x_predTo)
+        x_term[first_passage] = True
+        x_before_arrival[first_passage] = x_curr[first_passage]
+        x_after_arrival[first_passage] = x_next[first_passage]
+        if break_min_time is None:
+            if np.all(x_term):
+                break
+        else:
+            if t >= break_min_time and np.all(x_term):
+                break
+        if break_after_n_timesteps is not None and ind >= break_after_n_timesteps:
             logging.info('Warning: Sampling interrupted because {}. reached. Please adjust break_after_n_timesteps if you want to move the particles more timesteps.'.format(break_after_n_timesteps))
             break
-        x_curr[np.logical_not(x_term)] = x_next[np.logical_not(x_term)]
+        # x_curr[np.logical_not(x_term)] = x_next[np.logical_not(x_term)]
+        x_curr = x_next
         t += dt
         time_before_arrival[np.logical_not(x_term)] = t
         ind += 1
 
     # Linear interpolation to get time
-    v_interpolated = (x_next[x_term, 1] - x_curr[x_term, 1]) / (x_next[x_term, 0] - x_curr[x_term, 0]) * (x_predTo - x_curr[x_term, 0]) + x_curr[
-                                                                                                     x_term, 1]
-    last_t = (x_predTo - x_curr[x_term, 0]) / v_interpolated
+    # v_interpolated = (x_next[x_term, 1] - x_curr[x_term, 1]) / (x_next[x_term, 0] - x_curr[x_term, 0]) * (x_predTo - x_curr[x_term, 0]) + x_curr[
+    #                                                                                                  x_term, 1]
+    v_interpolated = (x_after_arrival[x_term, 1] - x_before_arrival[x_term, 1]) / (
+                x_after_arrival[x_term, 0] - x_before_arrival[x_term, 0]) * (x_predTo - x_before_arrival[x_term, 0]) + \
+                     x_before_arrival[x_term, 1]
+    # last_t = (x_predTo - x_curr[x_term, 0]) / v_interpolated
+    last_t = (x_predTo - x_before_arrival[x_term, 0]) / v_interpolated
     time_of_arrival = time_before_arrival
     time_of_arrival[x_term] = time_before_arrival[x_term] + last_t
-    y = x_curr[:, 2]
-    y[x_term] = x_curr[x_term, 2] + last_t * x_curr[x_term, 3]
+
+    # y = x_curr[:, 2]
+    # y[x_term] = x_curr[x_term, 2] + last_t * x_curr[x_term, 3]
+    y = x_before_arrival[:, 2]
+    y[x_term] = x_before_arrival[x_term, 2] + last_t * x_before_arrival[x_term, 3]
 
     time_of_arrival[np.logical_not(x_term)] = int(max(time_of_arrival)) + 1  # default value for particles that do not arrive
     y[np.logical_not(x_term)] = np.nan  # default value for particles that do not arrive
@@ -1216,7 +1371,7 @@ def create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L=0.0,   # TODO
 
     print('MC time: {0}ms'.format(round(1000 * (time.time() - start_time))))
 
-    return t_samples, y_samples
+    return t_samples, y_samples, np.array(fraction_of_returns)
 
 
 def get_example_tracks(x_L, C_L, S_w):

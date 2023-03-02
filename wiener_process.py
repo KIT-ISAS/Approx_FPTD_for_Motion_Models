@@ -6,16 +6,16 @@ Calculates approximate first passage time distributions for a constant velocity 
 approaches.
 
 usage:
- - run docker container - tested with tracksort_neural:2.1.0-gpu-py3 image:
+ - run docker container - tested with tensorflow/approx_fptd:2.8.0-gpu: image:
     $ docker run -u $(id -u):$(id -g) \\
             -it --rm \\
             -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix \\
             -v </path/to/repo>:/mnt \\
-            tensorflow/tracksort_neural:2.1.0-gpu-py3
+            tensorflow/approx_fptd:2.8.0-gpu:
  - within container:
      $   python3 /mnt/wiener_process.py \\
 requirements:
-  - Required packages/tracksort_neural:2.1.0-gpu-py3 image: See corresponding dockerfile.
+  - Required packages/tensorflow/approx_fptd:2.8.0-gpu image: See corresponding dockerfile.
   - Volume mounts: Specify a path </path/to/repo/> that points to the repo.
 '''
 
@@ -48,10 +48,12 @@ flags.DEFINE_bool('save_results', default=False,
                     help='Whether to save the results.')
 flags.DEFINE_string('result_dir', default='/mnt/results/',
                     help='The directory where to save the results.')
-flags.DEFINE_bool('no_show', default=False,
-                    help='Whether to show the plots.')
 flags.DEFINE_bool('sw_fifty', default=False,
                     help='Whether to use Sw=50.')
+flags.DEFINE_bool('for_paper', default=False,
+                  help='Boolean, whether to use the plots for publication (omit headers, etc.)..')
+flags.DEFINE_bool('no_show', default=False,
+                  help='Set this to True if you do not want to show evaluation graphics and only save them.')
 
 
 flags.DEFINE_string('verbosity_level', default='INFO', help='Verbosity options.')
@@ -91,8 +93,8 @@ def main(args):
                                get_example_tracks_fn=get_example_tracks(mu, sigma, x0),
                                save_results=FLAGS.save_results,
                                result_dir=FLAGS.result_dir,
-                               no_show=FLAGS.no_show,
-                               for_paper=True)
+                               for_paper=FLAGS.for_paper,
+                               no_show=FLAGS.no_show)
 
     ## Create samples
     if not FLAGS.load_samples:
@@ -485,6 +487,7 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
 
             ax.plot(plot_t, plot_prob, label=label)
 
+        ax.set_xlim(0, None)
         plt.ylabel('Confidence')
         plt.xlabel('Time difference in s')
         plt.legend(loc='upper left')

@@ -1,0 +1,60 @@
+MC time: 2440ms
+MAX CDF 0.9999999813801941 0.16864250872783051
+tau_max [4.21988965]
+Mass inside invalid region: 1.861980591932877e-08
+Approximate returning probs after a crossing until time t_max: 1.035289928621978e-15
+EV 0.056165307888179694
+EV integration time: 0.18ms. Abs dev: 9.822261540420874e-05, Rel. dev: 0.0017457599003310343
+Var integration time: 0.0234ms. Abs dev: 1.0752098073803305e-08, Rel. dev: 0.000618831154054341
+E3 integration time: 0.0761ms. Abs dev: 5.1182632556286814e-09, Rel. dev: 0.08978437167377631
+Temporal mean of Gauß--Taylor approx.: 0.055784
+Temporal stddev of Gauß--Taylor approx.: 0.00395
+Temporal mean of No-return approx.: 0.056165
+Temporal stddev of No-return approx.: 0.004167
+Pairwise relative deviations of temporal stddevs in percent: 
+ [[0.   5.21]
+ [5.21 0.  ]]
+Temporal skewness of Gauß--Taylor approx.: 0.0
+Temporal skewness of No-return approx.: 0.717113
+Pairwise relative deviations of temporal skewness in percent: 
+ [[ nan 100.]
+ [100.   0.]]
+Wasserstein distances compared against MC histogram: 
+ [0.0061327631285753, 0.006523953579576587]
+MC time: 2902ms
+MC time: 2715ms
+MC time: 2605ms
+MC time: 2678ms
+MC time: 2774ms
+MC time: 2533ms
+MC time: 2691ms
+MC time: 2734ms
+MC time: 2901ms
+MC time: 3170ms
+MC time: 3019ms
+MC time: 3273ms
+MC time: 4465ms
+MC time: 2955ms
+MC time: 3447ms
+MC time: 2957ms
+MC time: 2873ms
+MC time: 2894ms
+MC time: 2695ms
+MC time: 2904ms
+MC time: 2752ms
+MC time: 2786ms
+MC time: 2988ms
+MC time: 2933ms
+MC time: 2780ms
+MC time: 2938ms
+MC time: 3792ms
+MC time: 3021ms
+MC time: 3067ms
+MC time: 2615ms
+MC time: 2729ms
+EV 0.056165307888179694
+EV integration time: 0.3114ms. Abs dev: 9.822261540420874e-05, Rel. dev: 0.0017457599003310343
+MC time: 2770ms
+EV 0.056165307888179694
+EV integration time: 1.2624ms. Abs dev: 9.822261540420874e-05, Rel. dev: 0.0017457599003310343
+Var integration time: 1.3433ms. Abs dev: 1.0752098073803305e-08, Rel. dev: 0.000618831154054341

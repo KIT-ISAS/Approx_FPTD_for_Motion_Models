@@ -1,0 +1,76 @@
+MAX CDF 1.0 0.10409427895450125
+tau_max 0.8948316523361695
+Mass inside invalid region: 0.0
+EV 0.05477751646603232
+EV integration time: 0.2034ms. Abs dev: 3.051922763844944e-05, Rel. dev: 0.0005568385593861705
+Var integration time: 0.0205ms. Abs dev: 1.2659033448812949e-09, Rel. dev: 0.0005573133019840281
+E3 integration time: 0.083ms. Abs dev: 2.0791634602677309e-10, Rel. dev: 0.16182357526834243
+Temporal mean of Gauß--Taylor approx.: 0.054724
+Temporal stddev of Gauß--Taylor approx.: 0.001489
+Temporal mean of No-return approx.: 0.054778
+Temporal stddev of No-return approx.: 0.001507
+Pairwise relative deviations of temporal stddevs in percent: 
+ [[0.   1.14]
+ [1.14 0.  ]]
+Temporal skewness of Gauß--Taylor approx.: 0.0
+Temporal skewness of No-return approx.: 0.314843
+Pairwise relative deviations of temporal skewness in percent: 
+ [[ nan 100.]
+ [100.   0.]]
+MAX CDF 0.9085122505642523 0.09219883467063908
+tau_max 0.1356135511301563
+Mass inside invalid region: 0.09148774943574767
+EV 0.05034340760895501
+EV integration time: 0.2499ms. Abs dev: 0.00011776613681199061, Rel. dev: 0.0023337970179869143
+Var integration time: 0.0672ms. Abs dev: 1.2100419968603726e-06, Rel. dev: 0.015531777915112906
+E3 integration time: 0.0787ms. Abs dev: 3.0061727070576595e-08, Rel. dev: 0.02075395503340925
+Temporal mean of Gauß--Taylor approx.: 0.054724
+Temporal stddev of Gauß--Taylor approx.: 0.007796
+Temporal mean of No-return approx.: 0.050343
+Temporal stddev of No-return approx.: 0.008758
+Pairwise relative deviations of temporal stddevs in percent: 
+ [[ 0.   10.98]
+ [10.98  0.  ]]
+Temporal skewness of Gauß--Taylor approx.: 0.0
+Temporal skewness of No-return approx.: 2.111706
+Pairwise relative deviations of temporal skewness in percent: 
+ [[ nan 100.]
+ [100.   0.]]
+MAX CDF 0.43053816172640347 4.594484243014322
+tau_max 0.4963255125052967
+Mass inside invalid region: 0.13934259331573806
+EV -0.4680064316059416
+EV integration time: 0.1907ms. Abs dev: 0.004888669142151969, Rel. dev: -0.010555995771235843
+Var integration time: 0.0727ms. Abs dev: 0.005998087728837698, Rel. dev: -0.006077850742024846
+E3 integration time: 0.093ms. Abs dev: 0.033723707759312216, Rel. dev: -0.014900656284450886
+Temporal mean of Gauß--Taylor approx.: 0.057956
+Temporal stddev of Gauß--Taylor approx.: 0.00186
+Temporal mean of No-return approx.: -0.468006
+Temporal stddev of No-return approx.: nan
+Pairwise relative deviations of temporal stddevs in percent: 
+ [[ 0. nan]
+ [nan nan]]
+Temporal skewness of Gauß--Taylor approx.: 0.0
+Temporal skewness of No-return approx.: nan
+Pairwise relative deviations of temporal skewness in percent: 
+ [[nan nan]
+ [nan nan]]
+MAX CDF 1.0 0.10367198581385152
+tau_max 1.1358324099991144
+Mass inside invalid region: 0.0
+EV 0.05374103893223699
+EV integration time: 0.1915ms. Abs dev: 2.8206173748948626e-05, Rel. dev: 0.0005245781988077146
+Var integration time: 0.0243ms. Abs dev: 1.0988639402642572e-09, Rel. dev: 0.0005600803064738245
+E3 integration time: 0.087ms. Abs dev: 1.6597836512484217e-10, Rel. dev: 0.1705524433745041
+Temporal mean of Gauß--Taylor approx.: 0.053696
+Temporal stddev of Gauß--Taylor approx.: 0.001387
+Temporal mean of No-return approx.: 0.053741
+Temporal stddev of No-return approx.: 0.0014
+Pairwise relative deviations of temporal stddevs in percent: 
+ [[0.   0.98]
+ [0.98 0.  ]]
+Temporal skewness of Gauß--Taylor approx.: 0.0
+Temporal skewness of No-return approx.: 0.293973
+Pairwise relative deviations of temporal skewness in percent: 
+ [[ nan 100.]
+ [100.   0.]]

@@ -6,16 +6,16 @@ Defines and executes experiments (first passage time problems) for the constant 
 See ca_process.py for details.
 
 usage:
- - run docker container - tested with tracksort_neural:2.1.0-gpu-py3 image:
+ - run docker container - tested with tensorflow/approx_fptd:2.8.0-gpu image:
     $ docker run -u $(id -u):$(id -g) \\
             -it --rm \\
             -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix \\
             -v </path/to/repo>:/mnt \\
-            tensorflow/tracksort_neural:2.1.0-gpu-py3
+           tensorflow/approx_fptd:2.8.0-gpu
  - within container:
      $   python3 /mnt/ca_experiments.py \\
 requirements:
-  - Required packages/tracksort_neural:2.1.0-gpu-py3 image: See corresponding dockerfile.
+  - Required packages/tensorflow/approx_fptd:2.8.0-gpu image: See corresponding dockerfile.
   - Volume mounts: Specify a path </path/to/repo/> that points to the repo.
 '''
 
@@ -33,7 +33,8 @@ from ca_process import run_experiment
 
 # Delete all FLAGS defined by CV process as we here not want them to be overwritten by the following flags.
 for name in list(flags.FLAGS):
-    if name in ['load_samples', 'save_samples', 'save_dir', 'save_results', 'result_dir', 'verbosity_level']:
+    if name in ['load_samples', 'save_samples', 'save_path', 'save_results', 'result_dir', 'no_show', 'for_paper',
+                'measure_computational_times', 'verbosity_level']:
         delattr(flags.FLAGS,name)
 
 
@@ -48,7 +49,9 @@ flags.DEFINE_bool('save_results', default=False,
 flags.DEFINE_string('result_dir', default='/mnt/results/',
                     help='The directory where to save the results.')
 flags.DEFINE_bool('no_show', default=False,
-                    help='Whether to show the plots.')
+                  help='Set this to True if you do not want to show evaluation graphics and only save them.')
+flags.DEFINE_bool('for_paper', default=False,
+                  help='Boolean, whether to use the plots for publication (omit headers, etc.)..')
 
 flags.DEFINE_string('verbosity_level', default='INFO', help='Verbosity options.')
 flags.register_validator('verbosity_level',
@@ -232,7 +235,7 @@ def main(args):
         convert_to_numpy(config)  # convert the configs entries to numpy arrays
         logging.info('Running experiment {}.'.format(config['experiment_name']))
         del config['experiment_name']  # name cannot be passed to run_experiment
-        run_experiment(**config)
+        run_experiment(**config, for_paper=FLAGS.for_paper)
 
 
 def get_experiments_by_name(names_ls):

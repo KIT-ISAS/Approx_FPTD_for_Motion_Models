@@ -4,7 +4,7 @@
 
 Code belonging to the paper
 
-*Marcel Reith-Braun, Jakob Thumm, Florian Pfaff, und Uwe D. Hanebeck, "Approximate First Passage Time Distributions for Gaussian Motion and Transportation Models," 2021.*
+*Marcel Reith-Braun, Jakob Thumm, Florian Pfaff, und Uwe D. Hanebeck, "Approximate First Passage Time Distributions for Gaussian Motion and Transportation Models," 2023.*
 
 The repo contains methods to compute approximate first passage time distributions (FPTD) for Gaussian processes with an increasing trend, such as motion and transportation models for which it is valid to assume that the increasing trend in the mean is primarily resposible for the first passage. This may include, e.g., models such as the *constant velocity (CV) model*, and the *constant acceleration (CA) model*.
 
@@ -17,7 +17,7 @@ Note that the code is intended to support two-dimensional processes, where one i
 See `dockerfile/Dockerfile` for a list of required packages. Use
 
   ```shell script
-docker build -t tensorflow/tracksort_neural:2.1.0-gpu-py3 /path/to/repo/dockerfile
+docker build -t tensorflow/approx_fptd:2.8.0-gpu /path/to/repo/dockerfile
   ```
 
 to build a docker image with all required packages.
@@ -25,13 +25,13 @@ to build a docker image with all required packages.
 ### Run with CPU (Docker)
 
   ```shell script
-docker run -u $(id -u):$(id -g) -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix -v /path/to/repo:/mnt tensorflow/tracksort_neural:2.1.0-gpu-py3
+docker run -u $(id -u):$(id -g) -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix -v /path/to/repo:/mnt tensorflow/approx_fptd:2.8.0-gpu
   ```
 
 ### Run with GPU (Docker)
 
   ```shell script
-docker run -u $(id -u):$(id -g) --gpus all -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix -v /path/to/repo:/mnt tensorflow/tracksort_neural:2.1.0-gpu-py3
+docker run -u $(id -u):$(id -g) --gpus all -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix -v /path/to/repo:/mnt tensorflow/approx_fptd:2.8.0-gpu
   ```
 
 ## Executable scripts 
@@ -112,7 +112,7 @@ Additional plot options can be set in `hitting_time_uncertainty_utils.py`, e.g.,
 
 ## Cite as
 
-Marcel Reith-Braun, Jakob Thumm, Florian Pfaff, and Uwe D. Hanebeck, "Approximate First Passage Time Distributions for Gaussian Motion and Transportation Models," 2021.
+Marcel Reith-Braun, Jakob Thumm, Florian Pfaff, and Uwe D. Hanebeck, "Approximate First Passage Time Distributions for Gaussian Motion and Transportation Models," 2023.
 
 TODO: Adjust citation and provide bibtex.
 

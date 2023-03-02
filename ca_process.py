@@ -7,16 +7,16 @@ approaches. Furthermore it provides some methods for calculating the distributio
 the process at the first passage, where y is orthogonal to x and indepent of the movement in x.
 
 usage:
- - run docker container - tested with tracksort_neural:2.1.0-gpu-py3 image:
+ - run docker container - tested with tensorflow/approx_fptd:2.8.0-gpu image:
     $ docker run -u $(id -u):$(id -g) \\
             -it --rm \\
             -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix \\
             -v </path/to/repo>:/mnt \\
-            tensorflow/tracksort_neural:2.1.0-gpu-py3
+            tensorflow/approx_fptd:2.8.0-gpu
  - within container:
      $   python3 /mnt/ca_process.py \\
 requirements:
-  - Required packages/tracksort_neural:2.1.0-gpu-py3 image: See corresponding dockerfile.
+  - Required tensorflow/approx_fptd:2.8.0-gpu image: See corresponding dockerfile.
   - Volume mounts: Specify a path </path/to/repo/> that points to the repo.
 '''
 
@@ -52,6 +52,10 @@ flags.DEFINE_bool('save_results', default=False,
                     help='Whether to save the results.')
 flags.DEFINE_string('result_dir', default='/mnt/results/',
                     help='The directory where to save the results.')
+flags.DEFINE_bool('for_paper', default=False,
+                  help='Boolean, whether to use the plots for publication (omit headers, etc.)..')
+flags.DEFINE_bool('no_show', default=False,
+                  help='Set this to True if you do not want to show evaluation graphics and only save them.')
 
 flags.DEFINE_string('verbosity_level', default='INFO', help='Verbosity options.')
 flags.register_validator('verbosity_level',
@@ -88,6 +92,8 @@ def main(args):
                    save_path=FLAGS.save_path,
                    save_results=FLAGS.save_results,
                    result_dir=FLAGS.result_dir,
+                   for_paper=FLAGS.for_paper,
+                   no_show=FLAGS.no_show,
                    )
 
 
@@ -99,7 +105,8 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
                    save_path=None,
                    save_results=False,
                    result_dir=None,
-                   no_show=False):
+                   no_show=False,
+                   for_paper=False):
     """Runs an experiment including a comparision with Monte Carlo simulation with the given settings.
 
     The underlying process is a 2D (x, y) constant acceleration (CA) model with independent components in x, y.
@@ -120,6 +127,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     :param save_results: Boolean, whether to save the plots.
     :param result_dir: String, directory where to save the plots.
     :param no_show: Boolean, whether to show the plots (False).
+    :param for_paper: Boolean, whether to use the plots for a publication (omit headers, etc.).
     """
     # Deterministic predictions
     t_predicted = t_L + - x_L[1] / x_L[2] + np.sign(x_L[2]) * \
@@ -141,7 +149,8 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
                                get_example_tracks_fn=get_example_tracks(x_L, C_L, S_w),
                                save_results=save_results,
                                result_dir=result_dir,
-                               no_show=no_show)
+                               no_show=no_show,
+                               for_paper=for_paper)
 
     # Create samples
     if not load_samples:
@@ -393,7 +402,7 @@ class TaylorHittingTimeModel(HittingTimeModel):
 
     __metaclass__ = HittingTimeModel
 
-    def __init__(self, x_L, C_L, S_w, x_predTo, t_L, name='Taylor approximation'):
+    def __init__(self, x_L, C_L, S_w, x_predTo, t_L, name='Gauß--Taylor approx.'):
         """Initialize the model.
 
         :param x_L: A np.array of shape [6] representing the expected value of the initial state. We use index L here
@@ -480,7 +489,7 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
 
     __metaclass__ = HittingTimeModel
 
-    def __init__(self, x_L, C_L, S_w, x_predTo, t_L, name="Engineering approx."):
+    def __init__(self, x_L, C_L, S_w, x_predTo, t_L, name="No-return approx."):
         """Initialize the model.
 
         :param x_L: A np.array of shape [6] representing the expected value of the initial state. We use index L here
@@ -935,6 +944,7 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
 
             ax.plot(plot_t, plot_prob, label=label)
 
+        ax.set_xlim(0, None)
         plt.ylabel('Confidence')
         plt.xlabel('Time difference in s')
         plt.legend(loc='upper right')

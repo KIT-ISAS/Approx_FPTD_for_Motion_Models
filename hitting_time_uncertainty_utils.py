@@ -2,16 +2,30 @@
 Utilities and Plot Function for First Passage Time Models.
 """
 import os
+import sys
 
 from abc import ABC
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import scipy.stats
 from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
+# from matplotlib.backends.backend_pgf import FigureCanvasPgf
+# import matplotlib.font_manager as fm
+# fm._rebuild()
+# fm = matplotlib.font_manager.json_load(os.path.expanduser("~/.cache/matplotlib/fontlist-v300.json"))
+# fm.findfont("serif", rebuild_if_missing=False)
+# os.remove(mpl.font_manager._fmcache)
+# fm.findfont("serif", fontext="afm", rebuild_if_missing=False)
 
 import numpy as np
 from cycler import cycler
 from ot.lp import emd2
+
+from scipy.stats import rv_histogram
+from scipy.stats import norm
+from scipy.spatial import distance_matrix
 
 
 class HittingTimeEvaluator(ABC):
@@ -71,14 +85,48 @@ class HittingTimeEvaluator(ABC):
             self.process_name_save = basename.lower().replace(" ", "_")
 
             scaling_factor = 2
-            mpl.rcParams.update({'font.size': scaling_factor*6})  # font size
+            mpl.rcParams.update({'font.size': scaling_factor*8})  # font size   # TODO: Hier alles zusammenfassen!
+            mpl.rcParams.update({'legend.fontsize': scaling_factor*6})
+            # TODO: Ticks auch nach innen reinziehen?
+
+            # plt.rcParams["ps.useafm"] = True
+            # mpl.use('pgf')
+            # mpl.use('agg')
+
+            # See https://matplotlib.org/stable/gallery/userdemo/pgf_preamble_sgskip.html
+            mpl.rcParams.update({#"pgf.texsystem": "lualatex",
+                                 'pgf.rcfonts': False,  # don't setup fonts from rc parameters
+                                 })
+            # mpl.backend_bases.register_backend('pdf', FigureCanvasPgf)
+            # sys.path.append('/usr/bin/latex')
+            plt.rcParams.update({
+                "font.family": "serif",  # use serif/main font for text elements
+                "font.serif": "Times",
+                # "font.serif": "STIXGeneral",   #  this comes very close to Times or even is the same for most of the things (to use it, uncomment properties '
+            })
+
+            plt.rcParams.update({
+                "pgf.preamble": "\n".join([
+                    r"\usepackage{amsmath}",  # enable more math
+                    r"\usepackage{amssymb}",
+                    r"\usepackage{newtxtext,newtxmath}",  # setup font to Times (font in IEEEtran)
+                    r"\usepackage{accents}",  # underline
+                    r"\usepackage{mleftright}",  # \mleft, \mright
+                ]),
+            })
+
+
+            plt.rc('text', usetex=True)  #  use inline maths for ticks
+            # # plt.rc('font.family', "Helvetica")
+            # plt.rc('font', family='serif')
+            # # plt.rc('font', **{'family': 'sans-serif', 'sans-serif': ['Helvetica']})
 
             #plt.rcParams['axes.prop_cycle'] = cycler(color='bgrcmyk')
             #plt.style.use('bmh')
             #plt.style.use('seaborn')
             self.color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-            # 3 options to avoid cutting off the labels when reducing the figure size..
+            # 3 options to avoid cutting off the labels when reducing the figure size.
             plt.rcParams['savefig.bbox'] = 'tight'  # figsize (without labels) as defined add extra space for the labels
             # mpl.rcParams["figure.autolayout"] = True  # figure with labels! gets reduced to figsize
             # mpl.rcParams["figure.constrained_layout.use"] = True  # same as before, but more powerful function, use this one
@@ -89,8 +137,10 @@ class HittingTimeEvaluator(ABC):
             # use them if scaling_factor = 1, but spines are not scaled properly then
             # mpl.rcParams['axes.linewidth'] = 0.25  # pt
             # mpl.rcParams['lines.linewidth'] = 0.5  # pt
-            mpl.rcParams["figure.figsize"] = [scaling_factor*fig_width, scaling_factor*fig_width * 5 / 7]
+            # mpl.rcParams["figure.figsize"] = [scaling_factor*fig_width, scaling_factor*fig_width * 5 / 7]
+            mpl.rcParams["figure.figsize"] = [scaling_factor * fig_width, scaling_factor * fig_width * 5.5 / 7]
             plt.rcParams['legend.loc'] = 'upper left'
+            plt.rcParams["savefig.pad_inches"] = 0.0  # remove space outside the labels
 
     def compare_moments_temporal(self, approaches_ls):
         """Compare the means and standard deviations of different first passage time approaches and print them to stdout.
@@ -134,7 +184,7 @@ class HittingTimeEvaluator(ABC):
 
         print('Pairwise relative deviations of temporal skewness in percent: \n', np.round(rel_devs, 2))
 
-    def compare_wasserstein_distances(self, t_samples, approaches_ls, bins=100):
+    def compare_wasserstein_distances(self, t_samples, approaches_ls, bins=500):  # TODO: Bins hochstellen, damit es nicht so wackelt?
         """Compares the Wasserstein distance of the approaches to the MC-solution.
 
         :param t_samples: A np.array of shape [N] containing the first passage times of the particles.
@@ -142,16 +192,57 @@ class HittingTimeEvaluator(ABC):
             MC histogram.
         :param bins: An integer, the number of bins to use to represent the histogram.
         """
-        mc_distribution = np.histogram(t_samples, bins=bins, density=True)
+        mc_hist_values, left_edges = np.histogram(t_samples, bins=bins, density=True)
+        hist_midpoints = (left_edges[:-1] + left_edges[:1]) / 2  # left edges also contain the righthand-most edge
+        # (right edge of the last bin)
+        mc_hist_values /= np.sum(mc_hist_values)  # norm them, they must sum up to one (this is only valid because bins
+        # are equidistant)
 
         wasserstein_distances = []
         for approach in approaches_ls:
             hit_stats = approach.get_statistics()
-            plot_f = np.array([hit_stats['PDF'](t) for t in self.plot_t])
-            M = np.ones((bins, plot_f.shape[0]))  # TODO: Passt das? Kann man die auch weglassen?
-            wasserstein_distances.append(emd2(mc_distribution, plot_f, M))
+            hist_values = np.array([hit_stats['PDF'](t) for t in self.plot_t])
+            hist_values /= np.sum(hist_values)  # norm them, they must sum up to one (this is only valid because plot_t
+            # is equidistant) # TODO: Das führt aber dazu dass die eng approx schlechter gemacht wird, da diese ja nicht normalisiert ist...
+            M = distance_matrix(hist_midpoints[:, None], self.plot_t[:, None])
+            wasserstein_distances.append(emd2(mc_hist_values, hist_values, M))
 
         print('Wasserstein distances compared against MC histogram: \n', wasserstein_distances)
+
+    def compare_hellinger_distance(self, t_samples, approaches_ls, bins=500):
+        mc_hist_values, left_edges = np.histogram(t_samples, bins=bins, density=True)
+
+        hellinger_distances = []
+        for approach in approaches_ls:
+            hit_stats = approach.get_statistics()
+            hist_values = np.array([hit_stats['PDF'](t) for t in self.plot_t])
+            hellinger_distances.append(1 / np.sqrt(2) * np.sqrt(np.sum((np.sqrt(mc_hist_values) - np.sqrt(hist_values)) ** 2)))
+
+        print('Hellinger distances compared against MC histogram: \n', hellinger_distances)
+
+    def compare_first_wasserstein_distance(self, t_samples, approaches_ls, bins=500):
+        mc_hist_values, left_edges = np.histogram(t_samples, bins=bins, density=True)
+
+        wasserstein_distances = []
+        for approach in approaches_ls:
+            hit_stats = approach.get_statistics()
+            hist_values = np.array([hit_stats['PDF'](t) for t in self.plot_t])
+            wasserstein_distances.append(scipy.stats.wasserstein_distance(mc_hist_values, hist_values))
+
+        print('First Wasserstein distances compared against MC histogram: \n', wasserstein_distances)
+
+    def compare_kolmogorv_distance(self, t_samples, approaches_ls, bins=500):
+        mc_hist = np.histogram(t_samples, bins=bins, density=False)
+        mc_dist = rv_histogram(mc_hist, density=True)
+
+        kolmogorv_distances = []
+        for approach in approaches_ls:
+            hit_stats = approach.get_statistics()
+            cdf_values = np.array([hit_stats['CDF'](t) for t in self.plot_t])
+            mc_cdf_values = np.array([mc_dist.cdf(t) for t in self.plot_t])
+            kolmogorv_distances.append(np.nanmax(cdf_values - mc_cdf_values))
+
+        print('Kolmogorov distances compared against MC histogram: \n', kolmogorv_distances)
 
     def compare_moments_spatial(self, approaches_ls):
         """Compare the means and standard deviations of different approaches for calculating the
@@ -208,7 +299,7 @@ class HittingTimeEvaluator(ABC):
         plt.hlines(self.x_predTo, xmin=plot_t[0], xmax=plot_t[-1], color='black', linestyle='dashdot',
                    label='a (Boundary)')
 
-        ax.set_xlim(plot_t[0], plot_t[-1])
+        plt.gca().set_xlim(plot_t[0], plot_t[-1])
         plt.title('Example Tracks')
         plt.xlabel('Time in s')
         plt.ylabel('Traveled distance in mm')
@@ -440,9 +531,15 @@ class HittingTimeEvaluator(ABC):
                            label=approach.name)
 
         # add legend manually since it fails sometimes
-        lines = [Line2D([0], [0], color=c, linewidth=3) for c in self.color_cycle]
-        labels = [approach.name for approach in approaches_ls]
-        ax2.legend(lines, labels)
+        # lines = [Line2D([0], [0], color=c, linewidth=3) for c in self.color_cycle]
+        # lines.append(Patch(color=[0.8, 0.8, 0.8]))
+        # labels = [approach.name for approach in approaches_ls]
+        # labels.append('MC simulation')
+        # ax2.legend(lines, labels)
+        legend_elements = [Line2D([0], [0], color=c, linewidth=3, label=approach.name) for c, approach in
+                           zip(self.color_cycle, approaches_ls)]
+        legend_elements.append(Patch(facecolor=[0.8, 0.8, 0.8], label='MC simulation'))
+        ax2.legend(handles=legend_elements)
 
         ax1.set_ylim(0, 1.4 * y_hist_max)  # leave some space for labels
         ax2.set_ylim(0, 1.05)
@@ -509,5 +606,114 @@ class HittingTimeEvaluator(ABC):
             plt.show()
         plt.close()
 
+    def _plot_returning_probs(self, mc_hist_func, approaches_ls, t_range=None):
+        """Plots the estimated returning probabilities and compares it with the MC solution.
 
+        :param mc_hist_func: A function f(plot_t) -> mc_return_plot_t, mc_return_plot_probs_values with
+            mc_return_plot_t, mc_return_plot_probs_values both np.arrays of shape [num_evaluated_times] with
+            mc_return_plot_t containing the times where the MC function for the return probabilities was evaluated
+            and mc_return_plot_probs_values its values.
+        :param approaches_ls: A list of first passage time model objects for the same process to be compared.
+        :param t_range: None or a list of length 2, the (min, max) time for the plots.
+        """
 
+        if t_range is None:
+            tmax = [approach.get_statistics()['t_max'] for approach in approaches_ls if
+                    't_max' in approach.get_statistics().keys()]
+            if len(tmax) == 0:
+                raise ValueError(
+                    'If no t_range is given, at least one approach must be of class EngineeringApproxHittingTimeModel.')
+            # t_range = [self.t_predicted - 0.3*(self.t_predicted - self.t_L), 2 * tmax[0]]
+            t_range = [self.t_predicted - 0.3 * (self.t_predicted - self.t_L), 10 * tmax[0]]
+        #
+        # plot_t = np.arange(t_range[0], t_range[1], 0.00001)
+        plot_t = np.arange(t_range[0], t_range[1], 0.001)
+
+        mc_return_plot_t, mc_return_plot_probs_values = mc_hist_func(plot_t)
+
+        fig, ax = plt.subplots()
+        # ax.plot(mc_return_plot_t, mc_return_plot_probs_values, color=[0.8, 0.8, 0.8], label='MC simulation')   # TODO: wieder an?
+        ax.fill_between(mc_return_plot_t, mc_return_plot_probs_values, color=[0.8, 0.8, 0.8], label='MC simulation')  # TODO: Label, überall, für alle plots, TODO: Oder doch plot? PDF?
+
+        # from cv_process import MCHittingTimeModel  # TODO
+
+        for i, approach in enumerate(approaches_ls):
+            hit_stats = approach.get_statistics()
+            if 'ReturningProbs' in hit_stats.keys():
+                # mc_model = MCHittingTimeModel(approach.x_L, approach.C_L, approach.S_w, approach.x_predTo, approach.t_L)  # TODO
+                # plot_prob = [hit_stats['ReturningProbs'](t, mc_hitting_time_model=mc_model) for t in plot_t]
+                plot_prob = [hit_stats['ReturningProbs'](t) for t in plot_t]
+                ax.plot(plot_t, plot_prob, label=approach.name, color=self.color_cycle[i])
+                # ax.plot(plot_t, [approach.general_trans_density(dt=t,theta=0, x0=approach.x_L[0]).cdf(self.x_predTo) for t in plot_t], label='P < a')
+                if 't_max' in hit_stats.keys():
+                    ax.vlines(hit_stats['t_max'], 0,
+                              1.05 * max(np.max(mc_return_plot_probs_values), np.max(plot_prob)),
+                              color='black',
+                              linestyle='dashed',
+                              label=r'$t_c$')
+
+        # add legend manually since it fails sometimes # TODO
+        # lines = [Line2D([0], [0], color=c, linewidth=3) for c in self.color_cycle]
+        # labels = [approach.name for approach in approaches_ls if 'ReturningProbs' in approach.get_statistics().keys()]
+        # ax.legend(lines, labels)
+        ax.legend()
+
+        # ax.set_ylim(0, 1.05)  # leave some space for labels
+        ax.set_xlim(plot_t[0], plot_t[-1])
+        ax.set_xlabel("Time in s")
+        ax.set_ylabel(
+            r"Returning probability $\mathbb{P}\mleft( \boldsymbol{T}_a < t, \boldsymbol{x}(t) \le a \mright)$" if self.for_paper else 'Returning probability')
+
+        if not self.for_paper:
+            plt.title("Returning probabilities for " + self.process_name)
+        if self.save_results:
+            plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_return_probs.pdf'))
+            plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_return_probs.png'))
+            plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_return_probs.pgf'))  # TODO: Das auch überall sonst hinzufügen!
+        if not self.no_show:
+            plt.show()
+        plt.close()
+
+    def plot_returning_probs_from_fptd_histogram(self, ev_fn, var_fn, t_samples, approaches_ls, bins=1000, t_range=None):
+        """Plots the estimated returning probabilities and compares it with the MC solution. The MC solution is based
+        on the MC FPTD and the process density.
+
+        Note: For too few samples tracks, the result might be very noise.
+
+        :param ev_fn: The mean function of the process.
+        :param var_fn: The variance function of the process.
+        :param t_samples: A np.array of shape [N] containing the first passage times of the particles.
+        :param approaches_ls: A list of first passage time model objects for the same process to be compared.
+        :param bins: An integer, the number of bins to use to represent the histogram.
+        :param t_range: None or a list of length 2, the (min, max) time for the plots.
+        """
+        def mc_hist_func(plot_t):
+            hist = np.histogram(t_samples, bins=bins, density=True)
+            mc_fptd = rv_histogram(hist, density=True)
+            p_x_t_greater_x_predTo = lambda t: 1 - norm(loc=ev_fn(t), scale=np.sqrt(var_fn(t))).cdf(self.x_predTo)
+            mc_return_plot_probs_values = np.array([mc_fptd.cdf(t) - p_x_t_greater_x_predTo(t) for t in plot_t])
+            return plot_t, mc_return_plot_probs_values
+
+        self._plot_returning_probs(mc_hist_func, approaches_ls, t_range)
+
+    def plot_returning_probs_from_sample_paths(self, fraction_of_returns, dt, approaches_ls, t_range=None):
+        """Plots the estimated returning probabilities and compares it with the MC solution. The MC solution is based
+        on counting example tracks.
+
+        :param fraction_of_returns: A np.array of shape[num_simulated_time_steps], the fraction in each time steps of
+            tracks that have previously reached the boundary, but then fall below the boundary until the respective
+            time step.
+        :param dt: A float, time increment.
+        :param approaches_ls: A list of first passage time model objects for the same process to be compared.
+        :param t_range: None or a list of length 2, the (min, max) time for the plots.
+        """
+        def mc_hist_func(plot_t):
+            # mc_return_plot_t = np.arange(self.t_L, self.t_L + len(fraction_of_returns) * dt, step=dt)  # do not use,
+            # this can result in an undesired length for large intervals and small step size
+            mc_return_plot_t = np.linspace(self.t_L, self.t_L + len(fraction_of_returns) * dt,
+                                           num=len(fraction_of_returns),
+                                           endpoint=False)
+            in_plot_range = np.logical_and(mc_return_plot_t >= plot_t[0] ,mc_return_plot_t <= plot_t[-1])
+            return mc_return_plot_t[in_plot_range], fraction_of_returns[in_plot_range]
+
+        self._plot_returning_probs(mc_hist_func, approaches_ls, t_range)
