@@ -40,6 +40,9 @@ from scipy.stats import uniform
 from scipy.misc import derivative
 
 from hitting_time_uncertainty_utils import HittingTimeEvaluator
+from abstract_distributions import AbstractHittingTimeModel, AbstractTaylorHittingTimeModel, \
+    AbstractEngineeringApproxHittingTimeModel, AbstractMCHittingTimeModel
+from samplers import create_lgssm_hitting_time_samples, get_example_tracks_lgssm
 
 
 flags.DEFINE_bool('load_samples', default=False,
@@ -146,15 +149,19 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     hte = HittingTimeEvaluator('CA Process', x_predTo, plot_t, t_predicted, t_L,
                                plot_y=plot_y,
                                y_predicted=y_predicted,
-                               get_example_tracks_fn=get_example_tracks(x_L, C_L, S_w),
+                               get_example_tracks_fn=get_example_tracks_lgssm(x_L,
+                                                                              C_L,
+                                                                              S_w,
+                                                                              _get_system_matrices_from_parameters),
                                save_results=save_results,
                                result_dir=result_dir,
                                no_show=no_show,
                                for_paper=for_paper)
 
     # Create samples
+    dt = 1 / 1000
     if not load_samples:
-        t_samples, y_samples = create_ty_ca_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L)
+        t_samples, y_samples, fraction_of_returns = create_ty_ca_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L, dt=dt)
         if save_samples:
             np.savez(save_path, name1=t_samples, name2=y_samples)
             logging.info("Saved samples.")
@@ -162,6 +169,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
         data = np.load(save_path)
         t_samples = data['name1']
         y_samples = data['name2']
+        fraction_of_returns = None  # TODO
     hte.plot_sample_histogram(t_samples)
     hte.plot_sample_histogram(y_samples, x_label='y-Coordinate')
 
@@ -179,12 +187,12 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     approx_model = EngineeringApproxHittingTimeModel(x_L, C_L, S_w, x_predTo, t_L)
 
     # Results for temporal uncertainties
-    print('MAX CDF', approx_model.q_max, approx_model.t_max)
+    logging.info('MAX CDF: {} at {}'.format(approx_model.q_max, approx_model.t_max))
     approx_model.plot_valid_regions(theta=t_predicted, save_results=save_results, result_dir=result_dir, for_paper=True, no_show=no_show)
     #approx_model.plot_valid_regions(save_results=save_results, result_dir=result_dir, for_paper=True, no_show=no_show)
-    print('tau_max', approx_model.trans_dens_ppf(t_predicted)[0])
-    print('Mass inside invalid region:',
-          1 - approx_model.cdf(t_predicted + approx_model.trans_dens_ppf(t_predicted)[0]))
+    logging.info('tau_max: {}'.format(approx_model.trans_dens_ppf(t_predicted)[0]))
+    logging.info('Mass inside invalid region: {}'.format(
+          1 - approx_model.cdf(t_predicted + approx_model.trans_dens_ppf(t_predicted)[0])))
 
     #approaches_temp_ls = [jakob_model]
     approaches_temp_ls = [taylor_model, approx_model]
@@ -195,16 +203,21 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     hte.compare_moments_temporal(approaches_temp_ls)
     # Calculate the skewness and compare the results
     hte.compare_skewness_temporal(approaches_temp_ls)
+    # TODO: DIe ganzen vergleiche für die distanzen einfügen einfügen
     # Plot histogram of samples and hitting time distributions
     hte.plot_first_hitting_time_distributions(t_samples, approaches_temp_ls, plot_hist_for_all_particles=True)
     hte.plot_fptd_and_paths_in_one(ev_fn, var_fn, t_samples, approaches_temp_ls, plot_hist_for_all_particles=True)
+    # Plot histogram of samples for returning distribution and estimated returning distribution
+    # hte.plot_returning_probs_from_fptd_histogram(ev_fn, var_fn, t_samples, approaches_temp_ls)   # this is too noisy
+    # for this, we require longer samples paths, but we can use a reduced time resolution
+    hte.plot_returning_probs_from_sample_paths(fraction_of_returns, dt, approaches_temp_ls)
 
 
 # Approaches to solve problem
-class HittingTimeModel(ABC):
+class CAHittingTimeModel(AbstractHittingTimeModel, ABC):
     """A base class for the CA hitting time models."""
 
-    def __init__(self, x_L, C_L, S_w, x_predTo, t_L, name='DefaultHittingTimeName'):
+    def __init__(self, x_L, C_L, S_w, x_predTo, t_L, name='CA hitting time model', **kwargs):
         """Initialize the model.
 
         :param x_L: A np.array of shape [4] representing the expected value of the initial state. We use index L here
@@ -216,20 +229,18 @@ class HittingTimeModel(ABC):
         :param t_L: A float, the time of the last state/measurement (initial time).
         :param name: String, (default) name for the model.
         """
-        self.name = name
         self.x_L = x_L
         self.C_L = C_L
         self.S_w = S_w
-        self.x_predTo = x_predTo
-        self.t_L = t_L
+        super().__init__(x_predTo=x_predTo,
+                         t_L=t_L,
+                         name=name,
+                         **kwargs)
 
         # For properties
-        self._ev = None
-        self._var = None
         self._third_central_moment = None
         self._fourth_central_moment = None
         self._fifth_central_moment = None
-        self._stddev = None
         self._second_moment = None
         self._third_moment = None
         self._fourth_moment = None
@@ -238,45 +249,24 @@ class HittingTimeModel(ABC):
 
     @property
     @abstractmethod
-    def ev(self):
-        """The expected value of the first passage time distribution."""
-        # To be overwritten by subclass
-        pass
-
-    @property
-    @abstractmethod
-    def var(self):
-        """The variance of the first passage time distribution."""
-        # To be overwritten by subclass
-        pass
-
-    @property
-    @abstractmethod
     def third_central_moment(self):
         """The third central moment of the first passage time distribution."""
         # To be overwritten by subclass
-        pass
+        raise NotImplementedError('Call to abstract method.')
 
     @property
     @abstractmethod
     def fourth_central_moment(self):
         """The fourth central moment of the first passage time distribution."""
         # To be overwritten by subclass
-        pass
+        raise NotImplementedError('Call to abstract method.')
 
     @property
     @abstractmethod
     def fifth_central_moment(self):
         """The fifth central moment of the first passage time distribution."""
         # To be overwritten by subclass
-        pass
-
-    @property
-    def stddev(self):
-        """The standard deviation of the first passage time distribution."""
-        if self._stddev is None:
-            self._stddev = np.sqrt(self.var)
-        return self._stddev
+        raise NotImplementedError('Call to abstract method.')
 
     @property
     def second_moment(self):
@@ -317,33 +307,6 @@ class HittingTimeModel(ABC):
             self._skew = self.third_central_moment / self.stddev**3
         return self._skew
 
-    @abstractmethod
-    def pdf(self, t):
-        """The first passage time distribution (FPTD).
-
-        :param t: A float or np.array, the time parameter of the distribution.
-        """
-        # To be overwritten by subclass
-        pass
-
-    @abstractmethod
-    def cdf(self, t):
-        """The CDF of the first passage time distribution.
-
-        :param t: A float or np.array, the time parameter of the distribution.
-        """
-        # To be overwritten by subclass
-        pass
-
-    @abstractmethod
-    def ppf(self, q):
-        """The quantile function / percent point function (PPF) of the first passage time distribution.
-
-        :param q: A float or np.array, the confidence parameter of the distribution, 0 <= q <= 1.
-        """
-        # To be overwritten by subclass
-        pass
-
     def ev_t(self, t):
         """The mean function of the CA motion model in x.
 
@@ -362,45 +325,18 @@ class HittingTimeModel(ABC):
                        + 1 / 4 * self.C_L[2, 2] * (t - self.t_L) ** 4 \
                        + 1 / 20 * self.S_w * (t - self.t_L) ** 5
 
-    def plot_quantile_function(self, q_min=0.005, q_max=0.995, save_results=False, result_dir=None, for_paper=True):
-        """Plot the quantile function.
-
-        :param q_min: A float, the smallest value of the confidence plot range.
-        :param q_max: A float, the highest value of the confidence plot range.
-        :param save_results: Boolean, whether to save the plots.
-        :param result_dir: String, directory where to save the plots.
-        :param for_paper: Boolean, whether to use a publication (omit headers, etc.).
-        """
-        plot_q = np.arange(q_min, q_max, 0.01)
-        plot_quant = [self.ppf(q) for q in plot_q]
-        plt.plot(plot_q, plot_quant)
-        plt.xlabel('Confidence level')
-        plt.ylabel('Time t in s')
-        if not for_paper:
-            plt.title('Quantile Function (Inverse CDF) for ' + self.name)
-
-        if save_results:
-            plt.savefig(result_dir + self.name + '_quantile_function.pdf')
-            plt.savefig(result_dir + self.name + '_quantile_function.png')
-        plt.show()
-
     def get_statistics(self):
         """Get some statistics from the model as a dict."""
-        hit_stats = {}
-        hit_stats['PDF'] = self.pdf
-        hit_stats['CDF'] = self.cdf
-        hit_stats['EV'] = self.ev
-        hit_stats['STDDEV'] = self.stddev
-        hit_stats['SKEW'] = self.skew
+        hit_stats = super().get_statistics()
+        hit_stats.update({'SKEW': self.skew,
+                          })
         return hit_stats
 
 
-class TaylorHittingTimeModel(HittingTimeModel):
+class TaylorHittingTimeModel(CAHittingTimeModel, AbstractTaylorHittingTimeModel):
     """A simple Gaussian approximation for the first hitting time problem using a Taylor approximation and error
     propagation.
     """
-
-    __metaclass__ = HittingTimeModel
 
     def __init__(self, x_L, C_L, S_w, x_predTo, t_L, name='Gauß--Taylor approx.'):
         """Initialize the model.
@@ -414,24 +350,21 @@ class TaylorHittingTimeModel(HittingTimeModel):
         :param x_predTo: A float, position of the boundary.
         :param name: String, name for the model.
         """
-        super().__init__(x_L, C_L, S_w, x_predTo, t_L, name)
+        super().__init__(x_L=x_L,
+                         C_L=C_L,
+                         S_w=S_w,
+                         x_predTo=x_predTo,
+                         t_L=t_L,
+                         name=name)
 
+        # TODO: +-?
         self._ev = t_L + - x_L[1] / x_L[2] + np.sign(x_L[2]) * \
                         np.sqrt((x_L[1] / x_L[2])**2 + 2/x_L[2]*(x_predTo-x_L[0]))
         dt_p = self._ev - t_L
-        x_p = mu_t(dt_p, x_L)
-
-        self._var = (1/x_p[1])**2 * self.var_t(dt_p)
-
-    @property
-    def ev(self):
-        """The expected value of the first passage time distribution."""
-        return self._ev
-
-    @property
-    def var(self):
-        """The variance of the first passage time distribution."""
-        return self._var
+        x_p = mu_t(dt_p, x_L)  # TODO: Das sollte auch weg, das unten auch
+        self._var = (1 / x_p[1]) ** 2 * self.var_t(dt_p)   #  TODO: stimmt das ? Wird da nicht 2x t_L abgezogen?
+        # x_p = x_L[0] + dt_p * x_L[1] + dt_p**2 / 2 * x_L[2]  # Das scheint nicht zu stimmen
+        # self._var = (1 / x_p) ** 2 * self.var_t(dt_p)  #  TODO: stimmt das ? Wird da nicht 2x t_L abgezogen?
 
     @property
     def third_central_moment(self):
@@ -445,49 +378,14 @@ class TaylorHittingTimeModel(HittingTimeModel):
 
     @property
     def fifth_central_moment(self):
-        """The fiftth central moment of the first passage time distribution."""
+        """The fifth central moment of the first passage time distribution."""
         return 0  # Gaussian fifth central moment
 
-    def pdf(self, t):
-        """The first passage time distribution (FPTD).
 
-        :param t: A float or np.array, the time parameter of the distribution.
-        """
-        return norm.pdf(t, loc=self.ev, scale=self.stddev)
-
-    def cdf(self, t):
-        """The CDF of the first passage time distribution.
-
-        :param t: A float or np.array, the time parameter of the distribution.
-        """
-        return norm.cdf(t, loc=self.ev, scale=self.stddev)
-
-    def ppf(self, q):
-        """The quantile function / percent point function (PPF) of the first passage time distribution.
-
-        :param q: A float or np.array, the confidence parameter of the distribution, 0 <= q <= 1.
-        """
-        # percent point function / quantile function
-        return norm.ppf(q, loc=self.ev, scale=self.stddev)
-
-    def get_statistics(self):
-        """Get some statistics from the model as a dict."""
-        hit_stats = {}
-        hit_stats['PDF'] = self.pdf
-        hit_stats['CDF'] = self.cdf
-        hit_stats['PPF'] = self.ppf
-        hit_stats['EV'] = self.ev
-        hit_stats['STDDEV'] = self.stddev
-        hit_stats['SKEW'] = self.skew
-        return hit_stats
-
-
-class EngineeringApproxHittingTimeModel(HittingTimeModel):
+class EngineeringApproxHittingTimeModel(CAHittingTimeModel,AbstractEngineeringApproxHittingTimeModel):
     """An approximation to the first passage time distribution using the (engineering) assumption that particles
     are unlikely to move back once they have passed the boundary.
     """
-
-    __metaclass__ = HittingTimeModel
 
     def __init__(self, x_L, C_L, S_w, x_predTo, t_L, name="No-return approx."):
         """Initialize the model.
@@ -501,14 +399,16 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
         :param t_L: A float, the time of the last state/measurement (initial time).
         :param name: String, name for the model.
         """
-        super().__init__(x_L, C_L, S_w, x_predTo, t_L, name)
+        super().__init__(x_L=x_L,
+                         C_L=C_L,
+                         S_w=S_w,
+                         x_predTo=x_predTo,
+                         t_L=t_L,
+                         name=name)
 
-        self.q_max, self.t_max = self._get_max_cdf_value_and_location()
         if self.q_max < 0.95:
             logging.warning(self.name + " does not seem to be applicable as max. confidence {} < 0.95.".format(
                 round(self.q_max, 2)))
-
-        self.compute_moment = self.get_numerical_moment_integrator()
 
     def _cdf(self, t):
         """Approach: 1 - int( p(x(t), x= -infty .. x_predTo )
@@ -564,7 +464,6 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
                 'Approximation yields a maximum confidence of {}, '
                 'which is lower than the desired confidence level of {}. Computed values may be wrong.'.format(
                     np.round(self.q_max, 4), np.round(q, 4)))
-
         return self._ppf(q)
 
     def _ppf(self, q):
@@ -611,6 +510,8 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
             t = float(real_roots[2] if q < 0.5 else real_roots[1])
         elif real_roots.shape[0] == 1:
             t = float(real_roots)
+        else:
+            raise ValueError('Unsupported number of roots.')
 
         return t + self.t_L
 
@@ -619,20 +520,8 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
 
         :return:
             q_max: A float, the maximum value of the CDF.
-            t_q_max: A float, the time where the CDF visits its maximum.
+            t_q_max: A float, the time, where the CDF visits its maximum.
         """
-        # # Search for large t with pdf(t) = 0, start with 2*median
-        # t_iter = 2*self._ppf(0.5)
-        # while not np.isclose(self.pdf(t_iter), 0, atol=1E-3):
-        #     t_iter_new = 1.5*t_iter
-        #     if self.pdf(t_iter_new) > 0:
-        #         t_iter = t_iter_new
-        #     else:
-        #         break
-        # # Get the CDF Value and the corresponding time
-        # q_max = self.cdf(t_iter)
-        # # t_q_max = self._ppf(q_max)
-
         A = -1/40*self.S_w*self.x_L[2]
         B = -1/20*3*self.S_w*self.x_L[1]
         C = 1/40*(10*self.S_w*self.x_predTo - 10*self.S_w*self.x_L[0] + 20*self.C_L[1, 2]*self.x_L[2] - 20*self.C_L[2, 2]*self.x_L[1])
@@ -647,102 +536,7 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
 
         # Get the CDF Value
         q_max = self._cdf(t_q_max)
-
         return q_max, t_q_max
-
-    def get_numerical_moment_integrator(self, n=400, t_min=None, t_max=None):
-        """Generator that builds a numerical integrator based on Riemann sums.
-
-        :param n: Integer, number of integration points.
-        :param t_min: Integer, location of smallest integration point.
-        :param t_max:  Integer, location of tallest integration point.
-
-        :return:
-            compute_moment: Function that can be used to compute the moments.
-        """
-        t_min = self.ppf(0.00005) if t_min is None else t_min
-        if t_max is None:
-            t_max = self.ppf(0.99995) if 0.99995 < self.q_max else self.t_max
-
-        # shared variables
-        delta_t = (t_max - t_min) / n
-        t_k = np.array([t_min + k * delta_t for k in range(n + 1)])  # shape n + 1
-        cdf_tk = self.cdf(t_k)  # shape n + 1
-        cdf_tk_plus_one = cdf_tk[1:]
-        interval_probs = cdf_tk_plus_one - cdf_tk[:-1]  # shape n
-
-        def compute_moment(fn, abs_tol=1.e-5, rel_tol=1.e-3):
-            """Function that computes the moments based on Riemann sums.
-
-            The function computes the moments using the actual probability mass in each bin, which is calculated
-            using the CDF of the approximation.
-
-            :param fn: function of which the expected value should be computed. E.g. use lambda t: t for the mean,
-                    lambda t: t**2, for the second moment, etc.
-            :param abs_tol: A float, represents the absolute tolerance between lower and upper sums. If the error is
-                    higher than abs_tol, the function will throw a warning.
-            :param rel_tol: A float, represents the relative tolerance between lower and upper sums. If the error is
-                    higher than rel_tol, the function will throw a warning.
-
-            :return:
-                lower_sum: A float, the moment computed based on lower sums.
-                upper_sum: A float, the moment computed based on upper sums.
-                abs_dev: A float, the absolute difference between lower and upper sum.
-                rel_dev: A float, the relative difference between lower and upper sum.
-            """
-            fn_t_k = np.array(fn(t_k[:-1]))  # shape n
-            fn_t_k_plus_one = np.array(fn(t_k[1:]))  # shape n
-
-            # return lower, upper sum and deviations
-            lower_sum = np.dot(interval_probs, fn_t_k)
-            upper_sum = np.dot(interval_probs, fn_t_k_plus_one)
-
-            abs_dev = abs(upper_sum - lower_sum)
-            rel_dev = abs_dev / max(upper_sum, lower_sum)
-
-            if abs_dev > abs_tol:
-                logging.warning(
-                    'Absolute Difference between lower and upper some is greater than {}. Try increasing integration points'.format(
-                        abs_tol))
-            if rel_dev > rel_tol:
-                logging.warning(
-                    'Relative Difference between lower and upper some is greater than {}. Try increasing integration points'.format(
-                        rel_tol))
-
-            return lower_sum, upper_sum, abs_dev, rel_dev
-
-        return compute_moment
-
-    @property
-    def ev(self):
-        """The expected value of the first passage time distribution."""
-        if self._ev is None:
-            start_time = time.time()
-            # Calculating moments with integrate.quad takes much time
-            # TODO: For the integrate.quad method to work, the integration limits need to be chosen as for the compute_moment method
-            # self._ev = integrate.quad(lambda t: t * self.pdf(t), self.ppf(0.0005), self.ppf(0.9995))[
-            # 0]  # this is a tuple
-            self._ev, _, abs_dev, rel_dev = self.compute_moment(lambda t: t)
-            print('EV', self._ev)
-            print('EV integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(
-                round(1000 * (time.time() - start_time), 4), abs_dev, rel_dev))
-        return self._ev
-
-    @property
-    def var(self):
-        """The variance of the first passage time distribution."""
-        if self._var is None:
-            start_time = time.time()
-            # Calculating moments with integrate.quad takes much time
-            # self._var = integrate.quad(lambda t: (t - self.ev) ** 2 * self.pdf(t), self.ppf(0.0005), self.ppf(0.9995))[
-            #     0]  # this yields much better results
-            # self._var = self.compute_moment(lambda t: t**2) - self.ev ** 2 # don't calculate the variance in
-            # # this way because it causes high numerical errors
-            self._var, _, abs_dev, rel_dev = self.compute_moment(
-                lambda t: (t - self.ev) ** 2)  # this yields much better results
-            print('Var integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(
-                round(1000 * (time.time() - start_time), 4), abs_dev, rel_dev))
-        return self._var
 
     @property
     def third_central_moment(self):
@@ -755,7 +549,7 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
             #              0]  # this yields much better results
             self._third_central_moment, _, abs_dev, rel_dev = self.compute_moment(
                 lambda t: (t - self.ev) ** 3)  # this yields much better results
-            print('E3 integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(
+            logging.info('E3 integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(
                 round(1000 * (time.time() - start_time), 4), abs_dev, rel_dev))
         return self._third_central_moment
 
@@ -770,7 +564,7 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
             #              0]  # this yields much better results
             self._fourth_central_moment, _, abs_dev, rel_dev = self.compute_moment(
                 lambda t: (t - self.ev) ** 3)  # this yields much better results
-            print('E4 integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(
+            logging.info('E4 integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(
                 round(1000 * (time.time() - start_time), 4), abs_dev, rel_dev))
         return self._fourth_central_moment
 
@@ -784,23 +578,9 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
             # self._third_central_moment = integrate.quad(lambda t: (t - self.ev)**5 * self.pdf(t), self.ppf(0.00o05), self.ppf(0.99995))[
             #              0]  # this yields much better results
             self._fifth_central_moment,  _, abs_dev, rel_dev = self.compute_moment(lambda t: (t - self.ev)**5)  # this yields much better results
-            print('E5 integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(
+            logging.info('E5 integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(
                 round(1000 * (time.time() - start_time), 4), abs_dev, rel_dev))
         return self._fifth_central_moment
-
-    def get_statistics(self):
-        """Get some statistics from the model as a dict."""
-        hit_stats = {}
-        hit_stats['PDF'] = self.pdf
-        hit_stats['CDF'] = self.cdf
-        hit_stats['PPF'] = self.ppf
-        hit_stats['EV'] = self.ev
-        hit_stats['STDDEV'] = self.stddev
-        hit_stats['SKEW'] = self.skew
-        hit_stats['Median'] = self.ppf(0.5)
-        hit_stats['FirstQuantile'] = self.ppf(0.25)
-        hit_stats['ThirdQuantile'] = self.ppf(0.75)
-        return hit_stats
 
     def trans_density(self, dt, theta):
         """The transition density p(x(dt+theta)| x(thetha) = x_predTo) from going from x_predTo at time theta to
@@ -832,7 +612,6 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
         p_theta_var = cov_theta[1:, 1:] - np.outer(cov_theta[1:, 0], cov_theta[0, 1:]) / cov_theta[0, 0]
         trans_mu = np.array([1, 0, 0]) * self.x_predTo + np.matmul(phi_sel, p_theta_mu)
         trans_var = np.matmul(np.matmul(phi_sel, p_theta_var), np.transpose(phi_sel)) + Q(dt)
-
         return norm(loc=trans_mu[0], scale=np.sqrt(trans_var[0, 0]))
 
     def trans_dens_ppf(self, theta, q=0.9):
@@ -878,134 +657,115 @@ class EngineeringApproxHittingTimeModel(HittingTimeModel):
         trans_fpt_values = np.array([1 - self.trans_density(t, theta).cdf(self.x_predTo) for t in dt])
         valid_roots = dt[np.isclose(trans_fpt_values, q)].real
         positive_roots = valid_roots[valid_roots > 0]
-
         return positive_roots
 
-    def plot_valid_regions(self, theta=None, q=0.95, plot_t_min=0.0, plot_t_max=None, save_results=False, result_dir=None, for_paper=True, no_show=False):
-        """Plot the (approximate) probabilities that the track doesn't intersect with x_predTo once it has reached
-        it at time theta in dependency on the time difference dt (t = dt + theta) and theta.
+    def get_statistics(self):
+        """Get some statistics from the model as a dict."""
+        hit_stats = super().get_statistics()
+        hit_stats.update({'RAW_CDF': self._cdf,
+                          })
+        return hit_stats
 
-        Note that, because of the linear behavior of the mean and the cubic behavior of the variance, there
-        are intervals in time for which is it very unlikely (with confidence q) that the track falls below x_pred_to,
-        again. These are the desired regions of validity.
 
-        :param theta: A float, the (assumed) time at which x(thetha) = x_pred_to.
-        :param q: A float, the desired confidence level, 0 <= q <= 1.
-        :param plot_t_min: A float, the lower time value of the plot range.
-        :param plot_t_max: A float, the upper time value of the plot range.
-        :param save_results: Boolean, whether to save the plots.
-        :param result_dir: String, directory where to save the plots.
-        :param for_paper: Boolean, whether to use a publication (omit headers, etc.).
-        :param no_show: Boolean, whether to show the plots (False).
+class MCHittingTimeModel(CAHittingTimeModel, AbstractMCHittingTimeModel):
+    """Wraps the histogram derived by a Monte-Carlo approach to solve the first-passage time problem to a distribution
+     using scipy.stats.rv_histogram.
+
+    """
+
+    def __init__(self, x_L, C_L, S_w, x_predTo, t_L, bins=100, name='MC simulation'):
+        """Initialize the model.
+
+        :param x_L: A np.array of shape [4] representing the expected value of the initial state. We use index L here
+            because it corresponds to the last time we see a particle in our optical belt sorting scenario.
+            Format: [pos_x, vel_x, pos_y, vel_y].
+        :param C_L: A np.array of shape [4, 4] representing the covariance matrix of the initial state.
+        :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
+        :param x_predTo: A float, position of the boundary.
+        :param t_L: A float, the time of the last state/measurement (initial time).
+        :param bins: An integer, the number of bins to use to represent the histogram.
+        :param name: String, name for the model.
         """
-        t_pred = self.t_L - self.x_L[1] / self.x_L[2] + np.sign(self.x_L[2]) * \
-                        np.sqrt((self.x_L[1] / self.x_L[2])**2 + 2/self.x_L[2]*(self.x_predTo-self.x_L[0]))
-        if theta is None:
-            multipliers = np.arange(start=0.85, stop=1.2, step=0.05)
-            plot_theta = [t_pred * m for m in multipliers]
-        else:
-            # We only plot the plot for the given theta
-            plot_theta = [theta]
+        t_samples, _, _ = create_ty_ca_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L)
+        super().__init__(x_L=x_L,
+                         C_L=C_L,
+                         S_w=S_w,
+                         x_predTo=x_predTo,
+                         t_L=t_L,
+                         t_samples=t_samples,
+                         bins=bins,
+                         name=name)
 
-        roots = self.trans_dens_ppf(plot_theta[0], q)  # take the first one, as it gives the largest delta t (at least in the vicinity of t_pred)
-        plot_t_max = plot_t_max if plot_t_max is not None else roots[0] * 1.4  # take the largest one, roots are in descending order
-        plot_t = np.linspace(plot_t_min, plot_t_max, num=10000)
+    @property
+    def third_central_moment(self):
+        """The third central moment of the first passage time distribution."""
+        return self.third_moment - 3 * self.ev * self.var - self.ev ** 3
 
-        # Compute the probability that the tracks stay above x_pred_to
-        # This is an approximation since it doesn't take into account tracks that fall below and climb back above
-        # x_pred_to before dt.
+    @property
+    def third_moment(self):
+        """The third moment of the first passage time distribution."""
+        return self._density.moment(3)
 
-        # Probability of the event that the transition density for x(theta + dt) is higher than x_pred_to.
-        trans_fpt = lambda dt, theta: 1 - self.trans_density(dt, theta).cdf(self.x_predTo)
+    @property
+    def fourth_central_moment(self):
+        """The fourth central moment of the first passage time distribution."""
+        return self.fourth_moment - 4*self.ev*self.third_moment + 6*self.ev**2*self.second_moment - 3*self.ev**4
 
-        fig, ax = plt.subplots()
-        plt.hlines(q, xmin=plot_t_min, xmax=plot_t_max, color='black', linestyle='dashdot',
-                   label='Confidence q={}'.format(q))
+    @property
+    def fourth_moment(self):
+        """The fourth moment of the first passage time distribution."""
+        return self._density.moment(4)
 
-        # Plot the Probabilities
-        for i, theta in enumerate(plot_theta):
-            plot_prob = [trans_fpt(dt, theta) for dt in plot_t]
+    @property
+    def fifth_central_moment(self):
+        """The fifth central moment of the first passage time distribution."""
+        return self.fifth_moment - 5 * self.ev * self.fourth_moment + 10 * self.ev ** 2 * self.third_moment - 10 * self.ev ** 3 * self.second_moment + 4 * self.ev ** 5
 
-            if len(plot_theta) == 1:
-                label = None
-            else:
-                label = r"$\theta$: {} $\cdot$ det. pred.".format(round(multipliers[i], 2))
-
-            if np.isclose(theta, t_pred):
-                # Mark the valid regions
-                # TODO: The second case is not necessary
-                roots = self.trans_dens_ppf(theta, q)
-                if roots.shape[0] == 1:
-                    plt.axvspan(0, roots[0], alpha=0.6, color='green', label='Valid region')
-                if roots.shape[0] == 2:
-                    plt.axvspan(roots[1], roots[0], alpha=0.6, color='green', label='Valid region')
-                if roots.shape[0] == 3:
-                    logging.WARNING('Three valid roots detected.')
-
-            ax.plot(plot_t, plot_prob, label=label)
-
-        ax.set_xlim(0, None)
-        plt.ylabel('Confidence')
-        plt.xlabel('Time difference in s')
-        plt.legend(loc='upper right')
-
-        if not for_paper:
-            plt.title('Probability of Staying Above the Boundary')
-
-        if save_results:
-            plot_name = "_valid_regions" if len(plot_theta) != 1 else "_valid_region_for_" + str(round(theta, 4))
-            basename = os.path.basename(os.path.normpath(result_dir))
-            process_name_save = basename.lower().replace(" ", "_")
-            plt.savefig(os.path.join(result_dir, process_name_save + plot_name + '.pdf'))
-            plt.savefig(os.path.join(result_dir, process_name_save + plot_name + '.png'))
-        if not no_show:
-            plt.show()
-        plt.close()
+    @property
+    def fifth_moment(self):
+        """The fifth moment of the first passage time distribution."""
+        return self._density.moment(5)
 
 
 # Mean and variance of the six-dimensional process
-# TODO: Combine the functions so that the matrices are defined only once, do the same with the CV model!
 def mu_t(delta_t, mu_0):
     """Mean function of the 2D CA process.
-    
+
     :param delta_t: A float, time difference.
-    :param mu_0: A np.array of shape [6] reprenting the mean of the initial state. 
+    :param mu_0: A np.array of shape [6] reprenting the mean of the initial state.
         Format: [pos_x, vel_x, acc_x, pos_y, vel_y, acc_y].
     """
     F = np.array([[1, delta_t, delta_t ** 2 / 2, 0, 0, 0],
-                   [0, 1, delta_t, 0, 0, 0],
-                   [0, 0, 1, 0, 0, 0],
-                   [0, 0, 0, 1, delta_t, delta_t ** 2 / 2],
-                   [0, 0, 0, 0, 1, delta_t],
-                   [0, 0, 0, 0, 0, 1]])
+                  [0, 1, delta_t, 0, 0, 0],
+                  [0, 0, 1, 0, 0, 0],
+                  [0, 0, 0, 1, delta_t, delta_t ** 2 / 2],
+                  [0, 0, 0, 0, 1, delta_t],
+                  [0, 0, 0, 0, 0, 1]])
     mu_t = F.dot(mu_0)
     return mu_t
 
-def cov_t(delta_t, cov_0, S_w):
-    """Covariance (in depency on t) of the 2D CA process.
 
-    :param delta_t: A float, time difference.
-    :param cov_0: A np.array of shape [6, 6] representing the covariance matrix of the initial state.
-    :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
-    """
-    F = np.array([[1, delta_t, delta_t ** 2 / 2, 0, 0, 0],
-                   [0, 1, delta_t, 0, 0, 0],
-                   [0, 0, 1, 0, 0, 0],
-                   [0, 0, 0, 1, delta_t, delta_t ** 2 / 2],
-                   [0, 0, 0, 0, 1, delta_t],
-                   [0, 0, 0, 0, 0, 1]])
-    cov_h_t = np.dot(np.matmul(F, cov_0), F.T)  # homogeneous solution
-    cov_p_t = S_w *np.array([[pow(delta_t, 5) / 20, pow(delta_t, 4) / 8, pow(delta_t, 3) / 6, 0, 0, 0],
-                              [pow(delta_t, 4) / 8, pow(delta_t, 3) / 3, pow(delta_t, 2) / 2, 0, 0, 0],
-                              [pow(delta_t, 3) / 6, pow(delta_t, 2) / 2, delta_t, 0, 0, 0],
-                              [0, 0, 0, pow(delta_t, 5) / 20, pow(delta_t, 4) / 8, pow(delta_t, 3) / 6],
-                              [0, 0, 0, pow(delta_t, 4) / 8, pow(delta_t, 3) / 3, pow(delta_t, 2) / 2],
-                              [0, 0, 0, pow(delta_t, 3) / 6, pow(delta_t, 2) / 2, delta_t]])  # particular solution
-    cov_t = cov_h_t + cov_p_t
-    return cov_t
+def _get_system_matrices_from_parameters(dt, S_w):
+    F = np.array([[1, dt, dt ** 2 / 2, 0, 0, 0], [0, 1, dt, 0, 0, 0], [0, 0, 1, 0, 0, 0],
+                  [0, 0, 0, 1, dt, dt ** 2 / 2], [0, 0, 0, 0, 1, dt], [0, 0, 0, 0, 0, 1]])
+    Q = S_w * np.array([[pow(dt, 5) / 20, pow(dt, 4) / 8, pow(dt, 3) / 6, 0, 0, 0],
+                        [pow(dt, 4) / 8, pow(dt, 3) / 3, pow(dt, 2) / 2, 0, 0, 0],
+                        [pow(dt, 3) / 6, pow(dt, 2) / 2, dt, 0, 0, 0],
+                        [0, 0, 0, pow(dt, 5) / 20, pow(dt, 4) / 8, pow(dt, 3) / 6],
+                        [0, 0, 0, pow(dt, 4) / 8, pow(dt, 3) / 3, pow(dt, 2) / 2],
+                        [0, 0, 0, pow(dt, 3) / 6, pow(dt, 2) / 2, dt]])
+    return F, Q
 
 
-def create_ty_ca_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L=0.0, N=100000, dt=1 / 1000, break_after_n_timesteps=1000):
+def create_ty_ca_samples_hitting_time(x_L,
+                                      C_L,
+                                      S_w,
+                                      x_predTo,
+                                      t_L=0.0,
+                                      N=100000,
+                                      dt=1 / 1000,
+                                      break_after_n_time_steps=1000,
+                                      break_min_time=None):
     """Monte Carlo approach to solve the first passage time problem. Propagates particles through the 2D discrete-time
     CA motion model and determines their first passage at x_predTo as well as the location in y at the first passage by
     interpolating the positions between the last time before and the first time after the boundary.
@@ -1019,150 +779,44 @@ def create_ty_ca_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L=0.0, N=100000
     :param t_L: A float, the time of the last state/measurement (initial time).
     :param N: Integer, number of samples to use.
     :param dt: A float, time increment.
-    :param break_after_n_timesteps: Integer, maximum number of timesteps for the simulation.
+    :param break_after_n_time_steps: Integer, maximum number of time steps for the simulation.
+    # TODO
 
     :return:
         t_samples: A np.array of shape [N] containing the first passage times of the particles.
         y_samples: A np.array of shape [N] containing the y-position at the first passage times of the particles.
 
-    Note that particles that do not reach the boundary after break_after_n_timesteps timesteps are handled with a
+    Note that particles that do not reach the boundary after break_after_n_time_steps time steps are handled with a
     fallback value of max(t_samples) + 1 in the t_samples and np.nan in the y_samples.
     """
-    samples = np.random.multivariate_normal(mean=x_L, cov=C_L, size=N)
-    # Let the samples move to the boundary
-    F = np.array([[1, dt, dt ** 2 / 2, 0, 0, 0], [0, 1, dt, 0, 0, 0], [0, 0, 1, 0, 0, 0],
-                   [0, 0, 0, 1, dt, dt ** 2 / 2], [0, 0, 0, 0, 1, dt], [0, 0, 0, 0, 0, 1]])
-    mean_w = np.array([0, 0, 0, 0, 0, 0])
-    Q = S_w * np.array([[pow(dt, 5) / 20, pow(dt, 4) / 8, pow(dt, 3) / 6, 0, 0, 0],
-                         [pow(dt, 4) / 8, pow(dt, 3) / 3, pow(dt, 2) / 2, 0, 0, 0],
-                         [pow(dt, 3) / 6, pow(dt, 2) / 2, dt, 0, 0, 0],
-                         [0, 0, 0, pow(dt, 5) / 20, pow(dt, 4) / 8, pow(dt, 3) / 6],
-                         [0, 0, 0, pow(dt, 4) / 8, pow(dt, 3) / 3, pow(dt, 2) / 2],
-                         [0, 0, 0, pow(dt, 3) / 6, pow(dt, 2) / 2, dt]])
+    F, Q = _get_system_matrices_from_parameters(dt, S_w)
 
-    # t_samples = np.zeros(N)
-    # y_samples = np.zeros(N)
-    # for i in range(N):
-    #     if i % 1000 == 0: print(i)
-    #     x_curr = samples[i]
-    #     t = t_L
-    #     while True:
-    #         x_next = np.array(F.dot(x_curr)[0])[0]
-    #         w_k = np.random.multivariate_normal(mean=mean_w, cov=Q, size=1)[0]
-    #         x_next = x_next + w_k
-    #         if x_next[0] >= x_predTo:
-    #             # Linear interpolation to get time
-    #             last_t = - x_curr[1] / x_curr[2] + np.sign(x_curr[2]) * \
-    #                      np.sqrt((x_curr[1] / x_curr[2]) ** 2 + 2 / x_curr[2] * (x_predTo - x_curr[0]))
-    #             t += last_t
-    #             y = x_curr[3] + last_t * x_curr[4] + 1 / 2 * last_t ** 2 * x_curr[5]
-    #             break
-    #         t += dt
-    #         x_curr = x_next
-    #     t_samples[i] = t
-    #     y_samples[i] = y
-
-    x_curr = samples
-    x_term = np.zeros(samples.shape[0], dtype=bool)
-    t = t_L
-    ind = 0
-    time_before_arrival = np.full(N, t_L, dtype=np.float64)
-    while True:
-        if ind % 100 == 0:
-            logging.info('Timestep {0}, x equals approx. {1}'.format(ind, x_curr[0, 0]))
-        x_curr_tf = tf.convert_to_tensor(x_curr)
-        x_next = tf.linalg.matvec(F, x_curr_tf).numpy()
-        w_k = np.random.multivariate_normal(mean=mean_w, cov=Q, size=N)
-        x_next = x_next + w_k
-        x_term[x_next[:, 0] >= x_predTo] = True
-        if np.all(x_term):
-            break
-        if ind == break_after_n_timesteps:
-            logging.warning('Sampling interrupted because {}. reached. Please adjust break_after_n_timesteps if you want to move the particles more timesteps.'.format(break_after_n_timesteps))
-            break
-        x_curr[np.logical_not(x_term)] = x_next[np.logical_not(x_term)]
-        t += dt
-        time_before_arrival[np.logical_not(x_term)] = t
-        ind += 1
+    time_before_arrival, x_before_arrival, x_after_arrival, x_term, fraction_of_returns = create_lgssm_hitting_time_samples(
+        F,
+        Q,
+        x_L,
+        C_L,
+        x_predTo,
+        t_L=t_L,
+        N=N,
+        dt=dt,
+        break_after_n_time_steps=break_after_n_time_steps,
+        break_min_time=break_min_time)
 
     # Linear interpolation to get time
-    time_of_arrival = time_before_arrival
-    last_t = - x_curr[x_term, 1] / x_curr[x_term, 2] + np.sign(x_curr[x_term, 2]) * \
-             np.sqrt((x_curr[x_term, 1] / x_curr[x_term, 2]) ** 2 + 2 / x_curr[x_term, 2] * (x_predTo - x_curr[x_term, 0]))
-    time_of_arrival[x_term] = time_before_arrival[x_term] + last_t
-    y = x_curr[:, 3]
-    y[x_term] = x_curr[x_term, 3] + last_t * x_curr[x_term, 4] + 1 / 2 * last_t ** 2 * x_curr[x_term, 5]
+    t_samples = time_before_arrival
+    last_t = - x_before_arrival[x_term, 1] / x_before_arrival[x_term, 2] + np.sign(x_before_arrival[x_term, 2]) * \
+             np.sqrt(
+                 (x_before_arrival[x_term, 1] / x_before_arrival[x_term, 2]) ** 2 + 2 / x_before_arrival[x_term, 2] * (x_predTo - x_before_arrival[x_term, 0]))
+    t_samples[x_term] = time_before_arrival[x_term] + last_t
+    t_samples[np.logical_not(x_term)] = int(
+        max(t_samples)) + 1  # default value for particles that do not arrive
 
-    time_of_arrival[np.logical_not(x_term)] = int(
-        max(time_of_arrival)) + 1  # default value for particles that do not arrive
-    y[np.logical_not(x_term)] = np.nan  # default value for particles that do not arrive
+    y_samples = x_before_arrival[:, 3]
+    y_samples[x_term] = x_before_arrival[x_term, 3] + last_t * x_before_arrival[x_term, 4] + 1 / 2 * last_t ** 2 * x_before_arrival[x_term, 5]
+    y_samples[np.logical_not(x_term)] = np.nan  # default value for particles that do not arrive
 
-    # last_t = - x_curr[:, 1] / x_curr[:, 2] + np.sign(x_curr[:, 2]) * \
-    #          np.sqrt((x_curr[:, 1] / x_curr[:, 2]) ** 2 + 2 / x_curr[:, 2] * (x_predTo - x_curr[:, 0]))
-    #
-    # time_of_arrival = time_before_arrival + last_t
-    # y = x_curr[:, 3] + last_t * x_curr[:, 4] + 1 / 2 * last_t ** 2 * x_curr[:, 5]
-
-    t_samples = time_of_arrival
-    y_samples = y
-
-    return t_samples, y_samples
-
-
-def get_example_tracks(x_L, C_L, S_w):
-    """Generator that creates a function for simulation of example tracks. Used for plotting purpose only.
-
-    :param x_L: A np.array of shape [6] representing the expected value of the initial state. We use index L here
-        because it corresponds to the last time we see a particle in our optical belt sorting scenario.
-        Format: [pos_x, vel_x, acc_x pos_y, vel_y, acc_y].
-    :param C_L: A np.array of shape [6, 6] representing the covariance matrix of the initial state.
-    :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
-
-    :return:
-        _get_example_tracks: A function that can be used for simulation of example tracks.
-    """
-
-    def _get_example_tracks(plot_t, N=5):
-        """Create data (only x-positions) of some tracks.
-
-        :param plot_t: A np.array of shape [n_plot_points], point in time where a point in the plot should be displayed.
-            Consecutive points must have the same distance.
-        :param N: Integer, number of tracks to create.
-
-        :return:
-            x_tracks: A np.array of shape [num_timesteps, N] containing the x-positions of the tracks.
-        """
-        dt = plot_t[1] - plot_t[0]
-
-        samples = np.random.multivariate_normal(mean=x_L, cov=C_L, size=N)  # [6, N]
-        # Let the samples move to the boundary
-        F = np.array([[1, dt, dt ** 2 / 2, 0, 0, 0],
-                       [0, 1, dt, 0, 0, 0],
-                       [0, 0, 1, 0, 0, 0],
-                       [0, 0, 0, 1, dt, dt ** 2 / 2],
-                       [0, 0, 0, 0, 1, dt],
-                       [0, 0, 0, 0, 0, 1]])
-        mean_w = np.array([0, 0, 0, 0, 0, 0])
-        Q = S_w * np.array([[pow(dt, 5) / 20, pow(dt, 4) / 8, pow(dt, 3) / 6, 0, 0, 0],
-                             [pow(dt, 4) / 8, pow(dt, 3) / 3, pow(dt, 2) / 2, 0, 0, 0],
-                             [pow(dt, 3) / 6, pow(dt, 2) / 2, dt, 0, 0, 0],
-                             [0, 0, 0, pow(dt, 5) / 20, pow(dt, 4) / 8, pow(dt, 3) / 6],
-                             [0, 0, 0, pow(dt, 4) / 8, pow(dt, 3) / 3, pow(dt, 2) / 2],
-                             [0, 0, 0, pow(dt, 3) / 6, pow(dt, 2) / 2, dt]])
-
-        tracks = np.expand_dims(samples, axis=2)
-        for _ in range(plot_t.size - 1):
-            x_curr_tf = tf.convert_to_tensor(tracks[:, :, -1])
-            x_next = tf.linalg.matvec(F, x_curr_tf).numpy()
-            w_k = np.random.multivariate_normal(mean=mean_w, cov=Q, size=N)
-            x_next = np.expand_dims(x_next + w_k, axis=-1)
-            tracks = np.concatenate((tracks, x_next), axis=-1)
-
-        x_tracks = tracks[:, 0, :].T  # [N, 4, num_timesteps] -> [num_timesteps, N]
-
-        return x_tracks
-
-    return _get_example_tracks
+    return t_samples, y_samples, fraction_of_returns
 
 
 if __name__ == "__main__":

@@ -5,6 +5,10 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
+from scipy.stats import norm
+from scipy.stats import rv_histogram
+import scipy.integrate as integrate
+
 import matplotlib.pyplot as plt
 from timeit import time
 
@@ -12,19 +16,21 @@ from timeit import time
 class AbstractHittingTimeModel(ABC):
     """A base class for the hitting time models."""
 
-    def __init__(self, x_predTo, name='DefaultName'):
+    def __init__(self, x_predTo, t_L, name='DefaultName'):
         """Initialize the model.
 
         :param x_predTo: A float, position of the boundary.
+        :param t_L: A float, the initial time.
         :param name: String, (default) name for the model.
         """
-        self.x_predTo = x_predTo
+        self.x_predTo = x_predTo  # TODO: private? Bei den anderen Modellen auch?
+        self.t_L = t_L
         self.name = name
 
         # For properties
         self._ev = None
         self._var = None
-        self._ev_third = None
+        self._ev_third = None  # TODO: Braucht man das? Noch was ergänzen?
         self._stddev = None
 
     @property
@@ -127,19 +133,81 @@ class AbstractHittingTimeModel(ABC):
         hit_stats['STDDEV'] = self.stddev
         return hit_stats
 
+class AbstractTaylorHittingTimeModel(AbstractHittingTimeModel, ABC):
+    """A simple Gaussian approximation for the first hitting time problem using a Taylor approximation and error
+    propagation.
+    """
 
-class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
-
-    def __init__(self, x_predTo, name="No-return approx."):
+    def __init__(self, x_predTo, t_L, name='Gauß--Taylor approx.'):
         """Initialize the model.
 
         :param x_predTo: A float, position of the boundary.
+        :param t_L: A float, the initial time.
         :param name: String, name for the model.
         """
-        super().__init__(x_predTo, name)
+        super().__init__(x_predTo=x_predTo,
+                         t_L=t_L,
+                         name=name)
 
+        # For properties
+        self._ev = None
+        self._var = None
+
+    @property
+    def ev(self):
+        """The expected value of the first passage time distribution."""
+        return self._ev
+
+    @property
+    def var(self):
+        """The variance of the first passage time distribution."""
+        return self._var
+
+    def pdf(self, t):
+        """The first passage time distribution (FPTD).
+
+        :param t: A float or np.array, the time parameter of the distribution.
+        """
+        return norm.pdf(t, loc=self.ev, scale=self.stddev)
+
+    def cdf(self, t):
+        """The CDF of the first passage time distribution.
+
+        :param t: A float or np.array, the time parameter of the distribution.
+        """
+        return norm.cdf(t, loc=self.ev, scale=self.stddev)
+
+    def ppf(self, q):
+        """The quantile function / percent point function (PPF) of the first passage time distribution.
+
+        :param q: A float or np.array, the confidence parameter of the distribution, 0 <= q <= 1.
+        """
+        return norm.ppf(q, loc=self.ev, scale=self.stddev)
+
+    def get_statistics(self):
+        """Get some statistics from the model as a dict."""
+        hit_stats = super().get_statistics()
+        hit_stats.update({'PPF': self.ppf,
+                          })
+        return hit_stats
+
+
+class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
+    # TODO
+
+    def __init__(self, x_predTo, t_L, name="No-return approx."):
+        """Initialize the model.
+
+        :param x_predTo: A float, position of the boundary.
+        :param x_predTo: A float, position of the boundary.
+        :param name: String, name for the model.
+        """
+        super().__init__(x_predTo=x_predTo,
+                         t_L=t_L,
+                         name=name)
+
+        self._q_max, self._t_max = self._get_max_cdf_value_and_location()
         self.compute_moment = self.get_numerical_moment_integrator()
-        self.compute_moment_riemann = self.get_numerical_moment_integrator(use_cdf=False) # TODO: Bleibt das?
 
     @abstractmethod
     def trans_density(self, dt, theta):
@@ -158,7 +226,7 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
         raise NotImplementedError('Call to abstract method.')
 
     @abstractmethod
-    def trans_dens_ppf(self, theta=None, q=0.95):
+    def trans_dens_ppf(self, theta, q=0.95):
         """The PPF of 1 - int ( p(x(dt+theta)| x(thetha) = x_predTo), x(dt+theta) = - infty .. x_predTo),
         i.e., the inverse CDF of the event that particles are above x_predTo once they have reached it at time theta.
 
@@ -173,6 +241,10 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
         # To be overwritten by subclass
         raise NotImplementedError('Call to abstract method.')
 
+    def _get_max_cdf_value_and_location(self):
+        # To be overwritten by subclass
+        raise NotImplementedError('Call to abstract method.')
+
     @property
     def ev(self):
         """The expected value of the first passage time distribution."""
@@ -183,8 +255,7 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
             # self._ev = integrate.quad(lambda t: t * self.pdf(t), self.ppf(0.0005), self.ppf(0.9995))[
             # 0]  # this is a tuple
             self._ev, _, abs_dev, rel_dev = self.compute_moment(lambda t: t)
-            print('EV', self._ev)
-            print('EV integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(round(1000*(time.time() - start_time), 4), abs_dev, rel_dev))
+            logging.info('EV integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(round(1000*(time.time() - start_time), 4), abs_dev, rel_dev))
         return self._ev
 
     @property
@@ -198,20 +269,28 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
             # self._var = self.compute_moment(lambda t: t**2) - self.ev ** 2 # don't calculate the variance in
             # # this way because it causes high numerical errors
             self._var, _, abs_dev, rel_dev = self.compute_moment(lambda t: (t - self.ev) ** 2)  # this yields much better results
-            print('Var integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(round(1000*(time.time() - start_time), 4), abs_dev, rel_dev))
+            logging.info('Var integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(round(1000*(time.time() - start_time), 4), abs_dev, rel_dev))
         return self._var
+
+    @property
+    def q_max(self):  # TODO
+        return self._q_max
+
+    @property
+    def t_max(self):
+        return self._t_max
 
     def get_numerical_moment_integrator(self, n=400, t_min=None, t_max=None):
         """Generator that builds a numerical integrator based on Riemann sums.
 
         :param n: Integer, number of integration points.
         :param t_min: Integer, location of smallest integration point.
-        :param t_max:  Integer, location of tallest integration point.
+        :param t_max:  Integer, location of largest integration point.
 
         :return:
             compute_moment: Function that can be used to compute the moments.
         """
-        t_min = self.ppf(0.00005) if t_min is None else t_min   # TODO Das muss man anpassen, ist bei Wiener mit drift nicht so...
+        t_min = self.ppf(0.00005) if t_min is None else t_min
         if t_max is None:
             t_max = self.ppf(0.99995) if 0.99995 < self.q_max else self.t_max
 
@@ -264,7 +343,7 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
 
         return compute_moment
 
-    def returning_probs(self, t, num_samples=101, deterministic_samples=True, mc_hitting_time_model=None):
+    def returning_probs(self, t, num_samples=1000, deterministic_samples=True, mc_hitting_time_model=None):  # TODO: Ist wsl. nicht ganz richtig, siehe Wiener mit Drift
         """Calculates approximate returning probabilities based on a numerical integration (MC integration) based on
         samples from the approximate first passage time distribution (using inverse transform sampling).
 
@@ -298,7 +377,7 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
         return np.nanmean(
             [self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo) for theta in theta_samples])
 
-    def returning_probs_uniform_samples(self, t, num_samples=101, deterministic_samples=True, mc_hitting_time_model=None):
+    def returning_probs_uniform_samples(self, t, num_samples=100, deterministic_samples=True, mc_hitting_time_model=None):
         """Calculates approximate returning probabilities based on a numerical integration (MC integration) based on
         samples from a uniform distribution.
 
@@ -332,6 +411,12 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
             [self.pdf(theta) * self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo) for
              theta in theta_samples])
 
+    def returning_probs_integrate_quad(self, t):
+        # TODO
+        fn = lambda theta: self.pdf(theta) * self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo)
+        a = np.finfo(np.float64).eps if self.t_L == 0 else self.t_L  # TODO: Braucht man das generell?
+        return integrate.quad(fn, a=a, b=t)[0]  # this is a tuple
+
     def plot_valid_regions(self,
                            theta=None,
                            q=0.95,
@@ -357,7 +442,7 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
         :param for_paper: Boolean, whether to use a publication (omit headers, etc.).
         :param no_show: Boolean, whether to show the plots (False).
         """
-        t_pred = (self.x_predTo - self.x0) / self.mu  # todo: dAS SOLLTE HOCH
+        t_pred = self.ppf(0.5)  # first-passage solution for the mean function
         if theta is None:
             multipliers = np.arange(start=0.4, stop=1.8, step=0.2)
             plot_theta = [t_pred * m for m in multipliers]
@@ -365,7 +450,8 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
             # We only plot the plot for the given theta
             plot_theta = [theta]
 
-        root = self.trans_dens_ppf(plot_theta[0], q)  # take the first one, as it gives the largest delta t (at least in the vicinity of t_pred)
+        roots = self.trans_dens_ppf(plot_theta[0], q)  # take the first one, as it gives the largest delta t (at least in the vicinity of t_pred)
+        root = roots if np.isscalar(roots) else roots[0]  # take the largest one, roots are in descending order
         plot_t_max = plot_t_max if plot_t_max is not None else root * 1.4  # take the largest one, roots are in descending order
         plot_t = np.linspace(plot_t_min, plot_t_max, num=10000)
 
@@ -391,8 +477,14 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
 
             if np.isclose(theta, t_pred):
                 # Mark the valid regions
-                root = self.trans_dens_ppf(theta, q)
-                plt.axvspan(root, plot_t_max, alpha=0.6, color='green', label='Valid region')
+                # TODO: The second case is not necessary
+                roots = self.trans_dens_ppf(theta, q)
+                if np.isscalar(roots) or roots.shape[0] == 1:
+                    plt.axvspan(0, np.squeeze(roots), alpha=0.6, color='green', label='Valid region')
+                elif roots.shape[0] == 2:
+                    plt.axvspan(roots[1], roots[0], alpha=0.6, color='green', label='Valid region')
+                else:
+                    logging.WARNING('{} valid roots detected.'.format(roots.shape[0]))
 
             ax.plot(plot_t, plot_prob, label=label)
 
@@ -415,6 +507,21 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
             plt.show()
         plt.close()
 
+    def get_statistics(self):
+        """Get some statistics from the model as a dict."""
+        hit_stats = super().get_statistics()
+        hit_stats.update({'PPF': self.ppf,
+                          'Median': self.ppf(0.5),
+                          'FirstQuantile': self.ppf(0.25),
+                          'ThirdQuantile': self.ppf(0.75),
+                          'q_max': self.q_max,
+                          't_max': self.t_max,
+                          #'ReturningProbs': self.returning_probs,  # do not use
+                          # 'ReturningProbs': self.returning_probs_uniform_samples,
+                          # 'ReturningProbs': self.returning_probs_integrate_quad,
+                          })
+        return hit_stats
+
 
 class AbstractMCHittingTimeModel(AbstractHittingTimeModel, ABC):
     """Wraps the histogram derived by a Monte-Carlo approach to solve the first-passage time problem to a distribution
@@ -422,19 +529,26 @@ class AbstractMCHittingTimeModel(AbstractHittingTimeModel, ABC):
 
     """
 
-    def __init__(self, x_predTo, bins=100, name='MCHittingTimeModel'):  # TODO: Name ist hier anders
+    def __init__(self, t_samples, x_predTo, t_L, bins=100, name="MC simulation"):
         """Initialize the model.
 
+        :param t_samples: # TODO
+        :param x_predTo: A float, position of the boundary.
         :param x_predTo: A float, position of the boundary.
         :param bins: An integer, the number of bins to use to represent the histogram.
         :param name: String, name for the model.
         """
         super().__init__(x_predTo=x_predTo,
+                         t_L=t_L,
                          name=name)
 
-        self.t_samples, _, _ = create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L)
-        hist = np.histogram(self.t_samples, bins=bins, density=False)
+        self._t_samples = t_samples
+        hist = np.histogram(self._t_samples, bins=bins, density=False)
         self._density = rv_histogram(hist, density=True)
+
+    @property
+    def t_samples(self):  # TODO
+        return self._t_samples
 
     @property
     def ev(self):
@@ -445,15 +559,6 @@ class AbstractMCHittingTimeModel(AbstractHittingTimeModel, ABC):
     def var(self):
         """The variance of the first passage time distribution."""
         return self._density.var
-
-    @property
-    def third_central_moment(self):
-        """The third central moment of the first passage time distribution."""
-        return self._third_moment - 3 * self.ev * self.var - self.ev ** 3
-
-    def third_moment(self):
-        """The third moment of the first passage time distribution."""
-        return self._density.moment(3)
 
     def pdf(self, t):
         """The first passage time distribution (FPTD).
@@ -475,4 +580,12 @@ class AbstractMCHittingTimeModel(AbstractHittingTimeModel, ABC):
         :param q: A float or np.array, the confidence parameter of the distribution, 0 <= q <= 1.
         """
         return self._density.ppf(q)
+
+    def get_statistics(self):
+        """Get some statistics from the model as a dict."""
+        hit_stats = super().get_statistics()
+        hit_stats.update({'PPF': self.ppf,
+                          })
+        return hit_stats
+
 

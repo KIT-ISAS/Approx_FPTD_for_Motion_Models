@@ -4,6 +4,8 @@ Utilities and Plot Function for First Passage Time Models.
 import os
 import sys
 
+from absl import logging
+
 from abc import ABC
 
 import matplotlib as mpl
@@ -142,7 +144,8 @@ class HittingTimeEvaluator(ABC):
             plt.rcParams['legend.loc'] = 'upper left'
             plt.rcParams["savefig.pad_inches"] = 0.0  # remove space outside the labels
 
-    def compare_moments_temporal(self, approaches_ls):
+    @staticmethod
+    def compare_moments_temporal(approaches_ls):
         """Compare the means and standard deviations of different first passage time approaches and print them to stdout.
 
         :param approaches_ls: A list of first passage time model objects for the same process to be compared.
@@ -153,8 +156,8 @@ class HittingTimeEvaluator(ABC):
             hit_stats = approach.get_statistics()
             mu_t = hit_stats['EV']
             stddev_t = hit_stats['STDDEV']
-            print("Temporal mean of {0}: {1}".format(approach.name, round(mu_t, 6)))
-            print("Temporal stddev of {0}: {1}".format(approach.name, round(stddev_t, 6)))
+            logging.info("Temporal mean of {0}: {1}".format(approach.name, round(mu_t, 6)))
+            logging.info("Temporal stddev of {0}: {1}".format(approach.name, round(stddev_t, 6)))
             mu_t_ls.append(mu_t)
             stddev_t_ls.append(stddev_t)
 
@@ -163,9 +166,10 @@ class HittingTimeEvaluator(ABC):
             for j in range(len(approaches_ls)):
                 rel_devs[i, j] = 100 * np.abs(stddev_t_ls[i] - stddev_t_ls[j]) / np.max([stddev_t_ls[i], stddev_t_ls[j]])
 
-        print('Pairwise relative deviations of temporal stddevs in percent: \n', np.round(rel_devs, 2))
+        logging.info('Pairwise relative deviations of temporal stddevs in percent: \n{}'.format(np.round(rel_devs, 2)))
 
-    def compare_skewness_temporal(self, approaches_ls):
+    @staticmethod
+    def compare_skewness_temporal(approaches_ls):
         """Compare the skewness of different first passage time approaches and print them to stdout.
 
         :param approaches_ls: A list of first passage time model objects for the same process to be compared.
@@ -174,7 +178,7 @@ class HittingTimeEvaluator(ABC):
         for approach in approaches_ls:
             hit_stats = approach.get_statistics()
             skew_t = hit_stats['SKEW']
-            print("Temporal skewness of {0}: {1}".format(approach.name, round(skew_t, 6)))
+            logging.info("Temporal skewness of {0}: {1}".format(approach.name, round(skew_t, 6)))
             skew_t_ls.append(skew_t)
 
         rel_devs = np.zeros((len(approaches_ls), len(approaches_ls)))
@@ -182,10 +186,10 @@ class HittingTimeEvaluator(ABC):
             for j in range(len(approaches_ls)):
                 rel_devs[i, j] = 100 * np.abs(skew_t_ls[i] - skew_t_ls[j]) / np.max([skew_t_ls[i], skew_t_ls[j]])
 
-        print('Pairwise relative deviations of temporal skewness in percent: \n', np.round(rel_devs, 2))
+        logging.info('Pairwise relative deviations of temporal skewness in percent: \n{}'.format(np.round(rel_devs, 2)))
 
-    def compare_wasserstein_distances(self, t_samples, approaches_ls, bins=500):  # TODO: Bins hochstellen, damit es nicht so wackelt?
-        """Compares the Wasserstein distance of the approaches to the MC-solution.
+    def compare_wasserstein_distances_temporal(self, t_samples, approaches_ls, bins=500):  # TODO: Bins hochstellen, damit es nicht so wackelt?
+        """Compares the Wasserstein distance of different first passage time approaches to the MC-solution.
 
         :param t_samples: A np.array of shape [N] containing the first passage times of the particles.
         :param approaches_ls: A list of first passage time model objects for the same process to be compared against the
@@ -207,9 +211,9 @@ class HittingTimeEvaluator(ABC):
             M = distance_matrix(hist_midpoints[:, None], self.plot_t[:, None])
             wasserstein_distances.append(emd2(mc_hist_values, hist_values, M))
 
-        print('Wasserstein distances compared against MC histogram: \n', wasserstein_distances)
+        logging.info('Wasserstein distances compared against MC histogram: \n{}'.format(wasserstein_distances))
 
-    def compare_hellinger_distance(self, t_samples, approaches_ls, bins=500):
+    def compare_hellinger_distances_temporal(self, t_samples, approaches_ls, bins=500):
         mc_hist_values, left_edges = np.histogram(t_samples, bins=bins, density=True)
 
         hellinger_distances = []
@@ -218,9 +222,9 @@ class HittingTimeEvaluator(ABC):
             hist_values = np.array([hit_stats['PDF'](t) for t in self.plot_t])
             hellinger_distances.append(1 / np.sqrt(2) * np.sqrt(np.sum((np.sqrt(mc_hist_values) - np.sqrt(hist_values)) ** 2)))
 
-        print('Hellinger distances compared against MC histogram: \n', hellinger_distances)
+        logging.info('Hellinger distances compared against MC histogram: \n{}'.format(hellinger_distances))
 
-    def compare_first_wasserstein_distance(self, t_samples, approaches_ls, bins=500):
+    def compare_first_wasserstein_distances_temporal(self, t_samples, approaches_ls, bins=500):
         mc_hist_values, left_edges = np.histogram(t_samples, bins=bins, density=True)
 
         wasserstein_distances = []
@@ -229,9 +233,9 @@ class HittingTimeEvaluator(ABC):
             hist_values = np.array([hit_stats['PDF'](t) for t in self.plot_t])
             wasserstein_distances.append(scipy.stats.wasserstein_distance(mc_hist_values, hist_values))
 
-        print('First Wasserstein distances compared against MC histogram: \n', wasserstein_distances)
+        logging.info('First Wasserstein distances compared against MC histogram: \n{}'.format(wasserstein_distances))
 
-    def compare_kolmogorv_distance(self, t_samples, approaches_ls, bins=500):
+    def compare_kolmogorv_distances_temporal(self, t_samples, approaches_ls, bins=500):
         mc_hist = np.histogram(t_samples, bins=bins, density=False)
         mc_dist = rv_histogram(mc_hist, density=True)
 
@@ -242,31 +246,7 @@ class HittingTimeEvaluator(ABC):
             mc_cdf_values = np.array([mc_dist.cdf(t) for t in self.plot_t])
             kolmogorv_distances.append(np.nanmax(cdf_values - mc_cdf_values))
 
-        print('Kolmogorov distances compared against MC histogram: \n', kolmogorv_distances)
-
-    def compare_moments_spatial(self, approaches_ls):
-        """Compare the means and standard deviations of different approaches for calculating the
-         distribution in y at the first passage time and print them to stdout.
-
-         :param approaches_ls: A list of model objects for the same process to be compared.
-         """
-        mu_y_ls = []
-        stddev_y_ls = []
-        for approach in approaches_ls:
-            hit_stats = approach.get_statistics()
-            mu_y = hit_stats['EV']
-            stddev_y = hit_stats['STDDEV']
-            print("Spatial mean of {0}: {1}".format(approach.name, round(mu_y, 6)))
-            print("Spatial stddev of {0}: {1}".format(approach.name, round(stddev_y, 6)))
-            mu_y_ls.append(mu_y)
-            stddev_y_ls.append(stddev_y)
-
-        rel_devs = np.zeros((len(approaches_ls), len(approaches_ls)))
-        for i in range(len(approaches_ls)):
-            for j in range(len(approaches_ls)):
-                rel_devs[i, j] = 100 * np.abs(stddev_y_ls[i] - stddev_y_ls[j]) / np.max([stddev_y_ls[i], stddev_y_ls[j]])
-
-        print('Pairwise relative deviations of spatial stddevs in percent: \n', np.round(rel_devs, 2))
+        logging.info('Wasserstein distances compared against MC histogram: \n{}'.format(kolmogorv_distances))
 
     def plot_sample_histogram(self, samples, x_label='Time t in s'):
         """Plot histograms of the samples from the Monte Carlo simulations.
@@ -356,6 +336,7 @@ class HittingTimeEvaluator(ABC):
         if self.save_results:
             plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_mean_and_stddev_over_time.pdf'))
             plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_mean_and_stddev_over_time.png'))
+            plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_mean_and_stddev_over_time.pgf'))
         if not self.no_show:
             plt.show()
         plt.close()
@@ -392,71 +373,7 @@ class HittingTimeEvaluator(ABC):
         if self.save_results:
             plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_ppf.pdf'))
             plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_ppf.png'))
-        if not self.no_show:
-            plt.show()
-        plt.close()
-
-    def _plot_y_at_first_hitting_time_distributions(self, ax1, y_samples, approaches_ls):
-        """Plots the distribution of y at the first passage time.
-
-        :param ax1: A plt.axis object.
-        :param y_samples: A np.array of shape [N] containing the y-position at the first passage times of the particles.
-        :param approaches_ls: A list of model objects for the same process to be compared.
-        """
-        y_hist, x_hist, _ = ax1.hist(y_samples,
-                                     bins=int(100*(max(y_samples) - min(y_samples))/(self.plot_y[-1] - self.plot_y[0])),
-                                     # we want to have 100 samples in the plot window
-                                     density=True,
-                                     histtype='stepfilled',  # no space between the bars
-                                     color=[0.8, 0.8, 0.8],
-                                     )
-        ax1.vlines(self.y_predicted, 0, 350, color='black', label="Deterministic Prediction")
-
-        ax2 = ax1.twinx()
-        for i, approach in enumerate(approaches_ls):
-            hit_stats = approach.get_statistics()
-            if 'EV' in hit_stats.keys():
-                ax2.vlines(hit_stats['EV'], 0, 1, color=self.color_cycle[i], linestyle='dashed', label=approach.name)
-                if 'STDDEV' in hit_stats.keys():
-                    ax2.vlines([hit_stats['EV'] - hit_stats['STDDEV'], hit_stats['EV'] + hit_stats['STDDEV']], 0, 1,
-                               color=self.color_cycle[i], linestyle='dashdot', label=approach.name)
-            if 'CDF' in hit_stats.keys():
-                plot_f = [hit_stats['CDF'](y) for y in self.plot_y]
-                ax2.plot(self.plot_y, plot_f, color=self.color_cycle[i], label=approach.name)
-            if 'PDF' in hit_stats.keys():
-                plot_f = [hit_stats['PDF'](y) for y in self.plot_y]
-                ax1.plot(self.plot_y, plot_f, color=self.color_cycle[i], label=approach.name)
-            if 'PDFVALUES' in hit_stats.keys():
-                ax1.plot(hit_stats['PDFVALUES'][0], hit_stats['PDFVALUES'][1], color=self.color_cycle[i], label=approach.name)
-
-        # add legend manually since it fails sometimes
-        lines =[Line2D([0], [0], color=c, linewidth=3) for c in self.color_cycle]
-        labels = [approach.name for approach in approaches_ls]
-        ax2.legend(lines, labels)
-
-        ax1.set_ylim(0, 1.4*y_hist.max())  # leave some space for labels
-        ax2.set_ylim(0, 1.05)
-        ax1.set_xlim(self.plot_y[0], self.plot_y[-1])
-        ax1.set_xlabel("Location in mm")
-        ax1.set_ylabel("PDF")
-        ax2.set_ylabel("CDF")
-
-    def plot_y_at_first_hitting_time_distributions(self, y_samples, approaches_ls):  # TODO: Die kann auch raus!, was noch?
-        """Plots the distribution of y at the first passage time.
-
-        :param y_samples: A np.array of shape [N] containing the y-position at the first passage times of the particles.
-        :param approaches_ls: A list of model objects for the same process to be compared.
-        """
-        fig, ax1 = plt.subplots()
-
-        self._plot_y_at_first_hitting_time_distributions(ax1, y_samples, approaches_ls)
-
-        if not self.for_paper:
-            plt.title("Distribution of Y at First Passage Time for " + self.process_name)
-        #plt.legend()
-        if self.save_results:
-            plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_y_at_ftp.pdf'))
-            plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_y_at_ftp.png'))
+            plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_ppf.pgf'))
         if not self.no_show:
             plt.show()
         plt.close()
@@ -569,6 +486,7 @@ class HittingTimeEvaluator(ABC):
         if self.save_results:
             plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_fptd.pdf'))
             plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_fptd.png'))
+            plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_fptd.pgf'))
         if not self.no_show:
             plt.show()
         plt.close()
@@ -602,6 +520,7 @@ class HittingTimeEvaluator(ABC):
         if self.save_results:
             plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_fptd_and_example_paths.pdf'))
             plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_fptd_and_example_paths.png'))
+            plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_fptd_and_example_paths.pgf'))
         if not self.no_show:
             plt.show()
         plt.close()
@@ -636,12 +555,16 @@ class HittingTimeEvaluator(ABC):
         ax.fill_between(mc_return_plot_t, mc_return_plot_probs_values, color=[0.8, 0.8, 0.8], label='MC simulation')  # TODO: Label, überall, für alle plots, TODO: Oder doch plot? PDF?
 
         # from cv_process import MCHittingTimeModel  # TODO
+        # from wiener_process import AnalyticHittingTimeModel
 
         for i, approach in enumerate(approaches_ls):
             hit_stats = approach.get_statistics()
             if 'ReturningProbs' in hit_stats.keys():
                 # mc_model = MCHittingTimeModel(approach.x_L, approach.C_L, approach.S_w, approach.x_predTo, approach.t_L)  # TODO
                 # plot_prob = [hit_stats['ReturningProbs'](t, mc_hitting_time_model=mc_model) for t in plot_t]
+                # analytic_model = AnalyticHittingTimeModel(approach.mu, approach.sigma, approach.x0, self.x_predTo)
+                # plot_prob = [hit_stats['ReturningProbs'](t, mc_hitting_time_model=analytic_model) for t in plot_t]
+
                 plot_prob = [hit_stats['ReturningProbs'](t) for t in plot_t]
                 ax.plot(plot_t, plot_prob, label=approach.name, color=self.color_cycle[i])
                 # ax.plot(plot_t, [approach.general_trans_density(dt=t,theta=0, x0=approach.x_L[0]).cdf(self.x_predTo) for t in plot_t], label='P < a')
@@ -651,6 +574,10 @@ class HittingTimeEvaluator(ABC):
                               color='black',
                               linestyle='dashed',
                               label=r'$t_c$')
+            if 'TrueReturningProbs' in hit_stats.keys():
+                plot_prob = [hit_stats['TrueReturningProbs'](t) for t in plot_t]
+                ax.plot(plot_t, plot_prob, label=approach.name + ' (true)', color='red', linestyle='dotted')
+
 
         # add legend manually since it fails sometimes # TODO
         # lines = [Line2D([0], [0], color=c, linewidth=3) for c in self.color_cycle]
@@ -713,7 +640,7 @@ class HittingTimeEvaluator(ABC):
             mc_return_plot_t = np.linspace(self.t_L, self.t_L + len(fraction_of_returns) * dt,
                                            num=len(fraction_of_returns),
                                            endpoint=False)
-            in_plot_range = np.logical_and(mc_return_plot_t >= plot_t[0] ,mc_return_plot_t <= plot_t[-1])
+            in_plot_range = np.logical_and(mc_return_plot_t >= plot_t[0], mc_return_plot_t <= plot_t[-1])
             return mc_return_plot_t[in_plot_range], fraction_of_returns[in_plot_range]
 
         self._plot_returning_probs(mc_hist_func, approaches_ls, t_range)
