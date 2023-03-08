@@ -1,3 +1,7 @@
+"""Sampling functions used by the MC simulation and sample plot methods.
+
+"""
+
 from absl import logging
 
 from timeit import time
@@ -14,25 +18,27 @@ def create_hitting_time_samples(initial_samples,
                                 dt=1 / 1000,
                                 break_after_n_time_steps=1000,
                                 break_min_time=None):
-    """Monte Carlo approach to solve the first passage time problem. Propagates particles through the 2D discrete-time
-    LGSSM motion model and determines their first passage at x_predTo as well as the location in y at the first passage 
-    by interpolating the positions between the last time before and the first time after the boundary.
+    """Monte Carlo approach to solve the first passage time problem. Propagates particles through the motion model and
+    determines time before arrival, and positions before and after the arrival as well as more statistics.
 
-    # TODO
+    :param initial_samples: A np.array of shape [num_samples, state_size], the initial particles samples at time step
+        t_L.
+    :param compute_x_next_func: A function propagating the samples to the next time step, i.e., the one time step
+        transition function.
     :param x_predTo: A float, position of the boundary.
     :param t_L: A float, the time of the last state/measurement (initial time).
     :param N: Integer, number of samples to use.
     :param dt: A float, time increment.
-    :param break_after_n_time_steps: None or an integer, maximum number of timesteps for the simulation.
-    :param break_min_time: TODO
+    :param break_after_n_time_steps: Integer, maximum number of time steps for the simulation.
+    :param break_min_time: A float, the time (not the time step) up to which is simulated at least.
+        (break_after_n_time_steps dominates break_min_time).
 
-    :return:
+    :returns:
         t_samples: A np.array of shape [N] containing the first passage times of the particles.
         y_samples: A np.array of shape [N] containing the y-position at the first passage times of the particles.
-        # TODO: Docstrings anpassen!
-
-    Note that particles that do not reach the boundary after break_after_n_time_steps are handled with a fallback value 
-    of max(t_samples) + 1 in the t_samples and np.nan in the y_samples.
+        fraction_of_returns: A np.array of shape[num_simulated_time_steps], the fraction in each time steps of
+            tracks that have previously reached the boundary, but then fall below the boundary until the respective
+            time step.
     """
     start_time = time.time()
     # Let the samples move to the boundary
@@ -53,13 +59,7 @@ def create_hitting_time_samples(initial_samples,
         fraction_of_returns.append(np.sum(np.logical_and(x_curr[:, 0] < x_predTo, x_term)) / N)
         
         x_next = compute_x_next_func(x_curr)
-        
-        # x_curr_tf = tf.convert_to_tensor(x_curr)
-        # x_next = tf.linalg.matvec(F, x_curr_tf).numpy()
-        # w_k = np.random.multivariate_normal(mean=mean_w, cov=Q, size=N)
-        # x_next = x_next + w_k
-        
-        # x_term[x_next[:, 0] >= x_predTo] = True
+
         first_passage = np.logical_and(np.logical_not(x_term), x_next[:, 0] >= x_predTo)
         x_term[first_passage] = True
         x_before_arrival[first_passage] = x_curr[first_passage]
@@ -75,7 +75,6 @@ def create_hitting_time_samples(initial_samples,
                 'Warning: Sampling interrupted because {}. reached. Please adjust break_after_n_time_steps if you want to move the particles more timesteps.'.format(
                     break_after_n_time_steps))
             break
-        # x_curr[np.logical_not(x_term)] = x_next[np.logical_not(x_term)]
         x_curr = x_next
         t += dt
         time_before_arrival[np.logical_not(x_term)] = t
@@ -85,8 +84,7 @@ def create_hitting_time_samples(initial_samples,
     return time_before_arrival, x_before_arrival, x_after_arrival, x_term, np.array(fraction_of_returns)
 
 
-# TODO: Hiervon werden in diesem Repo ja nur die t genutzt, die y rausschmeißen?
-def create_lgssm_hitting_time_samples(F, 
+def create_lgssm_hitting_time_samples(F,
                                       Q,
                                       x_L,
                                       C_L,
@@ -96,11 +94,12 @@ def create_lgssm_hitting_time_samples(F,
                                       dt=1 / 1000,
                                       break_after_n_time_steps=1000,
                                       break_min_time=None):
-    """Monte Carlo approach to solve the first passage time problem. Propagates particles through the 2D discrete-time
+    """Monte Carlo approach to solve the first passage time problem. Propagates particles through the discrete-time
     LGSSM motion model and determines their first passage at x_predTo as well as the location in y at the first passage 
     by interpolating the positions between the last time before and the first time after the boundary.
 
-    # TODO
+    :param F: A np.array of shape [4, 4], the transition matrix of the LGSSM.
+    :param Q: A np.array of shape [4, 4], the transition noise covariance matrix of the LGSSM.
     :param x_L: A np.array of shape [length_state] representing the expected value of the initial state. We use index L 
         here because it corresponds to the last time we see a particle in our optical belt sorting scenario.
         Format: [pos_x, ..., pos_y, ...].
@@ -109,16 +108,15 @@ def create_lgssm_hitting_time_samples(F,
     :param t_L: A float, the time of the last state/measurement (initial time).
     :param N: Integer, number of samples to use.
     :param dt: A float, time increment.
-    :param break_after_n_time_steps: None or an integer, maximum number of timesteps for the simulation.
-    :param min_time: TODO
+    :param break_min_time: A float, the time (not the time step) up to which is simulated at least.
+        (break_after_n_time_steps dominates break_min_time).
 
-    :return:
+    :returns:
         t_samples: A np.array of shape [N] containing the first passage times of the particles.
         y_samples: A np.array of shape [N] containing the y-position at the first passage times of the particles.
-        # TODO: Docstrings anpassen!
-
-    Note that particles that do not reach the boundary after break_after_n_time_steps are handled with a fallback value 
-    of max(t_samples) + 1 in the t_samples and np.nan in the y_samples.
+        fraction_of_returns: A np.array of shape[num_simulated_time_steps], the fraction in each time steps of
+            tracks that have previously reached the boundary, but then fall below the boundary until the respective
+            time step.
     """
     initial_samples = np.random.multivariate_normal(mean=x_L, cov=C_L, size=N)
     
@@ -145,28 +143,29 @@ def create_lgssm_hitting_time_samples(F,
 
 
 def get_example_tracks_lgssm(x_L, C_L, S_w, get_system_matrices_from_parameters_func):
-    """Generator that creates a function for simulation of example tracks. Used for plotting purpose only.
+    """Generator that creates a function for simulation of example tracks of LGSSMs. Used for plotting purpose only.
 
     :param x_L: A np.array of shape [4] representing the expected value of the initial state. We use index L here
         because it corresponds to the last time we see a particle in our optical belt sorting scenario.
         Format: [pos_x, vel_x, pos_y, vel_y].
     :param C_L: A np.array of shape [4, 4] representing the covariance matrix of the initial state.
     :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
-    # TODO
+    :param get_system_matrices_from_parameters_func: A function that returns the system matrices of the LGSSM.
+        Signature: f(dt, S_w), with dt a float being the time increment.
 
-    :return:
-        _get_example_tracks: A function that can be used for simulation of example tracks.
+    :returns:
+        get_example_tracks: A function that can be used for simulation of example tracks.
     """
 
-    def _get_example_tracks(plot_t, N=5):
+    def get_example_tracks(plot_t, N=5):
         """Create data (only x-positions) of some tracks.
 
-        :param plot_t: A np.array of shape [n_plot_points], point in time where a point in the plot should be displayed.
+        :param plot_t: A np.array of shape [n_plot_points], point in time, when a point in the plot should be displayed.
             Consecutive points must have the same distance.
         :param N: Integer, number of tracks to create.
 
-        :return:
-            x_tracks: A np.array of shape [num_timesteps, N] containing the x-positions of the tracks.
+        :returns:
+            x_tracks: A np.array of shape [num_time_steps, N] containing the x-positions of the tracks.
         """
         dt = plot_t[1] - plot_t[0]
         F, Q = get_system_matrices_from_parameters_func(dt, S_w)
@@ -187,4 +186,4 @@ def get_example_tracks_lgssm(x_L, C_L, S_w, get_system_matrices_from_parameters_
 
         return x_tracks
 
-    return _get_example_tracks
+    return get_example_tracks

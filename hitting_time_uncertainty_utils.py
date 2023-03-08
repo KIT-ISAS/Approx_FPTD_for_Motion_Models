@@ -1,5 +1,5 @@
-"""
-Utilities and Plot Function for First Passage Time Models.
+"""Utilities and plot function for first-passage time models.
+
 """
 import os
 import sys
@@ -51,7 +51,7 @@ class HittingTimeEvaluator(ABC):
 
         :param process_name: String, name of the process, appears in headers.
         :param x_predTo: A float, position of the boundary.
-        :param plot_t: A np.array of shape [n_plot_points], point in time where a point in the plot should be displayed.
+        :param plot_t: A np.array of shape [n_plot_points], point in time, when a point in the plot should be displayed.
         :param t_predicted: A float, the deterministic time of arrival.
         :param t_L: A float, the time of the last state/measurement (initial time).
         :param y_predicted: A float, the deterministic y-postition at the deterministic time of arrival.
@@ -188,15 +188,19 @@ class HittingTimeEvaluator(ABC):
 
         logging.info('Pairwise relative deviations of temporal skewness in percent: \n{}'.format(np.round(rel_devs, 2)))
 
-    def compare_wasserstein_distances_temporal(self, t_samples, approaches_ls, bins=500):  # TODO: Bins hochstellen, damit es nicht so wackelt?
-        """Compares the Wasserstein distance of different first passage time approaches to the MC-solution.
+    def compare_wasserstein_distances_temporal(self, t_samples, approaches_ls, bins=500):
+        """Compares the Wasserstein distance (using the euclidean distance on the feature axis) of different first
+        passage time approaches with the MC-solution.
 
         :param t_samples: A np.array of shape [N] containing the first passage times of the particles.
         :param approaches_ls: A list of first passage time model objects for the same process to be compared against the
             MC histogram.
         :param bins: An integer, the number of bins to use to represent the histogram.
         """
+        bins = int(bins * (max(t_samples) - min(t_samples)) / (
+                self.plot_t[-1] - self.plot_t[0]))
         mc_hist_values, left_edges = np.histogram(t_samples, bins=bins, density=True)
+
         hist_midpoints = (left_edges[:-1] + left_edges[:1]) / 2  # left edges also contain the righthand-most edge
         # (right edge of the last bin)
         mc_hist_values /= np.sum(mc_hist_values)  # norm them, they must sum up to one (this is only valid because bins
@@ -214,17 +218,37 @@ class HittingTimeEvaluator(ABC):
         logging.info('Wasserstein distances compared against MC histogram: \n{}'.format(wasserstein_distances))
 
     def compare_hellinger_distances_temporal(self, t_samples, approaches_ls, bins=500):
-        mc_hist_values, left_edges = np.histogram(t_samples, bins=bins, density=True)
+        """Compares the Hellinger distance of different first passage time approaches with the MC-solution.
+
+        :param t_samples: A np.array of shape [N] containing the first passage times of the particles.
+        :param approaches_ls: A list of first passage time model objects for the same process to be compared against the
+            MC histogram.
+        :param bins: An integer, the number of bins to use to represent the histogram.
+        """
+        bins = int(bins * (max(t_samples) - min(t_samples)) / (
+                self.plot_t[-1] - self.plot_t[0]))
+        mc_hist = np.histogram(t_samples, bins=bins, density=False)
+        mc_dist = rv_histogram(mc_hist, density=True)
 
         hellinger_distances = []
         for approach in approaches_ls:
             hit_stats = approach.get_statistics()
             hist_values = np.array([hit_stats['PDF'](t) for t in self.plot_t])
+            mc_hist_values = np.array([mc_dist.pdf(t) for t in self.plot_t])
             hellinger_distances.append(1 / np.sqrt(2) * np.sqrt(np.sum((np.sqrt(mc_hist_values) - np.sqrt(hist_values)) ** 2)))
 
         logging.info('Hellinger distances compared against MC histogram: \n{}'.format(hellinger_distances))
 
     def compare_first_wasserstein_distances_temporal(self, t_samples, approaches_ls, bins=500):
+        """Compares the first Wasserstein distance of different first passage time approaches with the MC-solution.
+
+        :param t_samples: A np.array of shape [N] containing the first passage times of the particles.
+        :param approaches_ls: A list of first passage time model objects for the same process to be compared against the
+            MC histogram.
+        :param bins: An integer, the number of bins to use to represent the histogram.
+        """
+        bins = int(bins * (max(t_samples) - min(t_samples)) / (
+                self.plot_t[-1] - self.plot_t[0]))
         mc_hist_values, left_edges = np.histogram(t_samples, bins=bins, density=True)
 
         wasserstein_distances = []
@@ -236,8 +260,19 @@ class HittingTimeEvaluator(ABC):
         logging.info('First Wasserstein distances compared against MC histogram: \n{}'.format(wasserstein_distances))
 
     def compare_kolmogorv_distances_temporal(self, t_samples, approaches_ls, bins=500):
+        """Compares the Kolmogorov distance of different first passage time approaches with the MC-solution.
+
+        The Kolmogorov distance is defined as the maximum deviation in CDF.
+
+        :param t_samples: A np.array of shape [N] containing the first passage times of the particles.
+        :param approaches_ls: A list of first passage time model objects for the same process to be compared against the
+            MC histogram.
+        :param bins: An integer, the number of bins to use to represent the histogram.
+        """
+        bins = int(bins * (max(t_samples) - min(t_samples)) / (
+                self.plot_t[-1] - self.plot_t[0]))
         mc_hist = np.histogram(t_samples, bins=bins, density=False)
-        mc_dist = rv_histogram(mc_hist, density=True)
+        mc_dist = rv_histogram(mc_hist, density=True)  # TODO: Das darf man hier eigentlich nicht machen! Wo darf man das auch nicht machen?
 
         kolmogorv_distances = []
         for approach in approaches_ls:
@@ -246,7 +281,7 @@ class HittingTimeEvaluator(ABC):
             mc_cdf_values = np.array([mc_dist.cdf(t) for t in self.plot_t])
             kolmogorv_distances.append(np.nanmax(cdf_values - mc_cdf_values))
 
-        logging.info('Wasserstein distances compared against MC histogram: \n{}'.format(kolmogorv_distances))
+        logging.info('Kolmogorov distances compared against MC histogram: \n{}'.format(kolmogorv_distances))
 
     def plot_sample_histogram(self, samples, x_label='Time t in s'):
         """Plot histograms of the samples from the Monte Carlo simulations.
@@ -254,7 +289,6 @@ class HittingTimeEvaluator(ABC):
         :param samples: A np.array of shape [N] containing samples.
         :param x_label: String, x_label of the plot.
         """
-
         fig, ax1 = plt.subplots(figsize=[19.20, 10.80], dpi=100)
         y_hist, x_hist, _ = ax1.hist(samples, bins=100, density=False, color=[0.8, 0.8, 0.8])
         plt.xlabel(x_label)
@@ -269,7 +303,6 @@ class HittingTimeEvaluator(ABC):
         :param N: Integer, number of tracks to plot.
         :param dt: A float, time increment between two consecutive points.
         """
-
         plot_t = np.arange(self.t_L, 1.2 * self.t_predicted, dt)
 
         x_tracks = self.get_example_tracks(plot_t, N)
@@ -297,7 +330,6 @@ class HittingTimeEvaluator(ABC):
         :param dt: A float, time increment between two consecutive points.
         :param show_example_tracks: Boolean, whether to additionally show some paths.
         """
-
         plot_t = np.arange(self.t_L, 1.2*self.t_predicted, dt)
 
         ev_x_plot = ev_fn(plot_t)
@@ -535,39 +567,25 @@ class HittingTimeEvaluator(ABC):
         :param approaches_ls: A list of first passage time model objects for the same process to be compared.
         :param t_range: None or a list of length 2, the (min, max) time for the plots.
         """
-
         if t_range is None:
             tmax = [approach.get_statistics()['t_max'] for approach in approaches_ls if
                     't_max' in approach.get_statistics().keys()]
             if len(tmax) == 0:
                 raise ValueError(
                     'If no t_range is given, at least one approach must be of class EngineeringApproxHittingTimeModel.')
-            # t_range = [self.t_predicted - 0.3*(self.t_predicted - self.t_L), 2 * tmax[0]]
             t_range = [self.t_predicted - 0.3 * (self.t_predicted - self.t_L), 10 * tmax[0]]
-        #
-        # plot_t = np.arange(t_range[0], t_range[1], 0.00001)
-        plot_t = np.arange(t_range[0], t_range[1], 0.001)
 
+        plot_t = np.arange(t_range[0], t_range[1], 0.001)
         mc_return_plot_t, mc_return_plot_probs_values = mc_hist_func(plot_t)
 
         fig, ax = plt.subplots()
-        # ax.plot(mc_return_plot_t, mc_return_plot_probs_values, color=[0.8, 0.8, 0.8], label='MC simulation')   # TODO: wieder an?
-        ax.fill_between(mc_return_plot_t, mc_return_plot_probs_values, color=[0.8, 0.8, 0.8], label='MC simulation')  # TODO: Label, überall, für alle plots, TODO: Oder doch plot? PDF?
-
-        # from cv_process import MCHittingTimeModel  # TODO
-        # from wiener_process import AnalyticHittingTimeModel
+        ax.fill_between(mc_return_plot_t, mc_return_plot_probs_values, color=[0.8, 0.8, 0.8], label='MC simulation')
 
         for i, approach in enumerate(approaches_ls):
             hit_stats = approach.get_statistics()
             if 'ReturningProbs' in hit_stats.keys():
-                # mc_model = MCHittingTimeModel(approach.x_L, approach.C_L, approach.S_w, approach.x_predTo, approach.t_L)  # TODO
-                # plot_prob = [hit_stats['ReturningProbs'](t, mc_hitting_time_model=mc_model) for t in plot_t]
-                # analytic_model = AnalyticHittingTimeModel(approach.mu, approach.sigma, approach.x0, self.x_predTo)
-                # plot_prob = [hit_stats['ReturningProbs'](t, mc_hitting_time_model=analytic_model) for t in plot_t]
-
                 plot_prob = [hit_stats['ReturningProbs'](t) for t in plot_t]
                 ax.plot(plot_t, plot_prob, label=approach.name, color=self.color_cycle[i])
-                # ax.plot(plot_t, [approach.general_trans_density(dt=t,theta=0, x0=approach.x_L[0]).cdf(self.x_predTo) for t in plot_t], label='P < a')
                 if 't_max' in hit_stats.keys():
                     ax.vlines(hit_stats['t_max'], 0,
                               1.05 * max(np.max(mc_return_plot_probs_values), np.max(plot_prob)),
@@ -578,14 +596,7 @@ class HittingTimeEvaluator(ABC):
                 plot_prob = [hit_stats['TrueReturningProbs'](t) for t in plot_t]
                 ax.plot(plot_t, plot_prob, label=approach.name + ' (true)', color='red', linestyle='dotted')
 
-
-        # add legend manually since it fails sometimes # TODO
-        # lines = [Line2D([0], [0], color=c, linewidth=3) for c in self.color_cycle]
-        # labels = [approach.name for approach in approaches_ls if 'ReturningProbs' in approach.get_statistics().keys()]
-        # ax.legend(lines, labels)
         ax.legend()
-
-        # ax.set_ylim(0, 1.05)  # leave some space for labels
         ax.set_xlim(plot_t[0], plot_t[-1])
         ax.set_xlabel("Time in s")
         ax.set_ylabel(
@@ -596,7 +607,7 @@ class HittingTimeEvaluator(ABC):
         if self.save_results:
             plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_return_probs.pdf'))
             plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_return_probs.png'))
-            plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_return_probs.pgf'))  # TODO: Das auch überall sonst hinzufügen!
+            plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_return_probs.pgf'))
         if not self.no_show:
             plt.show()
         plt.close()

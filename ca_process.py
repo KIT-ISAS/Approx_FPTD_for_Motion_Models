@@ -1,10 +1,9 @@
-'''
+"""
 ############################################ ca_process.py  ###########################################
 Authors: Marcel Reith-Braun (ISAS, marcel.reith-braun@kit.edu), Jakob Thumm
 #######################################################################################################
-Calculates approximate first passage time distributions for a constant velocity model using different
-approaches. Furthermore it provides some methods for calculating the distributions of the y-component of
-the process at the first passage, where y is orthogonal to x and indepent of the movement in x.
+Calculates approximate first passage time distributions for a constant acceleration model using different
+approaches.
 
 usage:
  - run docker container - tested with tensorflow/approx_fptd:2.8.0-gpu image:
@@ -18,7 +17,7 @@ usage:
 requirements:
   - Required tensorflow/approx_fptd:2.8.0-gpu image: See corresponding dockerfile.
   - Volume mounts: Specify a path </path/to/repo/> that points to the repo.
-'''
+"""
 
 
 from absl import logging
@@ -27,22 +26,16 @@ from absl import flags
 
 from abc import ABC, abstractmethod
 from timeit import time
-import os
 
 import matplotlib.pyplot as plt
 
 import numpy as np
-import tensorflow as tf
-
-import scipy.integrate as integrate
 from scipy.stats import norm
-from scipy.stats import uniform
-from scipy.misc import derivative
 
 from hitting_time_uncertainty_utils import HittingTimeEvaluator
 from abstract_distributions import AbstractHittingTimeModel, AbstractTaylorHittingTimeModel, \
     AbstractEngineeringApproxHittingTimeModel, AbstractMCHittingTimeModel
-from samplers import create_lgssm_hitting_time_samples, get_example_tracks_lgssm
+from sampler import create_lgssm_hitting_time_samples, get_example_tracks_lgssm
 
 
 flags.DEFINE_bool('load_samples', default=False,
@@ -194,7 +187,6 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     logging.info('Mass inside invalid region: {}'.format(
           1 - approx_model.cdf(t_predicted + approx_model.trans_dens_ppf(t_predicted)[0])))
 
-    #approaches_temp_ls = [jakob_model]
     approaches_temp_ls = [taylor_model, approx_model]
 
     # Plot the quantile functions
@@ -325,6 +317,38 @@ class CAHittingTimeModel(AbstractHittingTimeModel, ABC):
                        + 1 / 4 * self.C_L[2, 2] * (t - self.t_L) ** 4 \
                        + 1 / 20 * self.S_w * (t - self.t_L) ** 5
 
+    def trans_density(self, dt, theta):
+        """The transition density p(x(dt+theta)| x(theta) = x_predTo) from going from x_predTo at time theta to
+         x(dt+theta) at time dt+theta.
+
+         Note that in terms of the used approximation, this can be seen as the first returning time to x_predTo after
+         a crossing of x_predTo at theta.
+
+         :param dt: A float or np.array, the time difference. dt is zero at time = theta.
+         :param theta: A float or np.array, the (assumed) time at which x(theta) = x_pred_to.
+
+         :returns: The value of the transition density for the given dt and theta.
+         """
+        Phi = lambda dt: np.array([[1, dt, dt ** 2 / 2],  # TODO: Kann man die durch die get matrices ersetzen?
+                                   [0, 1, dt],
+                                   [0, 0, 1]])
+
+        Q = lambda dt: self.S_w * np.array([[pow(dt, 5) / 20, pow(dt, 4) / 8, pow(dt, 3) / 6],
+                                            [pow(dt, 4) / 8, pow(dt, 3) / 3, pow(dt, 2) / 2],
+                                            [pow(dt, 3) / 6, pow(dt, 2) / 2, dt]])
+
+        cov_theta = np.matmul(np.matmul(Phi(theta - self.t_L), self.C_L[0:3, 0:3]),
+                              np.transpose(Phi(theta - self.t_L))) + Q(theta - self.t_L)
+
+        sel_ma = np.array([[0, 0], [1, 0], [0, 1]])
+        phi_sel = np.matmul(Phi(dt), sel_ma)
+        p_theta_mu = np.array([self.x_L[1] + self.x_L[2]*(theta - self.t_L), self.x_L[2]]) \
+                     + cov_theta[1:, 0]/cov_theta[0, 0]*(self.x_predTo - self.ev_t(theta))
+        p_theta_var = cov_theta[1:, 1:] - np.outer(cov_theta[1:, 0], cov_theta[0, 1:]) / cov_theta[0, 0]
+        trans_mu = np.array([1, 0, 0]) * self.x_predTo + np.matmul(phi_sel, p_theta_mu)
+        trans_var = np.matmul(np.matmul(phi_sel, p_theta_var), np.transpose(phi_sel)) + Q(dt)
+        return norm(loc=trans_mu[0], scale=np.sqrt(trans_var[0, 0]))
+
     def get_statistics(self):
         """Get some statistics from the model as a dict."""
         hit_stats = super().get_statistics()
@@ -357,7 +381,7 @@ class TaylorHittingTimeModel(CAHittingTimeModel, AbstractTaylorHittingTimeModel)
                          t_L=t_L,
                          name=name)
 
-        # TODO: +-?
+        # TODO: +-? Was kommt hier hin?
         self._ev = t_L + - x_L[1] / x_L[2] + np.sign(x_L[2]) * \
                         np.sqrt((x_L[1] / x_L[2])**2 + 2/x_L[2]*(x_predTo-x_L[0]))
         dt_p = self._ev - t_L
@@ -382,7 +406,7 @@ class TaylorHittingTimeModel(CAHittingTimeModel, AbstractTaylorHittingTimeModel)
         return 0  # Gaussian fifth central moment
 
 
-class EngineeringApproxHittingTimeModel(CAHittingTimeModel,AbstractEngineeringApproxHittingTimeModel):
+class EngineeringApproxHittingTimeModel(CAHittingTimeModel, AbstractEngineeringApproxHittingTimeModel):
     """An approximation to the first passage time distribution using the (engineering) assumption that particles
     are unlikely to move back once they have passed the boundary.
     """
@@ -429,8 +453,8 @@ class EngineeringApproxHittingTimeModel(CAHittingTimeModel,AbstractEngineeringAp
         return np.squeeze(cdf_value)
 
     def _pdf(self, t):
-        """Derivative of self._cdf. Can be calculate from the standard Gauss pdf with an argument (x_predTo - ev(t))/sttdev(t) times
-        the derivative with respect to t of these argument (chain rule).
+        """Derivative of self._cdf. Can be calculated from the standard Gauss pdf with an argument
+        (x_predTo - ev(t))/stddev(t) times the derivative with respect to t of these argument (chain rule).
 
         :param t: A float or np.array, the time parameter of the distribution.
         """
@@ -467,17 +491,19 @@ class EngineeringApproxHittingTimeModel(CAHittingTimeModel,AbstractEngineeringAp
         return self._ppf(q)
 
     def _ppf(self, q):
-        """Approach:
+        """The quantile function / percent point function (PPF) of the first passage time distribution.
+
+        Approach:
 
               1 - q = int(N(x, mu(t), var(t)), x = -inf .. x_predTo) = PHI ( (x_predTo - mu(t)) / sqrt(var(t))
               PHI^-1(1 -q) = (x_predTo - mu(t)) / sqrt(var(t)) -> solve for t...
+
+        We solve the equation for t = t - t_L to simplify calculations and at t_L at the end of the function.
 
         :param q: A float or np.array, the confidence parameter of the distribution, 0 <= q <= 1.
         """
         if q < 0.0 or q > 1.0:
             raise ValueError('Confidence level q must be between 0 and 1.')
-
-        # We compute the ppf for t = t - t_L to simplify calculations.
 
         # Special case q = 0.5, this corresponds to the median.
         # 0 =  (x_predTo - mu(t)) / sqrt(var(t) -> x_predTo = mu(t) -> solve for t...
@@ -518,17 +544,22 @@ class EngineeringApproxHittingTimeModel(CAHittingTimeModel,AbstractEngineeringAp
     def _get_max_cdf_value_and_location(self):
         """Method that finds the maximum of the CDF of the approximation and its location.
 
-        :return:
+        :returns:
             q_max: A float, the maximum value of the CDF.
             t_q_max: A float, the time, where the CDF visits its maximum.
         """
-        A = -1/40*self.S_w*self.x_L[2]
-        B = -1/20*3*self.S_w*self.x_L[1]
-        C = 1/40*(10*self.S_w*self.x_predTo - 10*self.S_w*self.x_L[0] + 20*self.C_L[1, 2]*self.x_L[2] - 20*self.C_L[2, 2]*self.x_L[1])
-        D = 1/40*((40*self.C_L[1, 1] + 40*self.C_L[0, 2])*self.x_L[2] - 40*self.C_L[1, 2]*self.x_L[1] + 40*self.C_L[2, 2]*self.x_predTo - 40*self.C_L[2, 2]*self.x_L[0])
-        E = 1/40*(120*self.C_L[0, 1]*self.x_L[2] + 120*self.C_L[1, 2]*(self.x_predTo - self.x_L[0]))
-        F = 1/40*(80*self.C_L[0, 0]*self.x_L[2] + (80*self.C_L[1, 1] + 80*self.C_L[0, 2])*self.x_predTo + (-80*self.C_L[1, 1] - 80*self.C_L[0, 2])*self.x_L[0] + 80*self.x_L[1]*self.C_L[0, 1])
-        G = 2*self.x_predTo*self.C_L[0, 1] + 2*self.C_L[0, 0]*self.x_L[1] - 2*self.C_L[0, 1]*self.x_L[0]
+        A = -1 / 40 * self.S_w * self.x_L[2]
+        B = -1 / 20 * 3 * self.S_w * self.x_L[1]
+        C = 1 / 40 * (10 * self.S_w * self.x_predTo - 10 * self.S_w * self.x_L[0] + 20 * self.C_L[1, 2] * self.x_L[
+            2] - 20 * self.C_L[2, 2] * self.x_L[1])
+        D = 1 / 40 * (
+                    (40 * self.C_L[1, 1] + 40 * self.C_L[0, 2]) * self.x_L[2] - 40 * self.C_L[1, 2] * self.x_L[1] + 40 *
+                    self.C_L[2, 2] * self.x_predTo - 40 * self.C_L[2, 2] * self.x_L[0])
+        E = 1 / 40 * (120 * self.C_L[0, 1] * self.x_L[2] + 120 * self.C_L[1, 2] * (self.x_predTo - self.x_L[0]))
+        F = 1 / 40 * (
+                    80 * self.C_L[0, 0] * self.x_L[2] + (80 * self.C_L[1, 1] + 80 * self.C_L[0, 2]) * self.x_predTo + (
+                        -80 * self.C_L[1, 1] - 80 * self.C_L[0, 2]) * self.x_L[0] + 80 * self.x_L[1] * self.C_L[0, 1])
+        G = 2 * self.x_predTo * self.C_L[0, 1] + 2 * self.C_L[0, 0] * self.x_L[1] - 2 * self.C_L[0, 1] * self.x_L[0]
 
         roots = np.roots([A, B, C, D, E, F, G])
         real_roots = roots[np.isreal(roots)].real
@@ -536,7 +567,7 @@ class EngineeringApproxHittingTimeModel(CAHittingTimeModel,AbstractEngineeringAp
 
         # Get the CDF Value
         q_max = self._cdf(t_q_max)
-        return q_max, t_q_max
+        return q_max, t_q_max  # TODO: Muss hier nicht wieder t_l hinzugefügt werden? Siehe
 
     @property
     def third_central_moment(self):
@@ -577,54 +608,23 @@ class EngineeringApproxHittingTimeModel(CAHittingTimeModel,AbstractEngineeringAp
             # Calculating moments with integrate.quad takes much time
             # self._third_central_moment = integrate.quad(lambda t: (t - self.ev)**5 * self.pdf(t), self.ppf(0.00o05), self.ppf(0.99995))[
             #              0]  # this yields much better results
-            self._fifth_central_moment,  _, abs_dev, rel_dev = self.compute_moment(lambda t: (t - self.ev)**5)  # this yields much better results
+            self._fifth_central_moment, _, abs_dev, rel_dev = self.compute_moment(
+                lambda t: (t - self.ev) ** 5)  # this yields much better results
             logging.info('E5 integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(
                 round(1000 * (time.time() - start_time), 4), abs_dev, rel_dev))
         return self._fifth_central_moment
 
-    def trans_density(self, dt, theta):
-        """The transition density p(x(dt+theta)| x(thetha) = x_predTo) from going from x_predTo at time theta to
-         x(dt+theta) at time dt+theta.
-
-         Note that in terms of the used approximation, this can be seen as the first returning time to x_predTo after
-         a crossing of x_predTo at theta.
-
-         :param dt: A float or np.array, the time difference. dt is zero at time = theta.
-         :param theta: A float or np.array, the (assumed) time at which x(thetha) = x_pred_to.
-
-         :return: The value of the transition density for the given dt and theta.
-         """
-        Phi = lambda dt: np.array([[1, dt, dt ** 2 / 2],
-                                   [0, 1, dt],
-                                   [0, 0, 1]])
-
-        Q = lambda dt: self.S_w * np.array([[pow(dt, 5) / 20, pow(dt, 4) / 8, pow(dt, 3) / 6],
-                                            [pow(dt, 4) / 8, pow(dt, 3) / 3, pow(dt, 2) / 2],
-                                            [pow(dt, 3) / 6, pow(dt, 2) / 2, dt]])
-
-        cov_theta = np.matmul(np.matmul(Phi(theta - self.t_L), self.C_L[0:3, 0:3]),
-                              np.transpose(Phi(theta - self.t_L))) + Q(theta - self.t_L)
-
-        sel_ma = np.array([[0, 0], [1, 0], [0, 1]])
-        phi_sel = np.matmul(Phi(dt), sel_ma)
-        p_theta_mu = np.array([self.x_L[1] + self.x_L[2]*(theta - self.t_L), self.x_L[2]]) \
-                     + cov_theta[1:, 0]/cov_theta[0, 0]*(self.x_predTo - self.ev_t(theta))
-        p_theta_var = cov_theta[1:, 1:] - np.outer(cov_theta[1:, 0], cov_theta[0, 1:]) / cov_theta[0, 0]
-        trans_mu = np.array([1, 0, 0]) * self.x_predTo + np.matmul(phi_sel, p_theta_mu)
-        trans_var = np.matmul(np.matmul(phi_sel, p_theta_var), np.transpose(phi_sel)) + Q(dt)
-        return norm(loc=trans_mu[0], scale=np.sqrt(trans_var[0, 0]))
-
     def trans_dens_ppf(self, theta, q=0.9):
-        """The PPF of 1 - int ( p(x(dt+theta)| x(thetha) = x_predTo), x(dt+theta) = - infty .. x_predTo),
+        """The PPF of 1 - int ( p(x(dt+theta)| x(theta) = x_predTo), x(dt+theta) = - infty .. x_predTo),
         i.e., the inverse CDF of the event that particles are above x_predTo once they have reached it at time theta.
 
         Note that in terms of the used approximation, this can be seen as PPF of the approximate first passage
         returning time distribution w.r.t. the boundary x_pred_to.
 
-        :param theta: A float or np.array, the (assumed) time at which x(thetha) = x_pred_to.
+        :param theta: A float or np.array, the (assumed) time at which x(theta) = x_pred_to.
         :param q: A float, the desired confidence level, 0 <= q <= 1.
 
-        :return: The value of the PPF for q and theta.
+        :returns: The value of the PPF for q and theta.
         """
         Phi = lambda dt: np.array([[1, dt, dt ** 2 / 2],
                                    [0, 1, dt],
@@ -657,7 +657,7 @@ class EngineeringApproxHittingTimeModel(CAHittingTimeModel,AbstractEngineeringAp
         trans_fpt_values = np.array([1 - self.trans_density(t, theta).cdf(self.x_predTo) for t in dt])
         valid_roots = dt[np.isclose(trans_fpt_values, q)].real
         positive_roots = valid_roots[valid_roots > 0]
-        return positive_roots
+        return positive_roots  # TODO: Muss hier auch + t_l gerechnet werden? Nein, oder?
 
     def get_statistics(self):
         """Get some statistics from the model as a dict."""
@@ -670,10 +670,9 @@ class EngineeringApproxHittingTimeModel(CAHittingTimeModel,AbstractEngineeringAp
 class MCHittingTimeModel(CAHittingTimeModel, AbstractMCHittingTimeModel):
     """Wraps the histogram derived by a Monte-Carlo approach to solve the first-passage time problem to a distribution
      using scipy.stats.rv_histogram.
-
     """
 
-    def __init__(self, x_L, C_L, S_w, x_predTo, t_L, bins=100, name='MC simulation'):
+    def __init__(self, x_L, C_L, S_w, x_predTo, t_L, t_range, bins=100, name='MC simulation'):
         """Initialize the model.
 
         :param x_L: A np.array of shape [4] representing the expected value of the initial state. We use index L here
@@ -683,15 +682,18 @@ class MCHittingTimeModel(CAHittingTimeModel, AbstractMCHittingTimeModel):
         :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
         :param x_predTo: A float, position of the boundary.
         :param t_L: A float, the time of the last state/measurement (initial time).
+        :param t_range: A list of length 2 representing the limits for the first passage time histogram (the number of
+            bins within t_range will correspond to bins).
         :param bins: An integer, the number of bins to use to represent the histogram.
         :param name: String, name for the model.
         """
-        t_samples, _, _ = create_ty_ca_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L)
+        t_samples, _, _ = create_ty_ca_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L)  # TODO: Lassen wir das nun so?
         super().__init__(x_L=x_L,
                          C_L=C_L,
                          S_w=S_w,
                          x_predTo=x_predTo,
                          t_L=t_L,
+                         t_range=t_range,
                          t_samples=t_samples,
                          bins=bins,
                          name=name)
@@ -709,7 +711,7 @@ class MCHittingTimeModel(CAHittingTimeModel, AbstractMCHittingTimeModel):
     @property
     def fourth_central_moment(self):
         """The fourth central moment of the first passage time distribution."""
-        return self.fourth_moment - 4*self.ev*self.third_moment + 6*self.ev**2*self.second_moment - 3*self.ev**4
+        return self.fourth_moment - 4 * self.ev * self.third_moment + 6 * self.ev ** 2 * self.second_moment - 3 * self.ev ** 4
 
     @property
     def fourth_moment(self):
@@ -728,7 +730,7 @@ class MCHittingTimeModel(CAHittingTimeModel, AbstractMCHittingTimeModel):
 
 
 # Mean and variance of the six-dimensional process
-def mu_t(delta_t, mu_0):
+def mu_t(delta_t, mu_0):  # TODO: Das dann auch weg
     """Mean function of the 2D CA process.
 
     :param delta_t: A float, time difference.
@@ -746,6 +748,21 @@ def mu_t(delta_t, mu_0):
 
 
 def _get_system_matrices_from_parameters(dt, S_w):
+    """Returns the transition matrix (F) and the noise covariance of the transition (Q) of the model.
+
+    Both matrices can be used, e.g., to simulate the discrete-time counterpart of the model.
+
+     Assumed CA state format:
+
+        [pos_x, velo_x, acc_x, pos_y, velo_y, acc_y]
+
+    :param dt: A float, time increment.
+    :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
+
+    :returns:
+        F: A np.array of shape [6, 6], the transition matrix.
+        Q: A np.array of shape [6, 6], the transition noise covariance matrix.
+    """
     F = np.array([[1, dt, dt ** 2 / 2, 0, 0, 0], [0, 1, dt, 0, 0, 0], [0, 0, 1, 0, 0, 0],
                   [0, 0, 0, 1, dt, dt ** 2 / 2], [0, 0, 0, 0, 1, dt], [0, 0, 0, 0, 0, 1]])
     Q = S_w * np.array([[pow(dt, 5) / 20, pow(dt, 4) / 8, pow(dt, 3) / 6, 0, 0, 0],
@@ -770,6 +787,9 @@ def create_ty_ca_samples_hitting_time(x_L,
     CA motion model and determines their first passage at x_predTo as well as the location in y at the first passage by
     interpolating the positions between the last time before and the first time after the boundary.
 
+    Note that particles that do not reach the boundary after break_after_n_time_steps time steps are handled with a
+    fallback value of max(t_samples) + 1 in the t_samples and np.nan in the y_samples.
+
     :param x_L: A np.array of shape [6] representing the expected value of the initial state. We use index L here
         because it corresponds to the last time we see a particle in our optical belt sorting scenario.
         Format: [pos_x, vel_x, acc_x, pos_y, vel_y, acc_y].
@@ -780,14 +800,15 @@ def create_ty_ca_samples_hitting_time(x_L,
     :param N: Integer, number of samples to use.
     :param dt: A float, time increment.
     :param break_after_n_time_steps: Integer, maximum number of time steps for the simulation.
-    # TODO
+    :param break_min_time: A float, the time (not the time step) up to which is simulated at least.
+        (break_after_n_time_steps dominates break_min_time).
 
-    :return:
+    :returns:
         t_samples: A np.array of shape [N] containing the first passage times of the particles.
         y_samples: A np.array of shape [N] containing the y-position at the first passage times of the particles.
-
-    Note that particles that do not reach the boundary after break_after_n_time_steps time steps are handled with a
-    fallback value of max(t_samples) + 1 in the t_samples and np.nan in the y_samples.
+        fraction_of_returns: A np.array of shape[num_simulated_time_steps], the fraction in each time steps of
+            tracks that have previously reached the boundary, but then fall below the boundary until the respective
+            time step.
     """
     F, Q = _get_system_matrices_from_parameters(dt, S_w)
 
@@ -807,13 +828,15 @@ def create_ty_ca_samples_hitting_time(x_L,
     t_samples = time_before_arrival
     last_t = - x_before_arrival[x_term, 1] / x_before_arrival[x_term, 2] + np.sign(x_before_arrival[x_term, 2]) * \
              np.sqrt(
-                 (x_before_arrival[x_term, 1] / x_before_arrival[x_term, 2]) ** 2 + 2 / x_before_arrival[x_term, 2] * (x_predTo - x_before_arrival[x_term, 0]))
+                 (x_before_arrival[x_term, 1] / x_before_arrival[x_term, 2]) ** 2 + 2 / x_before_arrival[x_term, 2] * (
+                             x_predTo - x_before_arrival[x_term, 0]))
     t_samples[x_term] = time_before_arrival[x_term] + last_t
     t_samples[np.logical_not(x_term)] = int(
         max(t_samples)) + 1  # default value for particles that do not arrive
 
     y_samples = x_before_arrival[:, 3]
-    y_samples[x_term] = x_before_arrival[x_term, 3] + last_t * x_before_arrival[x_term, 4] + 1 / 2 * last_t ** 2 * x_before_arrival[x_term, 5]
+    y_samples[x_term] = x_before_arrival[x_term, 3] + last_t * x_before_arrival[x_term, 4] + 1 / 2 * last_t ** 2 * \
+                        x_before_arrival[x_term, 5]
     y_samples[np.logical_not(x_term)] = np.nan  # default value for particles that do not arrive
 
     return t_samples, y_samples, fraction_of_returns

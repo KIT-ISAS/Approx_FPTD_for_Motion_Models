@@ -1,8 +1,8 @@
-'''
+"""
 #########################################  wiener_process.py  #########################################
 Authors: Marcel Reith-Braun (ISAS, marcel.reith-braun@kit.edu), Jakob Thumm
 #######################################################################################################
-Calculates approximate first passage time distributions for a constant velocity model using different
+Calculates approximate first passage time distributions for a Wiener process with drift using different
 approaches.
 
 usage:
@@ -17,29 +17,25 @@ usage:
 requirements:
   - Required packages/tensorflow/approx_fptd:2.8.0-gpu image: See corresponding dockerfile.
   - Volume mounts: Specify a path </path/to/repo/> that points to the repo.
-'''
+"""
 
 
 from absl import logging
 from absl import app
 from absl import flags
 
-from abc import ABC, abstractmethod
-from timeit import time
-import os
-
-import matplotlib.pyplot as plt
+from abc import ABC
 
 import numpy as np
-
 import scipy.integrate as integrate
 from scipy.stats import norm, invgauss
-from scipy.misc import derivative
+
+import matplotlib.pyplot as plt
 
 from hitting_time_uncertainty_utils import HittingTimeEvaluator
 from abstract_distributions import AbstractHittingTimeModel, AbstractEngineeringApproxHittingTimeModel, \
     AbstractMCHittingTimeModel
-from samplers import create_hitting_time_samples
+from sampler import create_hitting_time_samples
 
 
 flags.DEFINE_bool('load_samples', default=False,
@@ -67,9 +63,8 @@ flags.register_validator('verbosity_level',
 
 FLAGS = flags.FLAGS
 
-b = 0  # offset for the initial variance, leave it at zero.
 
-def main(args):
+def main(args):  # TODO: Geht der auch für den normalen Wiener process?
     del args
 
     ## Setup logging
@@ -124,7 +119,7 @@ def main(args):
     # Show example tracks and visualize uncertainties over time
     hte.plot_example_tracks(N=5)
     ev_fn = lambda t: x0 + mu*t
-    var_fn = lambda t: sigma**2*t + b
+    var_fn = lambda t: sigma**2*t
     hte.plot_mean_and_stddev_over_time(ev_fn, var_fn, show_example_tracks=True)
 
     # Setup the approaches
@@ -188,7 +183,27 @@ class WienerHittingTimeModel(AbstractHittingTimeModel, ABC):
 
         :param t: A float or np.array, the time parameter of the variance function.
         """
-        return self.sigma**2*t + b
+        return self.sigma**2*t
+
+    def trans_density(self, dt, theta=None):
+        """The transition density p(x(dt+theta)| x(theta) = x_predTo) from going from x_predTo at time theta to
+        x(dt+theta) at time dt+theta.
+
+        Note that in terms of the used approximation, this can be seen as the first returning time to x_predTo after
+        a crossing of x_predTo at theta.
+
+        Depends only on the time difference dt, not on theta itself, since the Wiener process with drift is a 1D Markov
+        process.
+
+        :param dt: A float or np.array, the time difference. dt is zero at time = theta.
+        :param theta: A float or np.array, the (assumed) time at which x(theta) = x_pred_to. Not required for this
+            model.
+
+        :returns: The value of the transition density for the given dt and theta.
+        """
+        trans_mu = self.x_predTo + self.mu*dt
+        trans_var = self.sigma ** 2 * dt
+        return norm(loc=trans_mu, scale=np.sqrt(trans_var))
 
 
 class AnalyticHittingTimeModel(WienerHittingTimeModel):
@@ -252,110 +267,55 @@ class AnalyticHittingTimeModel(WienerHittingTimeModel):
         """The variance of the first passage time distribution."""
         return self._var
 
-    def trans_density(self, dt, theta=None):   # TODO: Ab hier die nächsten Methoden löschen, wenn nicht mehr gebraucht
-        """"The transition density p(x(dt+theta)| x(thetha) = x_predTo) from going from x_predTo at time theta to
-        x(dt+theta) at time dt+theta.
+    def returning_probs_integrate_quad_experimental(self, t):
+        """Calculates approximate returning probabilities using numerical integration.
 
-        Note that in terms of the used approximation, this can be seen as the first returning time to x_predTo after
-        a crossing of x_predTo at theta.
-
-        Depends on the time difference dt, not on theta since the Wiener process with drift is a 1D Markov process.
-
-        :param dt: A float or np.array, the time difference. dt is zero at time = theta.
-        :param theta: A float or np.array, the (assumed) time at which x(thetha) = x_pred_to. Not required for this
-            model.
-
-        :return: The value of the transition density for the given dt and theta.
-        """
-        trans_mu = self.x_predTo + self.mu*dt
-        trans_var = self.sigma ** 2 * dt
-        return norm(loc=trans_mu, scale=np.sqrt(trans_var))
-
-    def returning_probs(self, t, num_samples=1000, deterministic_samples=True, mc_hitting_time_model=None):  # TODO: Die Funktion funktioniert nicht richtig, hier ist (mathematisch, implementierung) was falsch
-        """Calculates approximate returning probabilities based on a numerical integration (MC integration) based on
-        samples from the approximate first passage time distribution (using inverse transform sampling).
+        EXPERIMENTAL: DOT NOT USE, MAY RETURN INCORRECT RESULTS!
 
         Approach:
 
-         P(t < T_a , x(t) < a) = int_{t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta
+         P(t < T_a , x(t) < a) = int_{-inf}^x_predTo int_{t_L}^t fptd(theta) p(x(t) | x(theta) = a) d theta d x(t) ,
 
-                               ≈ 1 / N sum_{theta_i} P(x(t) < a | x(theta_i) = a) ,  theta_i samples from the
-                                    approximation (N samples in total) in [t_L, t].
+          with theta the time, when x(theta) = a.
 
-          with theta the time where x(theta) = a.
-
-        :param t:  # TODO
-        :param num_samples: An integer, the number of samples to approximate the integral.
-        :param deterministic_samples: A Boolean, whether to use random samples (False) or deterministic samples (True).
+        :param t: A float or np.array, the time parameter of the distribution.
 
         :returns: An approximation for the probability P(t < T_a , x(t) < a), i.e., the probability that a sample path
             has crossed the boundary at a time theta < t, but is smaller than the boundary at time t.
         """
-        q_max_to_use = self.cdf(t)
+        fn = lambda x, theta: self.pdf(theta) * self.trans_density(dt=t - theta, theta=theta).pdf(x)
+        a = np.finfo(np.float64).eps if self.t_L == 0 else self.t_L
 
-        if not deterministic_samples:
-            q_samples = np.random.uniform(low=0, high=q_max_to_use, size=num_samples)
-        else:
-            # low=0, high=1, num_samples=5 -> [0.16, 0.33, 0.5, 0.67, 0.83]
-            q_samples = np.linspace(0, q_max_to_use, num=num_samples + 1, endpoint=False)[1:]  # TODO: passt das?
+        # # plot fn
+        # tt = self._ev  # for t = 3*self._ev
+        # X = np.arange(-100, 0, 0.2)  # -100 instead of -inf
+        # Y = np.arange(0, tt, 0.00001)
+        # X, Y = np.meshgrid(X, Y)
+        # Z = fn(X, Y)
+        #
+        # fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+        # ax.plot_surface(X, Y, Z)
+        # plt.show()
 
-        theta_samples = [self.ppf(q) for q in q_samples]
-        # theta_samples = [mc_hitting_time_model.ppf(q) for q in q_samples]
-
-        return np.nanmean(
-            [self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo) for theta in theta_samples])
-        # return np.nanmean(self.trans_density(dt=t - theta_samples, theta=theta_samples).cdf(self.x_predTo))  # TODO: Parallelisierung ermöglichen (scipy funktion)
-
-    def returning_probs_uniform_samples(self, t, num_samples=1000, deterministic_samples=True, mc_hitting_time_model=None):
-        """Calculates approximate returning probabilities based on a numerical integration (MC integration) based on
-        samples from a uniform distribution.
-
-        Approach:
-
-         P(t < T_a , x(t) < a) = int_{t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta
-
-                               ≈  (t - t_L) / N sum_{theta_i} FPTD(theta_i) * P(x(t) < a | x(theta_i) = a) ,  theta_i
-                                    samples from a uniform distribution (N samples in total) in [t_L, t].
-
-          with theta the time where x(theta) = a.
-
-        :param t: TODO
-        :param num_samples: An integer, the number of samples to approximate the integral.
-        :param deterministic_samples: A Boolean, whether to use random samples (False) or deterministic samples (True).
-
-        :returns: An approximation for the probability P(t < T_a , x(t) < a), i.e., the probability that a sample path
-            has crossed the boundary at a time theta < t, but is smaller than the boundary at time t.
-        """
-        if not deterministic_samples:
-            theta_samples = np.random.uniform(low=self.t_L, high=t, size=num_samples)
-        else:
-            # low=0, high=1, num_samples=5 -> [0.16, 0.33, 0.5, 0.67, 0.83]
-            theta_samples = np.linspace(self.t_L, t, num=num_samples + 1, endpoint=False)[1:]  # TODO: passt das?
-
-        # return (t - self.t_L) * np.nanmean(
-        #     [mc_hitting_time_model.pdf(theta) * self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo) for
-        #      theta in theta_samples])
-
-        return (t - self.t_L) * np.nanmean(
-            [self.pdf(theta) * self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo) for
-             theta in theta_samples])
-        # return (t - self.t_L) * np.nanmean(
-        #     self.pdf(theta_samples) * self.trans_density(dt=t - theta_samples, theta=theta_samples).cdf(self.x_predTo)) # TODO: Parallelisierung ermöglichen (scipy funktion)
-
-    def returning_probs_integrate_quad(self, t):
-        # TODO
-        fn = lambda theta: self.pdf(theta) * self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo)
-        a = np.finfo(np.float64).eps if self.t_L == 0 else self.t_L  # TODO: Braucht man das generell?
-        return integrate.quad(fn, a=a, b=t)[0]  # this is a tuple
+        return integrate.dblquad(fn, -np.inf, self.x_predTo, a, t)[0]  # this is a tuple
 
     def true_returning_probs(self, t):
+        """Return the (true) returning probabilities of the Wiener process with Drift. These are given by:
+
+            P(t < T_a , x(t) < a) =  P(t < T_a) - P(x(t) > a)
+                                  =  P(t < T_a) - (1 - P(x(t) < a))
+
+        :param t: A float or np.array, the time parameter of the distribution.
+
+        :returns: An approximation for the probability P(t < T_a , x(t) < a), i.e., the probability that a sample path
+              has crossed the boundary at a time theta < t, but is smaller than the boundary at time t.
+        """
         return self.cdf(t) + norm.cdf(self.x_predTo, loc=self.ev_t(t), scale=np.sqrt(self.var_t(t))) - 1.0
 
     def get_statistics(self):
+        """Get some statistics from the model as a dict."""
         hit_stats = super().get_statistics()
-        hit_stats.update({# 'ReturningProbs': self.returning_probs,  # do not use
-                          # 'ReturningProbs': self.returning_probs_uniform_samples,
-                          'ReturningProbs': self.returning_probs_integrate_quad,
+        hit_stats.update({#'ReturningProbs': self.returning_probs_integrate_quad_experimental,
                           'TrueReturningProbs': self.true_returning_probs,
                           })
         return hit_stats
@@ -394,8 +354,8 @@ class EngineeringApproxHittingTimeModel(WienerHittingTimeModel, AbstractEngineer
     def pdf(self, t):
         """The first passage time distribution (FPTD).
 
-        Derivative of self._cdf. Can be calculate from the standard Gauss pdf with an argument (x_predTo - ev(t))/sttdev(t) times
-        the derivative with respect to t of these argument (chain rule).
+        Derivative of self.cdf. Can be calculated from the standard Gauss pdf with an argument
+        (x_predTo - ev(t))/stddev(t) times the derivative with respect to t of these argument (chain rule).
 
         :param t: A float or np.array, the time parameter of the distribution.
         """
@@ -431,39 +391,20 @@ class EngineeringApproxHittingTimeModel(WienerHittingTimeModel, AbstractEngineer
         t = t_1 if q > 0.5 else t_2
         return t
 
-    def trans_density(self, dt, theta=None):
-        """"The transition density p(x(dt+theta)| x(thetha) = x_predTo) from going from x_predTo at time theta to
-        x(dt+theta) at time dt+theta.
-
-        Note that in terms of the used approximation, this can be seen as the first returning time to x_predTo after
-        a crossing of x_predTo at theta.
-
-        Depends on the time difference dt, not on theta since the Wiener process with drift is a 1D Markov process.
-
-        :param dt: A float or np.array, the time difference. dt is zero at time = theta.
-        :param theta: A float or np.array, the (assumed) time at which x(thetha) = x_pred_to. Not required for this
-            model.
-
-        :return: The value of the transition density for the given dt and theta.
-        """
-        trans_mu = self.x_predTo + self.mu*dt
-        trans_var = self.sigma ** 2 * dt
-        return norm(loc=trans_mu, scale=np.sqrt(trans_var))
-
     def trans_dens_ppf(self, theta=None, q=0.95):
-        """The PPF of 1 - int ( p(x(dt+theta)| x(thetha) = x_predTo), x(dt+theta) = - infty .. x_predTo),
+        """The PPF of 1 - int ( p(x(dt+theta)| x(theta) = x_predTo), x(dt+theta) = - infty .. x_predTo),
         i.e., the inverse CDF of the event that particles are above x_predTo once they have reached it at time theta.
 
         Note that in terms of the used approximation, this can be seen as PPF of the approximate first passage
         returning time distribution w.r.t. the boundary x_pred_to.
 
-        Depends on the time difference dt, not on theta since the Wiener process with drift is a 1D Markov process.
+        Depends only on q, not on theta itself, since the Wiener process with drift is a 1D Markov  process.
 
-        :param theta: A float or np.array, the (assumed) time at which x(thetha) = x_pred_to. ot required for this
+        :param theta: A float or np.array, the (assumed) time at which x(theta) = x_pred_to. ot required for this
             model.
         :param q: A float, the desired confidence level, 0 <= q <= 1.
 
-        :return: The value of the PPF for q and theta.
+        :returns: The value of the PPF for q and theta.
         """
         # t**2 + p*t + qq = 0
         qf = norm.ppf(1 - q)
@@ -475,6 +416,12 @@ class EngineeringApproxHittingTimeModel(WienerHittingTimeModel, AbstractEngineer
         return t
 
     def _get_max_cdf_value_and_location(self):
+        """Method that finds the maximum of the CDF of the approximation and its location.
+
+        :returns:
+            q_max: A float, the maximum value of the CDF.
+            t_q_max: A float, the time, when the CDF visits its maximum.
+        """
         q_max = 1  # for the Wiener model, there is no maximum of the approximation
         t_max = np.infty  # for the Wiener model, there is no maximum of the approximation
         return q_max, t_max
@@ -483,16 +430,17 @@ class EngineeringApproxHittingTimeModel(WienerHittingTimeModel, AbstractEngineer
 class MCHittingTimeModel(WienerHittingTimeModel, AbstractMCHittingTimeModel):
     """Wraps the histogram derived by a Monte-Carlo approach to solve the first-passage time problem to a distribution
      using scipy.stats.rv_histogram.
-
     """
 
-    def __init__(self, mu, sigma, x0, x_predTo, bins=100, name='MC simulation'):
+    def __init__(self, mu, sigma, x0, x_predTo, t_range, bins=100, name='MC simulation'):
         """Initialize the model.
 
         :param mu: A float, the "velocity" (drift) of the Wiener process with drift
         :param sigma: A float, the diffusion constant of the Wiener process with drift
         :param x0: A float, the starting position x(t=0) of the process.
         :param x_predTo: A float, position of the boundary.
+        :param t_range: A list of length 2 representing the limits for the first passage time histogram (the number of
+            bins within t_range will correspond to bins).
         :param bins: An integer, the number of bins to use to represent the histogram.
         :param name: String, name for the model.
         """
@@ -502,12 +450,13 @@ class MCHittingTimeModel(WienerHittingTimeModel, AbstractMCHittingTimeModel):
                                                              x_predTo,
                                                              N=500000,
                                                              dt=1 / 20000,
-                                                             break_after_n_time_steps=3000)  # TODO: Diese Werte in die Default übernehmen?
+                                                             break_after_n_time_steps=3000)  # TODO: Diese Werte in die Default der create_wiener_hitting_time samples übernehmen?, Besser gleich t_samples übergeben? Geht nicht wegen Zeitmessung (beide optionen zulassen?)
         super().__init__(mu=mu,
                          sigma=sigma,
                          x0=x0,
                          x_predTo=x_predTo,
                          t_samples=t_samples,
+                         t_range=t_range,
                          bins=bins,
                          name=name)
 
@@ -521,28 +470,32 @@ def create_wiener_samples_hitting_time(mu,
                                        dt=1 / 1000,
                                        break_after_n_time_steps=1000,
                                        break_min_time=None):
-    """Monte Carlo approach to solve the first passage time problem. Propagates particles through the process model
-    and determines their first passage at x_predTo by interpolating the positions between the last time before and
-    the first time after the boundary.
+    """Monte Carlo approach to solve the first passage time problem. Propagates particles through the discrete-time
+    process model and determines their first passage at x_predTo by interpolating the positions between the last time
+    before and the first time after the boundary.
+
+    Note that particles that do not reach the boundary after break_after_n_time_steps time steps are handled with a
+    fallback value of max(t_samples) + 1.
 
     :param mu: A float, the "velocity" (drift) of the Wiener process with drift
     :param sigma: A float, the diffusion constant of the Wiener process with drift
     :param x0: A float, the starting position x(t=0) of the process.
     :param x_predTo: A float, position of the boundary.
     :param t_L: A float, the initial time.
-    :param dt: A float, time increment.
     :param N: Integer, number of samples to use.
+    :param dt: A float, time increment.
     :param break_after_n_time_steps: Integer, maximum number of time steps for the simulation.
-    # TODO
+    :param break_min_time: A float, the time (not the time step) up to which is simulated at least.
+        (break_after_n_time_steps dominates break_min_time).
 
-    :return:
+    :returns:
         t_samples: A np.array of shape [N] containing the first passage times of the particles.
-
-    Note that particles that do not reach the boundary after break_after_n_time_steps time steps are handled with a
-    fallback value of max(t_samples) + 1.
+        y_samples: None, the y-position at the first passage times of the particles.
+        fraction_of_returns: A np.array of shape[num_simulated_time_steps], the fraction in each time steps of
+            tracks that have previously reached the boundary, but then fall below the boundary until the respective
+            time step.
     """
-    initial_samples = x0 + np.random.normal(loc=0, scale=np.sqrt(b), size=N)
-
+    initial_samples = x0 + np.random.normal(loc=0, scale=0, size=N)
 
     mu_discrete = mu * dt
     sigma_discrete = sigma *np.sqrt(dt)
@@ -585,25 +538,25 @@ def get_example_tracks(mu, sigma, x0):
     :param sigma: A float, the diffusion constant of the Wiener process with drift
     :param x0: A float, the starting position x(t=0) of the process.
 
-    :return:
+    :returns:
         _get_example_tracks: A function that can be used for simulation of example tracks.
     """
 
     def _get_example_tracks(plot_t, N=5):
         """Create data (only x-positions) of some tracks.
 
-        :param plot_t: A np.array of shape [n_plot_points], point in time where a point in the plot should be displayed.
+        :param plot_t: A np.array of shape [n_plot_points], point in time, when a point in the plot should be displayed.
             Consecutive points must have the same distance.
         :param N: Integer, number of tracks to create.
 
-        :return:
+        :returns:
             x_tracks: A np.array of shape [num_timesteps, N] containing the x-positions of the tracks.
         """
         dt = plot_t[1] - plot_t[0]
         mu_discrete = mu * dt
         sigma_discrete = sigma * np.sqrt(dt)
 
-        samples = x0 + np.random.normal(loc=0, scale=np.sqrt(b), size=N)
+        samples = x0 + np.random.normal(loc=0, scale=0, size=N)
         # Let the samples move to the nozzle array
 
         tracks = np.expand_dims(samples, axis=1)

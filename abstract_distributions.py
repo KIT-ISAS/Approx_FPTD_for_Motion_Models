@@ -1,10 +1,13 @@
+"""Abstract distribution classes used by all first-passage time distribution sub-types.
+
+"""
+
 import os
 from absl import logging
 
 from abc import ABC, abstractmethod
 
 import numpy as np
-
 from scipy.stats import norm
 from scipy.stats import rv_histogram
 import scipy.integrate as integrate
@@ -14,7 +17,7 @@ from timeit import time
 
 
 class AbstractHittingTimeModel(ABC):
-    """A base class for the hitting time models."""
+    """A base class for all the hitting time models."""
 
     def __init__(self, x_predTo, t_L, name='DefaultName'):
         """Initialize the model.
@@ -23,15 +26,26 @@ class AbstractHittingTimeModel(ABC):
         :param t_L: A float, the initial time.
         :param name: String, (default) name for the model.
         """
-        self.x_predTo = x_predTo  # TODO: private? Bei den anderen Modellen auch?
-        self.t_L = t_L
+        self._x_predTo = x_predTo
+        self._t_L = t_L
+
         self.name = name
 
         # For properties
         self._ev = None
         self._var = None
-        self._ev_third = None  # TODO: Braucht man das? Noch was ergänzen?
+        self._ev_third = None
         self._stddev = None
+
+    @property
+    def x_predTo(self):
+        """The position of the boundary."""
+        return self._x_predTo
+
+    @property
+    def t_L(self):
+        """The initial time."""
+        return self.t_L
 
     @property
     @abstractmethod
@@ -99,6 +113,105 @@ class AbstractHittingTimeModel(ABC):
         # To be overwritten by subclass
         raise NotImplementedError('Call to abstract method.')
 
+    @abstractmethod
+    def trans_density(self, dt, theta):
+        """The transition density p(x(dt+theta)| x(theta) = x_predTo) from going from x_predTo at time theta to
+        x(dt+theta) at time dt+theta.
+
+        Note that in terms of the used approximation, this can be seen as the first returning time to x_predTo after
+        a crossing of x_predTo at theta.
+
+        :param dt: A float or np.array, the time difference. dt is zero at time = theta.
+        :param theta: A float or np.array, the (assumed) time at which x(theta) = x_pred_to.
+
+        :returns: A scipy.stats.norm object, the transition density for the given dt and theta.
+        """
+        # To be overwritten by subclass
+        raise NotImplementedError('Call to abstract method.')
+
+    def returning_probs_inverse_transform_sampling_do_not_use(self, t, num_samples=1000, deterministic_samples=True):
+        """Calculates approximate returning probabilities using a numerical integration (MC integration) based on
+        samples from the approximate first passage time distribution (using inverse transform sampling).
+
+        DO NOT USE, APPROACH MAY BE NOT CORRECT!
+
+        Approach:
+
+         P(t < T_a , x(t) < a) = int_{t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta
+
+                               ≈ 1 / N sum_{theta_i} P(x(t) < a | x(theta_i) = a) ,  theta_i samples from the
+                                    approximation (N samples in total) in [t_L, t] ,
+
+          with theta the time, when x(theta) = a.
+
+        :param t: A float or np.array, the time parameter of the distribution.
+        :param num_samples: An integer, the number of samples to approximate the integral.
+        :param deterministic_samples: A Boolean, whether to use random samples (False) or deterministic samples (True).
+
+        :returns: An approximation for the probability P(t < T_a , x(t) < a), i.e., the probability that a sample path
+            has crossed the boundary at a time theta < t, but is smaller than the boundary at time t.
+        """
+        q_max_to_use = self.cdf(t)
+
+        if not deterministic_samples:
+            q_samples = np.random.uniform(low=0, high=q_max_to_use, size=num_samples)
+        else:
+            # low=0, high=1, num_samples=5 -> [0.16, 0.33, 0.5, 0.67, 0.83]
+            q_samples = np.linspace(0, q_max_to_use, num=num_samples + 1, endpoint=False)[1:]
+
+        theta_samples = [self.ppf(q) for q in q_samples]
+
+        return np.nanmean(
+            [self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo) for theta in theta_samples])
+
+    def returning_probs_uniform_samples(self, t, num_samples=100, deterministic_samples=True):
+        """Calculates approximate returning probabilities using a numerical integration (MC integration) based on
+        samples from a uniform distribution.
+
+        Approach:
+
+         P(t < T_a , x(t) < a) = int_{t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta
+
+                               ≈  (t - t_L) / N sum_{theta_i} FPTD(theta_i) * P(x(t) < a | x(theta_i) = a) ,  theta_i
+                                    samples from a uniform distribution (N samples in total) in [t_L, t] ,
+
+          with theta the time, when x(theta) = a.
+
+        :param t: A float or np.array, the time parameter of the distribution.
+        :param num_samples: An integer, the number of samples to approximate the integral.
+        :param deterministic_samples: A Boolean, whether to use random samples (False) or deterministic samples (True).
+
+        :returns: An approximation for the probability P(t < T_a , x(t) < a), i.e., the probability that a sample path
+            has crossed the boundary at a time theta < t, but is smaller than the boundary at time t.
+        """
+        if not deterministic_samples:
+            theta_samples = np.random.uniform(low=self.t_L, high=t, size=num_samples)
+        else:
+            # low=0, high=1, num_samples=5 -> [0.16, 0.33, 0.5, 0.67, 0.83]
+            theta_samples = np.linspace(self.t_L, t, num=num_samples + 1, endpoint=False)[1:]
+
+        return (t - self.t_L) * np.nanmean(
+            [self.pdf(theta) * self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo) for
+             theta in theta_samples])
+
+    def returning_probs_integrate_quad(self, t):
+        """Calculates approximate returning probabilities using numerical integration.
+
+        Approach:
+
+         P(t < T_a , x(t) < a) = int_{t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta ,
+
+          with theta the time, when x(theta) = a.
+
+        :param t: A float or np.array, the time parameter of the distribution.
+
+        :returns: An approximation for the probability P(t < T_a , x(t) < a), i.e., the probability that a sample path
+            has crossed the boundary at a time theta < t, but is smaller than the boundary at time t.
+        """
+        fn = lambda theta: self.pdf(theta) * self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo)
+        a = np.finfo(np.float64).eps if self.t_L == 0 else self.t_L
+        return integrate.quad(fn, a=a, b=t)[0]  # this is a tuple
+
     def plot_quantile_function(self, q_min=0.005, q_max=0.995, save_results=False, result_dir=None, for_paper=True):
         """Plot the quantile function.
 
@@ -132,6 +245,7 @@ class AbstractHittingTimeModel(ABC):
         hit_stats['EV'] = self.ev
         hit_stats['STDDEV'] = self.stddev
         return hit_stats
+
 
 class AbstractTaylorHittingTimeModel(AbstractHittingTimeModel, ABC):
     """A simple Gaussian approximation for the first hitting time problem using a Taylor approximation and error
@@ -193,7 +307,9 @@ class AbstractTaylorHittingTimeModel(AbstractHittingTimeModel, ABC):
 
 
 class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
-    # TODO
+    """An approximation to the first passage time distribution using the (engineering) assumption that particles
+    are unlikely to move back once they have passed the boundary.
+    """
 
     def __init__(self, x_predTo, t_L, name="No-return approx."):
         """Initialize the model.
@@ -209,42 +325,6 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
         self._q_max, self._t_max = self._get_max_cdf_value_and_location()
         self.compute_moment = self.get_numerical_moment_integrator()
 
-    @abstractmethod
-    def trans_density(self, dt, theta):
-        """"The transition density p(x(dt+theta)| x(thetha) = x_predTo) from going from x_predTo at time theta to
-        x(dt+theta) at time dt+theta.
-
-        Note that in terms of the used approximation, this can be seen as the first returning time to x_predTo after
-        a crossing of x_predTo at theta.
-
-        :param dt: A float or np.array, the time difference. dt is zero at time = theta.
-        :param theta: A float or np.array, the (assumed) time at which x(thetha) = x_pred_to.
-
-        :return: A scipy.stats.norm object, the transition density for the given dt and theta.
-        """
-        # To be overwritten by subclass
-        raise NotImplementedError('Call to abstract method.')
-
-    @abstractmethod
-    def trans_dens_ppf(self, theta, q=0.95):
-        """The PPF of 1 - int ( p(x(dt+theta)| x(thetha) = x_predTo), x(dt+theta) = - infty .. x_predTo),
-        i.e., the inverse CDF of the event that particles are above x_predTo once they have reached it at time theta.
-
-        Note that in terms of the used approximation, this can be seen as PPF of the approximate first passage
-        returning time distribution w.r.t. the boundary x_pred_to.
-
-        :param theta: A float or np.array, the (assumed) time at which x(thetha) = x_pred_to.
-        :param q: A float, the desired confidence level, 0 <= q <= 1.
-
-        :return: The value of the PPF for q and theta.
-        """
-        # To be overwritten by subclass
-        raise NotImplementedError('Call to abstract method.')
-
-    def _get_max_cdf_value_and_location(self):
-        # To be overwritten by subclass
-        raise NotImplementedError('Call to abstract method.')
-
     @property
     def ev(self):
         """The expected value of the first passage time distribution."""
@@ -255,7 +335,8 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
             # self._ev = integrate.quad(lambda t: t * self.pdf(t), self.ppf(0.0005), self.ppf(0.9995))[
             # 0]  # this is a tuple
             self._ev, _, abs_dev, rel_dev = self.compute_moment(lambda t: t)
-            logging.info('EV integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(round(1000*(time.time() - start_time), 4), abs_dev, rel_dev))
+            logging.info('EV integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(
+                round(1000 * (time.time() - start_time), 4), abs_dev, rel_dev))
         return self._ev
 
     @property
@@ -268,26 +349,57 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
             #     0]  # this yields much better results
             # self._var = self.compute_moment(lambda t: t**2) - self.ev ** 2 # don't calculate the variance in
             # # this way because it causes high numerical errors
-            self._var, _, abs_dev, rel_dev = self.compute_moment(lambda t: (t - self.ev) ** 2)  # this yields much better results
-            logging.info('Var integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(round(1000*(time.time() - start_time), 4), abs_dev, rel_dev))
+            self._var, _, abs_dev, rel_dev = self.compute_moment(
+                lambda t: (t - self.ev) ** 2)  # this yields much better results
+            logging.info('Var integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(
+                round(1000 * (time.time() - start_time), 4), abs_dev, rel_dev))
         return self._var
 
     @property
-    def q_max(self):  # TODO
+    def q_max(self):
+        """The maximum value of the CDF (may be not equal to 1)."""
         return self._q_max
 
     @property
     def t_max(self):
+        """The time, when the CDF visits its maximum (the maximum of the CDF may be not equal to 1)."""
         return self._t_max
+
+    @abstractmethod
+    def trans_dens_ppf(self, theta, q=0.95):
+        """The PPF of 1 - int ( p(x(dt+theta)| x(theta) = x_predTo), x(dt+theta) = - infty .. x_predTo),
+        i.e., the inverse CDF of the event that particles are above x_predTo once they have reached it at time theta.
+
+        Note that in terms of the used approximation, this can be seen as PPF of the approximate first passage
+        returning time distribution w.r.t. the boundary x_pred_to.
+
+        :param theta: A float or np.array, the (assumed) time at which x(theta) = x_pred_to.
+        :param q: A float, the desired confidence level, 0 <= q <= 1.
+
+        :returns: The value of the PPF for q and theta.
+        """
+        # To be overwritten by subclass
+        raise NotImplementedError('Call to abstract method.')
+
+    @abstractmethod
+    def _get_max_cdf_value_and_location(self):
+        """Method that finds the maximum of the CDF of the approximation and its location.
+
+        :returns:
+            q_max: A float, the maximum value of the CDF.
+            t_q_max: A float, the time, when the CDF visits its maximum.
+        """
+        # To be overwritten by subclass
+        raise NotImplementedError('Call to abstract method.')
 
     def get_numerical_moment_integrator(self, n=400, t_min=None, t_max=None):
         """Generator that builds a numerical integrator based on Riemann sums.
 
         :param n: Integer, number of integration points.
-        :param t_min: Integer, location of smallest integration point.
-        :param t_max:  Integer, location of largest integration point.
+        :param t_min: Integer, location of the smallest integration point.
+        :param t_max:  Integer, location of the largest integration point.
 
-        :return:
+        :returns:
             compute_moment: Function that can be used to compute the moments.
         """
         t_min = self.ppf(0.00005) if t_min is None else t_min
@@ -314,7 +426,7 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
             :param rel_tol: A float, represents the relative tolerance between lower and upper sums. If the error is
                     higher than rel_tol, the function will throw a warning.
 
-            :return:
+            :returns:
                 lower_sum: A float, the moment computed based on lower sums.
                 upper_sum: A float, the moment computed based on upper sums.
                 abs_dev: A float, the absolute difference between lower and upper sum.
@@ -343,80 +455,6 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
 
         return compute_moment
 
-    def returning_probs(self, t, num_samples=1000, deterministic_samples=True, mc_hitting_time_model=None):  # TODO: Ist wsl. nicht ganz richtig, siehe Wiener mit Drift
-        """Calculates approximate returning probabilities based on a numerical integration (MC integration) based on
-        samples from the approximate first passage time distribution (using inverse transform sampling).
-
-        Approach:
-
-         P(t < T_a , x(t) < a) = int_{t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta
-
-                               ≈ 1 / N sum_{theta_i} P(x(t) < a | x(theta_i) = a) ,  theta_i samples from the
-                                    approximation (N samples in total) in [t_L, t].
-
-          with theta the time where x(theta) = a.
-
-        :param t:  # TODO
-        :param num_samples: An integer, the number of samples to approximate the integral.
-        :param deterministic_samples: A Boolean, whether to use random samples (False) or deterministic samples (True).
-
-        :returns: An approximation for the probability P(t < T_a , x(t) < a), i.e., the probability that a sample path
-            has crossed the boundary at a time theta < t, but is smaller than the boundary at time t.
-        """
-        q_max_to_use = self.cdf(t)
-
-        if not deterministic_samples:
-            q_samples = np.random.uniform(low=0, high=q_max_to_use, size=num_samples)
-        else:
-            # low=0, high=1, num_samples=5 -> [0.16, 0.33, 0.5, 0.67, 0.83]
-            q_samples = np.linspace(0, q_max_to_use, num=num_samples + 1, endpoint=False)[1:]  # TODO: passt das?
-
-        theta_samples = [self.ppf(q) for q in q_samples]
-        # theta_samples = [mc_hitting_time_model.ppf(q) for q in q_samples]
-
-        return np.nanmean(
-            [self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo) for theta in theta_samples])
-
-    def returning_probs_uniform_samples(self, t, num_samples=100, deterministic_samples=True, mc_hitting_time_model=None):
-        """Calculates approximate returning probabilities based on a numerical integration (MC integration) based on
-        samples from a uniform distribution.
-
-        Approach:
-
-         P(t < T_a , x(t) < a) = int_{t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta
-
-                               ≈  (t - t_L) / N sum_{theta_i} FPTD(theta_i) * P(x(t) < a | x(theta_i) = a) ,  theta_i
-                                    samples from a uniform distribution (N samples in total) in [t_L, t].
-
-          with theta the time where x(theta) = a.
-
-        :param t: TODO
-        :param num_samples: An integer, the number of samples to approximate the integral.
-        :param deterministic_samples: A Boolean, whether to use random samples (False) or deterministic samples (True).
-
-        :returns: An approximation for the probability P(t < T_a , x(t) < a), i.e., the probability that a sample path
-            has crossed the boundary at a time theta < t, but is smaller than the boundary at time t.
-        """
-        if not deterministic_samples:
-            theta_samples = np.random.uniform(low=self.t_L, high=t, size=num_samples)
-        else:
-            # low=0, high=1, num_samples=5 -> [0.16, 0.33, 0.5, 0.67, 0.83]
-            theta_samples = np.linspace(self.t_L, t, num=num_samples + 1, endpoint=False)[1:]  # TODO: passt das?
-
-        # return (t - self.t_L) * np.nanmean(
-        #     [mc_hitting_time_model.pdf(theta) * self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo) for
-        #      theta in theta_samples])
-
-        return (t - self.t_L) * np.nanmean(
-            [self.pdf(theta) * self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo) for
-             theta in theta_samples])
-
-    def returning_probs_integrate_quad(self, t):
-        # TODO
-        fn = lambda theta: self.pdf(theta) * self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo)
-        a = np.finfo(np.float64).eps if self.t_L == 0 else self.t_L  # TODO: Braucht man das generell?
-        return integrate.quad(fn, a=a, b=t)[0]  # this is a tuple
-
     def plot_valid_regions(self,
                            theta=None,
                            q=0.95,
@@ -429,11 +467,10 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
         """Plot the (approximate) probabilities that the track doesn't intersect with x_predTo once it has reached
         it at time theta in dependency on the time difference dt (t = dt + theta) and theta.
 
-        Note that, because of the linear behavior of the mean and the cubic behavior of the variance, there
-        are intervals in time for which is it very unlikely (with confidence q) that the track falls below x_pred_to,
-        again. These are the desired regions of validity.
+        Note that, there are intervals in time for which is it very unlikely (with confidence q) that the track falls
+        below x_predTo again. These are the desired regions of validity.
 
-        :param theta: A float, the (assumed) time at which x(thetha) = x_pred_to.
+        :param theta: A float, the (assumed) time at which x(theta) = x_pred_to.
         :param q: A float, the desired confidence level, 0 <= q <= 1.
         :param plot_t_min: A float, the lower time value of the plot range.
         :param plot_t_max: A float, the upper time value of the plot range.
@@ -450,9 +487,11 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
             # We only plot the plot for the given theta
             plot_theta = [theta]
 
-        roots = self.trans_dens_ppf(plot_theta[0], q)  # take the first one, as it gives the largest delta t (at least in the vicinity of t_pred)
+        roots = self.trans_dens_ppf(plot_theta[0], q)  # take the first one, as it gives the largest delta t (at least
+        # in the vicinity of t_pred)
         root = roots if np.isscalar(roots) else roots[0]  # take the largest one, roots are in descending order
-        plot_t_max = plot_t_max if plot_t_max is not None else root * 1.4  # take the largest one, roots are in descending order
+        plot_t_max = plot_t_max if plot_t_max is not None else root * 1.4  # take the largest one, roots are in
+        # descending order
         plot_t = np.linspace(plot_t_min, plot_t_max, num=10000)
 
         # Compute the probability that the tracks stay above x_pred_to
@@ -518,7 +557,7 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
                           't_max': self.t_max,
                           #'ReturningProbs': self.returning_probs,  # do not use
                           # 'ReturningProbs': self.returning_probs_uniform_samples,
-                          # 'ReturningProbs': self.returning_probs_integrate_quad,
+                          'ReturningProbs': self.returning_probs_integrate_quad,
                           })
         return hit_stats
 
@@ -526,15 +565,16 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
 class AbstractMCHittingTimeModel(AbstractHittingTimeModel, ABC):
     """Wraps the histogram derived by a Monte-Carlo approach to solve the first-passage time problem to a distribution
      using scipy.stats.rv_histogram.
-
     """
 
-    def __init__(self, t_samples, x_predTo, t_L, bins=100, name="MC simulation"):
+    def __init__(self, t_samples, x_predTo, t_L, t_range, bins=100, name="MC simulation"):
         """Initialize the model.
 
-        :param t_samples: # TODO
+        :param t_samples: A np.array of shape [N] containing the first passage times of the particles.
         :param x_predTo: A float, position of the boundary.
         :param x_predTo: A float, position of the boundary.
+        :param t_range: A list of length 2 representing the limits for the first passage time histogram (the number of
+            bins within t_range will correspond to bins).
         :param bins: An integer, the number of bins to use to represent the histogram.
         :param name: String, name for the model.
         """
@@ -543,22 +583,27 @@ class AbstractMCHittingTimeModel(AbstractHittingTimeModel, ABC):
                          name=name)
 
         self._t_samples = t_samples
+
+        bins = int(bins * (max(t_samples) - min(t_samples)) / (
+                t_range[-1] - t_range[0]))
+        # we want to have 100 samples in the plot window
         hist = np.histogram(self._t_samples, bins=bins, density=False)
         self._density = rv_histogram(hist, density=True)
 
     @property
-    def t_samples(self):  # TODO
+    def t_samples(self):
+        """The first passage times of the samples paths."""
         return self._t_samples
 
     @property
     def ev(self):
         """The expected value of the first passage time distribution."""
-        return self._density.mean
+        return self._density.mean()
 
     @property
     def var(self):
         """The variance of the first passage time distribution."""
-        return self._density.var
+        return self._density.var()
 
     def pdf(self, t):
         """The first passage time distribution (FPTD).
@@ -585,7 +630,7 @@ class AbstractMCHittingTimeModel(AbstractHittingTimeModel, ABC):
         """Get some statistics from the model as a dict."""
         hit_stats = super().get_statistics()
         hit_stats.update({'PPF': self.ppf,
+                          'ReturningProbs': self.returning_probs_integrate_quad,
                           })
         return hit_stats
-
 

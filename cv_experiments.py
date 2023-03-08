@@ -1,4 +1,4 @@
-'''
+"""
 ########################################### cv_experiments.py #########################################
 Authors: Marcel Reith-Braun (ISAS, marcel.reith-braun@kit.edu), Jakob Thumm
 #######################################################################################################
@@ -17,18 +17,15 @@ usage:
 requirements:
   - Required packages/tensorflow/approx_fptd:2.8.0-gpu image: See corresponding dockerfile.
   - Volume mounts: Specify a path </path/to/repo/> that points to the repo.
-'''
-
-import os
-import json
+"""
 
 from absl import logging
 from absl import app
 from absl import flags
 
-import numpy as np
-
 from cv_process import run_experiment, measure_computation_times
+from experiments_runner import get_experiments_by_name, add_defaults, convert_to_numpy, store_config
+
 
 # Delete all FLAGS defined by CV process as we here not want them to be overwritten by the following flags.
 for name in list(flags.FLAGS):
@@ -253,19 +250,19 @@ def main(args):
     logging.set_verbosity(logging.FLAGS.verbosity_level)
 
     # define the experiments to execute by name
-    #experiments_name_list = ['Long_Track_Sw1', 'Long_Track_Sw100', 'Long_Track_Sw300']
-    # experiments_name_list = ['Long_Track_Sw1_denorm', 'Long_Track_Sw10_denorm', 'Long_Track_Sw100_denorm', 'Long_Track_Sw1_slow_denorm']
-    experiments_name_list = ['Long_Track_Sw100_denorm']
+    # experiments_name_list = ['Long_Track_Sw1', 'Long_Track_Sw100', 'Long_Track_Sw300']
+    experiments_name_list = ['Long_Track_Sw1_denorm', 'Long_Track_Sw10_denorm', 'Long_Track_Sw100_denorm', 'Long_Track_Sw1_slow_denorm']
+    # experiments_name_list = ['Long_Track_Sw100_denorm']
 
     # get the configs
-    experiments_list = get_experiments_by_name(experiments_name_list)
+    experiments_list = get_experiments_by_name(experiments_name_list, experiments_config)
 
     # add the defaults (if necessary)
-    add_defaults(experiments_list)
+    add_defaults(experiments_list, FLAGS)
 
     # run the experiments and store the configs
     for i, config in enumerate(experiments_list):
-        store_config(config)
+        store_config(config, FLAGS.save_results)
         convert_to_numpy(config)  # convert the configs entries to numpy arrays
         logging.info('Running experiment {}.'.format(config['experiment_name']))
         del config['experiment_name']  # name cannot be passed to run_experiment
@@ -275,64 +272,6 @@ def main(args):
         if FLAGS.measure_computational_times and i == 0:
             # by default, takes the first defined experiment for measuring the computational times.
             measure_computation_times(config['x_L'], config['C_L'], config['t_L'], config['S_w'],  config['x_predTo'])
-
-
-def get_experiments_by_name(names_ls):
-    """Creates a list with the experiments from experiments_config that are named in names_ls.
-
-    :param names_ls: A list of names of experiments on experiments_config that should be used for evaluations.
-
-    :return:
-        experiments_list: A list of configs for the chosen experiments.
-    """
-    experiments_list = []
-    for idx, elem in enumerate(experiments_config):
-        if elem['experiment_name'] in names_ls:
-            experiments_list.append(elem)
-    if not experiments_list:
-        raise ValueError('No experiments passed for evaluation.')
-
-    return experiments_list
-
-
-def add_defaults(experiments_list):
-    """Add defaults to the configs.
-
-    :param experiments_list: A list of configs for the chosen experiments.
-    """
-    for experiment_config in experiments_list:
-        if (FLAGS.save_samples or FLAGS.load_samples) and "save_path" not in experiment_config.keys():
-            experiment_config['save_path'] = os.path.join(FLAGS.save_dir, experiment_config['experiment_name'] + '.npz')
-            experiment_config['save_samples'] = FLAGS.save_samples
-        if FLAGS.result_dir is not None and "result_dir" not in experiment_config.keys():
-            result_dir = os.path.join(FLAGS.result_dir, experiment_config['experiment_name'])
-            if not os.path.exists(result_dir):
-                os.makedirs(result_dir)
-            experiment_config['result_dir'] = result_dir
-            experiment_config['save_results'] = FLAGS.save_results
-        if FLAGS.load_samples and "load_samples" not in experiment_config.keys():
-            experiment_config['load_samples'] = FLAGS.load_samples
-        experiment_config['no_show'] = FLAGS.no_show
-
-
-def convert_to_numpy(config):
-    """Converts list in configs to np.arrays.
-
-    :param config: A dict describing an experiment's config.
-    """
-    config['x_L'] = np.array(config['x_L'])
-    config['C_L'] = np.array(config['C_L'])
-
-
-def store_config(config):
-    """Saves the config to file.
-
-    :param config: A dict describing an experiment's config.
-    """
-    if FLAGS.save_results:
-        config_file = os.path.join(config['result_dir'], "config.json")
-        with open(config_file, 'w') as outfile:
-            json.dump(config, outfile, indent=4)
 
 
 if __name__ == "__main__":
