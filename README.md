@@ -1,6 +1,6 @@
 # Approx FPTD for Motion Models
 
-<img align="right" height="250" src="https://github.com/KIT-ISAS/Approx_FPTD_for_Motion_Models/blob/master/experiments/for_paper/Long_Track_Sw10_denorm/long_track_sw10_denorm_fptd.png">
+<img align="right" height="250" src="https://github.com/KIT-ISAS/Approx_FPTD_for_Motion_Models/blob/master/experiments/for_paper/CV_Long_Track_Sw10_denorm/cv_long_track_sw10_denorm_fptd.png">
 
 Code belonging to the paper
 
