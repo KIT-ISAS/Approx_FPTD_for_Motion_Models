@@ -1,0 +1,386 @@
+Matplotlib created a temporary config/cache directory at /tmp/matplotlib-8nj1mvlu because the default path (/.config/matplotlib) is not a writable directory; it is highly recommended to set the MPLCONFIGDIR environment variable to a writable directory, in particular to speed up the import of Matplotlib and to better support multiprocessing.
+2023-03-15 15:36:23.079100: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:936] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2023-03-15 15:36:23.083710: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:936] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2023-03-15 15:36:23.083904: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:936] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+I0315 15:36:23.084855 140152437040960 cv_experiments.py:267] Running experiment CV_Long_Track_Sw1_denorm.
+I0315 15:36:23.102138 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.074066393153267
+2023-03-15 15:36:23.103610: I tensorflow/core/platform/cpu_feature_guard.cc:151] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX2 FMA
+To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2023-03-15 15:36:23.104510: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:936] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2023-03-15 15:36:23.105288: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:936] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2023-03-15 15:36:23.108360: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:936] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2023-03-15 15:36:23.523428: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:936] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2023-03-15 15:36:23.523753: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:936] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2023-03-15 15:36:23.523959: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:936] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2023-03-15 15:36:23.524095: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1525] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 8738 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2080 Ti, pci bus id: 0000:01:00.0, compute capability: 7.5
+I0315 15:36:25.539810 140152437040960 sampler.py:83] MC time: 2442ms
+I0315 15:36:31.085102 140152437040960 cv_process.py:189] MAX CDF: 1.0 at 0.17946311067794402
+/usr/local/lib/python3.8/dist-packages/scipy/stats/_distn_infrastructure.py:2176: RuntimeWarning: invalid value encountered in double_scalars
+  x = np.asarray((x - loc)/scale, dtype=dtyp)
+I0315 15:36:38.966299 140152437040960 cv_process.py:193] tau_max: 42.57693165975945
+I0315 15:36:38.967518 140152437040960 cv_process.py:194] Mass inside invalid region: 0.0
+W0315 15:36:38.967642 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:36:38.967740 140152437040960 abstract_distributions.py:338] EV integration time: 0.1173ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+I0315 15:36:38.967837 140152437040960 abstract_distributions.py:354] Var integration time: 0.0451ms. Abs dev: 1.1299850127513492e-09, Rel. dev: 0.0005446777319804999
+W0315 15:36:38.968318 140152437040960 abstract_distributions.py:454] Relative Difference between lower and upper some is greater than 0.001. Try increasing integration points
+I0315 15:36:38.968390 140152437040960 cv_process.py:800] E3 integration time: 0.0825ms. Abs dev: 1.7728715238823756e-10, Rel. dev: 0.21247095927766277
+I0315 15:36:39.037358 140152437040960 cv_process.py:196] Approximate returning probs after a crossing until time t_max: 3.8762417778852785e-62
+I0315 15:36:43.228724 140152437040960 hitting_time_uncertainty_utils.py:146] Temporal mean of Gauß--Taylor approx.: 0.055786
+I0315 15:36:43.228873 140152437040960 hitting_time_uncertainty_utils.py:147] Temporal stddev of Gauß--Taylor approx.: 0.001433
+I0315 15:36:43.229794 140152437040960 hitting_time_uncertainty_utils.py:146] Temporal mean of No-return approx.: 0.055816
+I0315 15:36:43.229928 140152437040960 hitting_time_uncertainty_utils.py:147] Temporal stddev of No-return approx.: 0.00144
+I0315 15:36:43.230232 140152437040960 hitting_time_uncertainty_utils.py:156] Pairwise relative deviations of temporal stddevs in percent: 
+[[0.   0.46]
+ [0.46 0.  ]]
+I0315 15:36:43.230362 140152437040960 hitting_time_uncertainty_utils.py:168] Temporal skewness of Gauß--Taylor approx.: 0.0
+I0315 15:36:43.230920 140152437040960 hitting_time_uncertainty_utils.py:168] Temporal skewness of No-return approx.: 0.22009
+/mnt/hitting_time_uncertainty_utils.py:174: RuntimeWarning: invalid value encountered in double_scalars
+  rel_devs[i, j] = 100 * np.abs(skew_t_ls[i] - skew_t_ls[j]) / np.max([skew_t_ls[i], skew_t_ls[j]])
+I0315 15:36:43.231426 140152437040960 hitting_time_uncertainty_utils.py:176] Pairwise relative deviations of temporal skewness in percent: 
+[[ nan 100.]
+ [100.   0.]]
+I0315 15:36:43.577927 140152437040960 hitting_time_uncertainty_utils.py:208] Wasserstein distances compared against MC histogram (in plot range!): 
+[5.410994460980915e-05, 8.344134963565243e-06]
+I0315 15:36:43.987894 140152437040960 hitting_time_uncertainty_utils.py:232] Hellinger distances compared against MC histogram (in plot range!): 
+[13.421568308180241, 8.291809026589181]
+I0315 15:36:44.229256 140152437040960 hitting_time_uncertainty_utils.py:256] First Wasserstein distances compared against MC histogram (in plot range!): 
+[9.236658652643941, 9.196452118319467]
+I0315 15:36:45.058877 140152437040960 hitting_time_uncertainty_utils.py:281] Kolmogorov distances compared against MC histogram (in plot range!): 
+[0.010764021328709794, 0.0020059378010930384]
+I0315 15:38:49.955913 140152437040960 cv_process.py:225] Measuring computational time for cv process.
+I0315 15:38:49.968848 140152437040960 sampler.py:58] Timestep 0, x equals approx. 28.997970899810245
+I0315 15:38:51.579380 140152437040960 sampler.py:83] MC time: 1613ms
+I0315 15:38:51.660005 140152437040960 sampler.py:58] Timestep 0, x equals approx. 28.97737243631221
+I0315 15:38:53.292223 140152437040960 sampler.py:83] MC time: 1633ms
+I0315 15:38:53.372546 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.071991856294076
+I0315 15:38:54.975315 140152437040960 sampler.py:83] MC time: 1603ms
+I0315 15:38:55.055940 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.046160744329153
+I0315 15:38:56.643005 140152437040960 sampler.py:83] MC time: 1588ms
+I0315 15:38:56.723716 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.02618325637845
+I0315 15:38:58.335451 140152437040960 sampler.py:83] MC time: 1612ms
+I0315 15:38:58.415444 140152437040960 sampler.py:58] Timestep 0, x equals approx. 28.99575797881084
+I0315 15:38:59.995972 140152437040960 sampler.py:83] MC time: 1581ms
+I0315 15:39:00.076045 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.09450204411462
+I0315 15:39:01.657531 140152437040960 sampler.py:83] MC time: 1582ms
+I0315 15:39:01.737874 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.001106524562772
+I0315 15:39:03.295917 140152437040960 sampler.py:83] MC time: 1559ms
+I0315 15:39:03.376279 140152437040960 sampler.py:58] Timestep 0, x equals approx. 28.984398828248032
+I0315 15:39:04.953333 140152437040960 sampler.py:83] MC time: 1578ms
+I0315 15:39:05.033551 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.059461261311217
+I0315 15:39:06.637063 140152437040960 sampler.py:83] MC time: 1604ms
+I0315 15:39:06.708336 140152437040960 timer.py:47] Computational time pdf MC simulation (means, stddev): 1675.2123355865479ms, 20.928748191492403ms
+I0315 15:39:06.717934 140152437040960 sampler.py:58] Timestep 0, x equals approx. 28.98901374487728
+I0315 15:39:08.288242 140152437040960 sampler.py:83] MC time: 1571ms
+I0315 15:39:08.368568 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.040891685781816
+I0315 15:39:09.943874 140152437040960 sampler.py:83] MC time: 1576ms
+I0315 15:39:10.023838 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.00733262313605
+I0315 15:39:11.622203 140152437040960 sampler.py:83] MC time: 1599ms
+I0315 15:39:11.702262 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.017323811627673
+I0315 15:39:13.304403 140152437040960 sampler.py:83] MC time: 1603ms
+I0315 15:39:13.385096 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.032192562459063
+I0315 15:39:15.068555 140152437040960 sampler.py:83] MC time: 1684ms
+I0315 15:39:15.151577 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.016398177425163
+I0315 15:39:16.849745 140152437040960 sampler.py:83] MC time: 1699ms
+I0315 15:39:16.932900 140152437040960 sampler.py:58] Timestep 0, x equals approx. 28.98415808878571
+I0315 15:39:18.688180 140152437040960 sampler.py:83] MC time: 1756ms
+I0315 15:39:18.770908 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.01175779730226
+I0315 15:39:20.468207 140152437040960 sampler.py:83] MC time: 1698ms
+I0315 15:39:20.551240 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.043461118053433
+I0315 15:39:22.297532 140152437040960 sampler.py:83] MC time: 1747ms
+I0315 15:39:22.380855 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.00902287467175
+I0315 15:39:24.078547 140152437040960 sampler.py:83] MC time: 1698ms
+I0315 15:39:24.151768 140152437040960 timer.py:47] Computational time cdf MC simulation (means, stddev): 1744.3193912506104ms, 67.28104525279805ms
+I0315 15:39:24.153155 140152437040960 timer.py:47] Computational time pdf Gauß--Taylor approx. (means, stddev): 0.11453628540039062ms, 0.021304057531113408ms
+I0315 15:39:24.154343 140152437040960 timer.py:47] Computational time cdf Gauß--Taylor approx. (means, stddev): 0.10385513305664062ms, 0.011402890424754886ms
+I0315 15:39:24.172443 140152437040960 timer.py:47] Computational time pdf No-return approx. (means, stddev): 1.7958879470825195ms, 0.11307413028841377ms
+I0315 15:39:24.192946 140152437040960 timer.py:47] Computational time cdf No-return approx. (means, stddev): 2.0364999771118164ms, 0.07498664572362472ms
+I0315 15:39:24.202726 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.010445092119994
+I0315 15:39:25.978213 140152437040960 sampler.py:83] MC time: 1776ms
+I0315 15:39:26.061025 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.09112884728128
+I0315 15:39:27.812190 140152437040960 sampler.py:83] MC time: 1752ms
+I0315 15:39:27.895736 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.052744318754563
+I0315 15:39:29.679754 140152437040960 sampler.py:83] MC time: 1785ms
+I0315 15:39:29.762915 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.056057191258812
+I0315 15:39:31.547178 140152437040960 sampler.py:83] MC time: 1785ms
+I0315 15:39:31.630722 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.041349499628197
+I0315 15:39:33.409465 140152437040960 sampler.py:83] MC time: 1779ms
+I0315 15:39:33.493033 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.04717338094992
+I0315 15:39:35.298219 140152437040960 sampler.py:83] MC time: 1806ms
+I0315 15:39:35.382080 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.045947803743427
+I0315 15:39:37.162920 140152437040960 sampler.py:83] MC time: 1782ms
+I0315 15:39:37.246565 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.049887726401582
+I0315 15:39:39.033746 140152437040960 sampler.py:83] MC time: 1788ms
+I0315 15:39:39.122767 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.146364282242036
+I0315 15:39:40.849881 140152437040960 sampler.py:83] MC time: 1728ms
+I0315 15:39:40.934925 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.10589516661007
+I0315 15:39:42.665412 140152437040960 sampler.py:83] MC time: 1731ms
+I0315 15:39:42.738181 140152437040960 timer.py:47] Computational time pdf MC simulation (means, stddev): 1854.50758934021ms, 23.327665432805993ms
+I0315 15:39:42.739539 140152437040960 timer.py:47] Computational time pdf Gauß--Taylor approx. (means, stddev): 0.11572837829589844ms, 0.022689934296050585ms
+I0315 15:39:42.757933 140152437040960 timer.py:47] Computational time pdf No-return approx. (means, stddev): 1.8244743347167969ms, 0.10597517840044879ms
+I0315 15:39:42.767638 140152437040960 sampler.py:58] Timestep 0, x equals approx. 28.954713851030228
+I0315 15:39:44.518820 140152437040960 sampler.py:83] MC time: 1752ms
+I0315 15:39:44.602144 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.045422024964324
+I0315 15:39:46.362927 140152437040960 sampler.py:83] MC time: 1761ms
+I0315 15:39:46.446708 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.073887185993005
+I0315 15:39:48.236171 140152437040960 sampler.py:83] MC time: 1790ms
+I0315 15:39:48.320051 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.007462849488128
+I0315 15:39:50.150316 140152437040960 sampler.py:83] MC time: 1831ms
+I0315 15:39:50.235846 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.085245994537473
+I0315 15:39:52.029474 140152437040960 sampler.py:83] MC time: 1794ms
+I0315 15:39:52.114092 140152437040960 sampler.py:58] Timestep 0, x equals approx. 28.979671433160675
+I0315 15:39:53.954482 140152437040960 sampler.py:83] MC time: 1841ms
+I0315 15:39:54.038036 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.06737576505343
+I0315 15:39:55.837158 140152437040960 sampler.py:83] MC time: 1800ms
+I0315 15:39:55.920144 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.029605514654428
+I0315 15:39:57.672512 140152437040960 sampler.py:83] MC time: 1753ms
+I0315 15:39:57.755411 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.04311513792849
+I0315 15:39:59.503309 140152437040960 sampler.py:83] MC time: 1749ms
+I0315 15:39:59.586444 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.029809931994155
+I0315 15:40:01.387090 140152437040960 sampler.py:83] MC time: 1801ms
+I0315 15:40:01.460145 140152437040960 timer.py:47] Computational time ev MC simulation (means, stddev): 1870.205020904541ms, 31.673497965857987ms
+I0315 15:40:01.470431 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.018818553760763
+I0315 15:40:03.263647 140152437040960 sampler.py:83] MC time: 1794ms
+I0315 15:40:03.346687 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.006370945593726
+I0315 15:40:05.076021 140152437040960 sampler.py:83] MC time: 1730ms
+I0315 15:40:05.159650 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.075295997948793
+I0315 15:40:06.966656 140152437040960 sampler.py:83] MC time: 1808ms
+I0315 15:40:07.050112 140152437040960 sampler.py:58] Timestep 0, x equals approx. 28.974743186714463
+I0315 15:40:08.850464 140152437040960 sampler.py:83] MC time: 1801ms
+I0315 15:40:08.934803 140152437040960 sampler.py:58] Timestep 0, x equals approx. 28.949254165561875
+I0315 15:40:10.728076 140152437040960 sampler.py:83] MC time: 1794ms
+I0315 15:40:10.811312 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.033796655197772
+I0315 15:40:12.535337 140152437040960 sampler.py:83] MC time: 1725ms
+I0315 15:40:12.618531 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.015793328831666
+I0315 15:40:14.432266 140152437040960 sampler.py:83] MC time: 1814ms
+I0315 15:40:14.507990 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.13590437103839
+I0315 15:40:15.598931 140152437040960 sampler.py:83] MC time: 1091ms
+I0315 15:40:15.647174 140152437040960 sampler.py:58] Timestep 0, x equals approx. 28.96724224996832
+I0315 15:40:17.147447 140152437040960 sampler.py:83] MC time: 1501ms
+I0315 15:40:17.231389 140152437040960 sampler.py:58] Timestep 0, x equals approx. 28.998016481232273
+I0315 15:40:19.063111 140152437040960 sampler.py:83] MC time: 1832ms
+I0315 15:40:19.136282 140152437040960 timer.py:47] Computational time var MC simulation (means, stddev): 1767.5927639007568ms, 222.77748325943156ms
+I0315 15:40:19.136588 140152437040960 timer.py:47] Computational time ev Gauß--Taylor approx. (means, stddev): 0.011730194091796875ms, 0.0043018534894071715ms
+I0315 15:40:19.136837 140152437040960 timer.py:47] Computational time var Gauß--Taylor approx. (means, stddev): 0.011014938354492188ms, 0.002684300984389795ms
+W0315 15:40:19.138917 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.139000 140152437040960 abstract_distributions.py:338] EV integration time: 0.0896ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+W0315 15:40:19.140907 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.140988 140152437040960 abstract_distributions.py:338] EV integration time: 0.0858ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+W0315 15:40:19.142842 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.142923 140152437040960 abstract_distributions.py:338] EV integration time: 0.0854ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+W0315 15:40:19.144674 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.144732 140152437040960 abstract_distributions.py:338] EV integration time: 0.0639ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+W0315 15:40:19.146444 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.146499 140152437040960 abstract_distributions.py:338] EV integration time: 0.0615ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+W0315 15:40:19.148115 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.148170 140152437040960 abstract_distributions.py:338] EV integration time: 0.061ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+W0315 15:40:19.149783 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.149844 140152437040960 abstract_distributions.py:338] EV integration time: 0.0665ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+W0315 15:40:19.151462 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.151517 140152437040960 abstract_distributions.py:338] EV integration time: 0.061ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+W0315 15:40:19.153102 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.153157 140152437040960 abstract_distributions.py:338] EV integration time: 0.0615ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+W0315 15:40:19.154740 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.154794 140152437040960 abstract_distributions.py:338] EV integration time: 0.0606ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+I0315 15:40:19.154902 140152437040960 timer.py:47] Computational time ev No-return approx. (means, stddev): 1.7917871475219727ms, 0.16715397356148926ms
+W0315 15:40:19.156453 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.156506 140152437040960 abstract_distributions.py:338] EV integration time: 0.0598ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+I0315 15:40:19.156567 140152437040960 abstract_distributions.py:354] Var integration time: 0.1247ms. Abs dev: 1.1299850127513492e-09, Rel. dev: 0.0005446777319804999
+W0315 15:40:19.158294 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.158350 140152437040960 abstract_distributions.py:338] EV integration time: 0.0618ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+I0315 15:40:19.158413 140152437040960 abstract_distributions.py:354] Var integration time: 0.1273ms. Abs dev: 1.1299850127513492e-09, Rel. dev: 0.0005446777319804999
+W0315 15:40:19.160076 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.160145 140152437040960 abstract_distributions.py:338] EV integration time: 0.0741ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+I0315 15:40:19.160241 140152437040960 abstract_distributions.py:354] Var integration time: 0.1731ms. Abs dev: 1.1299850127513492e-09, Rel. dev: 0.0005446777319804999
+W0315 15:40:19.161910 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.161963 140152437040960 abstract_distributions.py:338] EV integration time: 0.0861ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+I0315 15:40:19.162039 140152437040960 abstract_distributions.py:354] Var integration time: 0.164ms. Abs dev: 1.1299850127513492e-09, Rel. dev: 0.0005446777319804999
+W0315 15:40:19.163625 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.163694 140152437040960 abstract_distributions.py:338] EV integration time: 0.0746ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+I0315 15:40:19.163786 140152437040960 abstract_distributions.py:354] Var integration time: 0.1557ms. Abs dev: 1.1299850127513492e-09, Rel. dev: 0.0005446777319804999
+W0315 15:40:19.165558 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.165611 140152437040960 abstract_distributions.py:338] EV integration time: 0.0591ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+I0315 15:40:19.165687 140152437040960 abstract_distributions.py:354] Var integration time: 0.1364ms. Abs dev: 1.1299850127513492e-09, Rel. dev: 0.0005446777319804999
+W0315 15:40:19.167290 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.167374 140152437040960 abstract_distributions.py:338] EV integration time: 0.0734ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+I0315 15:40:19.167474 140152437040960 abstract_distributions.py:354] Var integration time: 0.1907ms. Abs dev: 1.1299850127513492e-09, Rel. dev: 0.0005446777319804999
+W0315 15:40:19.169141 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.169230 140152437040960 abstract_distributions.py:338] EV integration time: 0.0606ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+I0315 15:40:19.169341 140152437040960 abstract_distributions.py:354] Var integration time: 0.2074ms. Abs dev: 1.1299850127513492e-09, Rel. dev: 0.0005446777319804999
+W0315 15:40:19.171054 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.171107 140152437040960 abstract_distributions.py:338] EV integration time: 0.0582ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+I0315 15:40:19.171211 140152437040960 abstract_distributions.py:354] Var integration time: 0.1647ms. Abs dev: 1.1299850127513492e-09, Rel. dev: 0.0005446777319804999
+W0315 15:40:19.173023 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:40:19.173092 140152437040960 abstract_distributions.py:338] EV integration time: 0.0751ms. Abs dev: 2.8492210337086044e-05, Rel. dev: 0.0005102035139845137
+I0315 15:40:19.173180 140152437040960 abstract_distributions.py:354] Var integration time: 0.1378ms. Abs dev: 1.1299850127513492e-09, Rel. dev: 0.0005446777319804999
+I0315 15:40:19.173349 140152437040960 timer.py:47] Computational time var No-return approx. (means, stddev): 1.8288612365722656ms, 0.08534398101765328ms
+I0315 15:40:19.173620 140152437040960 cv_experiments.py:267] Running experiment CV_Long_Track_Sw10_denorm.
+I0315 15:40:19.183616 140152437040960 sampler.py:58] Timestep 0, x equals approx. 28.975042395137102
+I0315 15:40:21.738607 140152437040960 sampler.py:83] MC time: 2556ms
+I0315 15:40:22.658179 140152437040960 cv_process.py:189] MAX CDF: 0.9999999813699927 at 0.16864844359769518
+/usr/local/lib/python3.8/dist-packages/scipy/stats/_distn_infrastructure.py:2176: RuntimeWarning: invalid value encountered in double_scalars
+  x = np.asarray((x - loc)/scale, dtype=dtyp)
+I0315 15:40:29.312770 140152437040960 cv_process.py:193] tau_max: 4.219888175774857
+I0315 15:40:29.314098 140152437040960 cv_process.py:194] Mass inside invalid region: 1.863000731461284e-08
+W0315 15:40:29.314193 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+W0315 15:40:29.314271 140152437040960 abstract_distributions.py:454] Relative Difference between lower and upper some is greater than 0.001. Try increasing integration points
+I0315 15:40:29.314388 140152437040960 abstract_distributions.py:338] EV integration time: 0.1748ms. Abs dev: 9.822888143674186e-05, Rel. dev: 0.0017458087842601713
+I0315 15:40:29.314504 140152437040960 abstract_distributions.py:354] Var integration time: 0.0257ms. Abs dev: 1.0753439004984095e-08, Rel. dev: 0.0006188406664718165
+W0315 15:40:29.315012 140152437040960 abstract_distributions.py:454] Relative Difference between lower and upper some is greater than 0.001. Try increasing integration points
+I0315 15:40:29.315072 140152437040960 cv_process.py:800] E3 integration time: 0.0849ms. Abs dev: 5.119149405600806e-09, Rel. dev: 0.0897832108113448
+I0315 15:40:29.381903 140152437040960 cv_process.py:196] Approximate returning probs after a crossing until time t_max: 1.6587701193905343e-08
+I0315 15:40:30.359842 140152437040960 hitting_time_uncertainty_utils.py:146] Temporal mean of Gauß--Taylor approx.: 0.055786
+I0315 15:40:30.360038 140152437040960 hitting_time_uncertainty_utils.py:147] Temporal stddev of Gauß--Taylor approx.: 0.00395
+I0315 15:40:30.360725 140152437040960 hitting_time_uncertainty_utils.py:146] Temporal mean of No-return approx.: 0.056167
+I0315 15:40:30.360805 140152437040960 hitting_time_uncertainty_utils.py:147] Temporal stddev of No-return approx.: 0.004167
+I0315 15:40:30.361118 140152437040960 hitting_time_uncertainty_utils.py:156] Pairwise relative deviations of temporal stddevs in percent: 
+[[0.   5.21]
+ [5.21 0.  ]]
+I0315 15:40:30.361253 140152437040960 hitting_time_uncertainty_utils.py:168] Temporal skewness of Gauß--Taylor approx.: 0.0
+I0315 15:40:30.361719 140152437040960 hitting_time_uncertainty_utils.py:168] Temporal skewness of No-return approx.: 0.71713
+/mnt/hitting_time_uncertainty_utils.py:174: RuntimeWarning: invalid value encountered in double_scalars
+  rel_devs[i, j] = 100 * np.abs(skew_t_ls[i] - skew_t_ls[j]) / np.max([skew_t_ls[i], skew_t_ls[j]])
+I0315 15:40:30.362082 140152437040960 hitting_time_uncertainty_utils.py:176] Pairwise relative deviations of temporal skewness in percent: 
+[[ nan 100.]
+ [100.   0.]]
+I0315 15:40:31.606542 140152437040960 hitting_time_uncertainty_utils.py:208] Wasserstein distances compared against MC histogram (in plot range!): 
+[0.0004539120905987219, 3.052430924285067e-05]
+I0315 15:40:32.937286 140152437040960 hitting_time_uncertainty_utils.py:232] Hellinger distances compared against MC histogram (in plot range!): 
+[30.998873465755313, 7.6619739529926445]
+I0315 15:40:33.727351 140152437040960 hitting_time_uncertainty_utils.py:256] First Wasserstein distances compared against MC histogram (in plot range!): 
+[4.654008001828358, 4.524292210935829]
+I0315 15:40:36.437969 140152437040960 hitting_time_uncertainty_utils.py:281] Kolmogorov distances compared against MC histogram (in plot range!): 
+[0.03258918704611602, 0.0025401804724182464]
+I0315 15:42:37.265209 140152437040960 cv_experiments.py:267] Running experiment CV_Long_Track_Sw100_denorm.
+I0315 15:42:37.278649 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.00472084257155
+I0315 15:42:39.927423 140152437040960 sampler.py:58] Timestep 100, x equals approx. 100.30852705555898
+I0315 15:42:42.530845 140152437040960 sampler.py:58] Timestep 200, x equals approx. 122.36546703496579
+I0315 15:42:45.198636 140152437040960 sampler.py:58] Timestep 300, x equals approx. -81.43633645859923
+I0315 15:42:47.854422 140152437040960 sampler.py:58] Timestep 400, x equals approx. -344.50906150173836
+I0315 15:42:50.499114 140152437040960 sampler.py:58] Timestep 500, x equals approx. -662.3689688217607
+I0315 15:42:53.259306 140152437040960 sampler.py:58] Timestep 600, x equals approx. -978.3134493026274
+I0315 15:42:55.973336 140152437040960 sampler.py:58] Timestep 700, x equals approx. -1205.6019860618267
+I0315 15:42:58.569226 140152437040960 sampler.py:58] Timestep 800, x equals approx. -1307.5258034722606
+I0315 15:43:01.316481 140152437040960 sampler.py:58] Timestep 900, x equals approx. -1244.1314346372703
+I0315 15:43:04.219366 140152437040960 sampler.py:58] Timestep 1000, x equals approx. -1117.7941655547932
+I0315 15:43:04.247548 140152437040960 sampler.py:74] Warning: Sampling interrupted because 1000. reached. Please adjust break_after_n_time_steps if you want to move the particles more timesteps.
+I0315 15:43:04.247773 140152437040960 sampler.py:83] MC time: 26971ms
+W0315 15:43:05.505532 140152437040960 cv_process.py:530] No-return approx. does not seem to be applicable as max. confidence 0.71 < 0.95.
+I0315 15:43:05.514071 140152437040960 cv_process.py:189] MAX CDF: 0.7099935535007976 at 0.16737170878774763
+/usr/local/lib/python3.8/dist-packages/scipy/stats/_distn_infrastructure.py:2176: RuntimeWarning: invalid value encountered in double_scalars
+  x = np.asarray((x - loc)/scale, dtype=dtyp)
+I0315 15:43:13.204248 140152437040960 cv_process.py:193] tau_max: 0.0007773369258567273
+I0315 15:43:13.205440 140152437040960 cv_process.py:194] Mass inside invalid region: 0.4921736295119491
+W0315 15:43:13.205575 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+W0315 15:43:13.205639 140152437040960 abstract_distributions.py:454] Relative Difference between lower and upper some is greater than 0.001. Try increasing integration points
+I0315 15:43:13.205733 140152437040960 abstract_distributions.py:338] EV integration time: 0.2098ms. Abs dev: 0.00025983988588196977, Rel. dev: 0.007131629262088699
+W0315 15:43:13.205823 140152437040960 abstract_distributions.py:454] Relative Difference between lower and upper some is greater than 0.001. Try increasing integration points
+I0315 15:43:13.205914 140152437040960 abstract_distributions.py:354] Var integration time: 0.1135ms. Abs dev: 7.77584486697392e-06, Rel. dev: 0.016465990538443782
+W0315 15:43:13.206197 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.75. Computed values may be wrong.
+W0315 15:43:13.206455 140152437040960 abstract_distributions.py:454] Relative Difference between lower and upper some is greater than 0.001. Try increasing integration points
+I0315 15:43:13.206513 140152437040960 cv_process.py:800] E3 integration time: 0.097ms. Abs dev: 5.142306221965332e-07, Rel. dev: 0.018877820764441736
+I0315 15:43:13.272238 140152437040960 cv_process.py:196] Approximate returning probs after a crossing until time t_max: 0.10718298076335356
+W0315 15:43:13.317590 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.75. Computed values may be wrong.
+W0315 15:43:13.327793 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.715. Computed values may be wrong.
+W0315 15:43:13.328070 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.725. Computed values may be wrong.
+W0315 15:43:13.328386 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.735. Computed values may be wrong.
+W0315 15:43:13.328660 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.745. Computed values may be wrong.
+W0315 15:43:13.328928 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.755. Computed values may be wrong.
+W0315 15:43:13.329235 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.765. Computed values may be wrong.
+W0315 15:43:13.329612 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.775. Computed values may be wrong.
+W0315 15:43:13.329896 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.785. Computed values may be wrong.
+W0315 15:43:13.330149 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.795. Computed values may be wrong.
+W0315 15:43:13.330457 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.805. Computed values may be wrong.
+W0315 15:43:13.330759 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.815. Computed values may be wrong.
+W0315 15:43:13.331011 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.825. Computed values may be wrong.
+W0315 15:43:13.331226 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.835. Computed values may be wrong.
+W0315 15:43:13.331485 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.845. Computed values may be wrong.
+W0315 15:43:13.331766 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.855. Computed values may be wrong.
+W0315 15:43:13.332114 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.865. Computed values may be wrong.
+W0315 15:43:13.332433 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.875. Computed values may be wrong.
+W0315 15:43:13.332742 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.885. Computed values may be wrong.
+W0315 15:43:13.332970 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.895. Computed values may be wrong.
+W0315 15:43:13.333198 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.905. Computed values may be wrong.
+W0315 15:43:13.333560 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.915. Computed values may be wrong.
+W0315 15:43:13.333794 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.925. Computed values may be wrong.
+W0315 15:43:13.334112 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.935. Computed values may be wrong.
+W0315 15:43:13.334408 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.945. Computed values may be wrong.
+W0315 15:43:13.334773 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.955. Computed values may be wrong.
+W0315 15:43:13.335047 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.965. Computed values may be wrong.
+W0315 15:43:13.335318 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.975. Computed values may be wrong.
+W0315 15:43:13.335634 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.985. Computed values may be wrong.
+I0315 15:43:14.255763 140152437040960 hitting_time_uncertainty_utils.py:146] Temporal mean of Gauß--Taylor approx.: 0.055786
+I0315 15:43:14.255947 140152437040960 hitting_time_uncertainty_utils.py:147] Temporal stddev of Gauß--Taylor approx.: 0.038808
+W0315 15:43:14.256487 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.75. Computed values may be wrong.
+I0315 15:43:14.256835 140152437040960 hitting_time_uncertainty_utils.py:146] Temporal mean of No-return approx.: 0.036175
+I0315 15:43:14.256940 140152437040960 hitting_time_uncertainty_utils.py:147] Temporal stddev of No-return approx.: 0.021551
+I0315 15:43:14.257344 140152437040960 hitting_time_uncertainty_utils.py:156] Pairwise relative deviations of temporal stddevs in percent: 
+[[ 0.   44.47]
+ [44.47  0.  ]]
+I0315 15:43:14.257431 140152437040960 hitting_time_uncertainty_utils.py:168] Temporal skewness of Gauß--Taylor approx.: 0.0
+W0315 15:43:14.257756 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.75. Computed values may be wrong.
+I0315 15:43:14.258045 140152437040960 hitting_time_uncertainty_utils.py:168] Temporal skewness of No-return approx.: 2.669965
+/mnt/hitting_time_uncertainty_utils.py:174: RuntimeWarning: invalid value encountered in double_scalars
+  rel_devs[i, j] = 100 * np.abs(skew_t_ls[i] - skew_t_ls[j]) / np.max([skew_t_ls[i], skew_t_ls[j]])
+I0315 15:43:14.258462 140152437040960 hitting_time_uncertainty_utils.py:176] Pairwise relative deviations of temporal skewness in percent: 
+[[ nan 100.]
+ [100.   0.]]
+RESULT MIGHT BE INACURATE
+Max number of iteration reached, currently 100000. Sometimes iterations go on in cycle even though the solution has been reached, to check if it's the case here have a look at the minimal reduced cost. If it is very close to machine precision, you might actually have the correct solution, if not try setting the maximum number of iterations a bit higher
+/usr/local/lib/python3.8/dist-packages/ot/lp/__init__.py:547: UserWarning: numItermax reached before optimality. Try to increase numItermax.
+  check_result(result_code)
+W0315 15:43:23.097420 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.75. Computed values may be wrong.
+RESULT MIGHT BE INACURATE
+Max number of iteration reached, currently 100000. Sometimes iterations go on in cycle even though the solution has been reached, to check if it's the case here have a look at the minimal reduced cost. If it is very close to machine precision, you might actually have the correct solution, if not try setting the maximum number of iterations a bit higher
+I0315 15:43:31.668167 140152437040960 hitting_time_uncertainty_utils.py:208] Wasserstein distances compared against MC histogram (in plot range!): 
+[0.007990114735230066, 0.01192292662328373]
+W0315 15:43:35.166735 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.75. Computed values may be wrong.
+I0315 15:43:39.878227 140152437040960 hitting_time_uncertainty_utils.py:232] Hellinger distances compared against MC histogram (in plot range!): 
+[108.12276974782236, 48.49964266419187]
+W0315 15:43:41.707663 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.75. Computed values may be wrong.
+I0315 15:43:44.760092 140152437040960 hitting_time_uncertainty_utils.py:256] First Wasserstein distances compared against MC histogram (in plot range!): 
+[3.5172309307085787, 2.456550205303588]
+W0315 15:43:48.068217 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.75. Computed values may be wrong.
+I0315 15:44:01.909691 140152437040960 hitting_time_uncertainty_utils.py:281] Kolmogorov distances compared against MC histogram (in plot range!): 
+[0.234321088631412, 0.09195360699125688]
+W0315 15:44:05.534718 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.75. Computed values may be wrong.
+W0315 15:44:37.732174 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.75. Computed values may be wrong.
+W0315 15:45:06.461266 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.75. Computed values may be wrong.
+W0315 15:45:06.461809 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.75. Computed values may be wrong.
+W0315 15:45:06.497565 140152437040960 cv_process.py:580] Approximation yields a maximum confidence of 0.71, which is lower than the desired confidence level of 0.75. Computed values may be wrong.
+I0315 15:46:53.084329 140152437040960 cv_experiments.py:267] Running experiment CV_Long_Track_Sw1_slow_denorm.
+I0315 15:46:53.099199 140152437040960 sampler.py:58] Timestep 0, x equals approx. 29.01398561228416
+I0315 15:46:55.658581 140152437040960 sampler.py:58] Timestep 100, x equals approx. 68.27943478797285
+I0315 15:46:55.916346 140152437040960 sampler.py:83] MC time: 2821ms
+I0315 15:46:57.276782 140152437040960 cv_process.py:189] MAX CDF: 1.0 at 0.2630900735311338
+/usr/local/lib/python3.8/dist-packages/scipy/stats/_distn_infrastructure.py:2176: RuntimeWarning: invalid value encountered in double_scalars
+  x = np.asarray((x - loc)/scale, dtype=dtyp)
+I0315 15:47:02.632950 140152437040960 cv_process.py:193] tau_max: 18.878804189504283
+I0315 15:47:02.634073 140152437040960 cv_process.py:194] Mass inside invalid region: 0.0
+W0315 15:47:02.634184 140152437040960 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+I0315 15:47:02.634243 140152437040960 abstract_distributions.py:338] EV integration time: 0.0916ms. Abs dev: 7.868393016462194e-05, Rel. dev: 0.0009373356933343268
+I0315 15:47:02.634321 140152437040960 abstract_distributions.py:354] Var integration time: 0.0238ms. Abs dev: 7.51168630863315e-09, Rel. dev: 0.0005145458967905257
+W0315 15:47:02.634774 140152437040960 abstract_distributions.py:454] Relative Difference between lower and upper some is greater than 0.001. Try increasing integration points
+I0315 15:47:02.634835 140152437040960 cv_process.py:800] E3 integration time: 0.0863ms. Abs dev: 3.4452568053221276e-09, Rel. dev: 0.13530087547216904
+I0315 15:47:02.701046 140152437040960 cv_process.py:196] Approximate returning probs after a crossing until time t_max: 2.11711148632e-20
+I0315 15:47:04.142269 140152437040960 hitting_time_uncertainty_utils.py:146] Temporal mean of Gauß--Taylor approx.: 0.083674
+I0315 15:47:04.142452 140152437040960 hitting_time_uncertainty_utils.py:147] Temporal stddev of Gauß--Taylor approx.: 0.003754
+I0315 15:47:04.143133 140152437040960 hitting_time_uncertainty_utils.py:146] Temporal mean of No-return approx.: 0.083866
+I0315 15:47:04.143248 140152437040960 hitting_time_uncertainty_utils.py:147] Temporal stddev of No-return approx.: 0.00382
+I0315 15:47:04.143637 140152437040960 hitting_time_uncertainty_utils.py:156] Pairwise relative deviations of temporal stddevs in percent: 
+[[0.   1.72]
+ [1.72 0.  ]]
+I0315 15:47:04.143722 140152437040960 hitting_time_uncertainty_utils.py:168] Temporal skewness of Gauß--Taylor approx.: 0.0
+I0315 15:47:04.144235 140152437040960 hitting_time_uncertainty_utils.py:168] Temporal skewness of No-return approx.: 0.395049
+/mnt/hitting_time_uncertainty_utils.py:174: RuntimeWarning: invalid value encountered in double_scalars
+  rel_devs[i, j] = 100 * np.abs(skew_t_ls[i] - skew_t_ls[j]) / np.max([skew_t_ls[i], skew_t_ls[j]])
+I0315 15:47:04.144593 140152437040960 hitting_time_uncertainty_utils.py:176] Pairwise relative deviations of temporal skewness in percent: 
+[[ nan 100.]
+ [100.   0.]]
+I0315 15:47:05.176403 140152437040960 hitting_time_uncertainty_utils.py:208] Wasserstein distances compared against MC histogram (in plot range!): 
+[0.0002529069477356947, 2.2544460858630575e-05]
+I0315 15:47:06.358132 140152437040960 hitting_time_uncertainty_utils.py:232] Hellinger distances compared against MC histogram (in plot range!): 
+[20.05098394434555, 7.804406840745621]
+I0315 15:47:07.043287 140152437040960 hitting_time_uncertainty_utils.py:256] First Wasserstein distances compared against MC histogram (in plot range!): 
+[2.719907129423394, 2.6661707665435506]
+I0315 15:47:09.484503 140152437040960 hitting_time_uncertainty_utils.py:281] Kolmogorov distances compared against MC histogram (in plot range!): 
+[0.019865848077550208, 0.0025690738350395703]

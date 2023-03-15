@@ -48,6 +48,8 @@ flags.DEFINE_bool('no_show', default=False,
                   help='Set this to True if you do not want to show evaluation graphics and only save them.')
 flags.DEFINE_bool('for_paper', default=False,
                   help='Boolean, whether to use the plots for publication (omit headers, etc.)..')
+flags.DEFINE_bool('measure_computational_times', default=False,
+                    help='Whether to measure the computational times (using the first defined experiment).')
 
 flags.DEFINE_string('verbosity_level', default='INFO', help='Verbosity options.')
 flags.register_validator('verbosity_level',
@@ -217,9 +219,9 @@ def main(args):
     logging.set_verbosity(logging.FLAGS.verbosity_level)
 
     # define the experiments to execute by name
-    # experiments_name_list = ['CA_Sw1000_denorm', 'CA_Sw100000_denorm', 'CA_Sw1000_negative_acceleration_denorm', 'CA_Sw1000_high_acceleration_denorm'] # TODO
-    experiments_name_list = ['CA_Sw100000_denorm', 'CA_Sw1000_negative_acceleration_denorm',
-                             'CA_Sw1000_high_acceleration_denorm']
+    experiments_name_list = ['CA_Sw1000_denorm', 'CA_Sw100000_denorm', 'CA_Sw1000_negative_acceleration_denorm', 'CA_Sw1000_high_acceleration_denorm']
+    # experiments_name_list = ['CA_Sw100000_denorm', 'CA_Sw1000_negative_acceleration_denorm',
+    #                          'CA_Sw1000_high_acceleration_denorm']
 
     # get the configs
     experiments_list = get_experiments_by_name(experiments_name_list, experiments_config)
@@ -233,12 +235,10 @@ def main(args):
         convert_to_numpy(config)  # convert the configs entries to numpy arrays
         logging.info('Running experiment {}.'.format(config['experiment_name']))
         del config['experiment_name']  # name cannot be passed to run_experiment
-        run_experiment(**config, for_paper=FLAGS.for_paper)
-
-    # measure computational times
-    if FLAGS.measure_computational_times and i == 0:
+        run_experiment(**config,
+                       for_paper=FLAGS.for_paper,
+                       measure_computational_times=True if FLAGS.measure_computational_times and i == 0 else False)
         # by default, takes the first defined experiment for measuring the computational times.
-        measure_computation_times(config['x_L'], config['C_L'], config['t_L'], config['S_w'], config['x_predTo'])
 
 
 if __name__ == "__main__":

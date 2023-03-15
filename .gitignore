@@ -1,0 +1,11 @@
+# ipynb
+
+models
+__pycache__
+results
+
+# IDE
+.idea
+
+# venv
+virtualenv

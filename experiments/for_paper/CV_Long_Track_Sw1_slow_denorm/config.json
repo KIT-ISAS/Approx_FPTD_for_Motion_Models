@@ -1,0 +1,49 @@
+{
+    "experiment_name": "CV_Long_Track_Sw1_slow_denorm",
+    "x_L": [
+        29.0304,
+        400,
+        64.96,
+        25.984
+    ],
+    "C_L": [
+        [
+            0.00187280916,
+            0.187280916,
+            0,
+            0
+        ],
+        [
+            0.187280916,
+            56.1842749,
+            0,
+            0
+        ],
+        [
+            0,
+            0,
+            0.00337584128,
+            0.337584128
+        ],
+        [
+            0,
+            0,
+            0.337584128,
+            101.275238
+        ]
+    ],
+    "t_L": 0,
+    "S_w": 9364.045824,
+    "x_predTo": 62.5,
+    "t_range": [
+        0.07,
+        0.105
+    ],
+    "y_range": [
+        60,
+        75
+    ],
+    "result_dir": "/mnt/experiments/for_paper/CV_Long_Track_Sw1_slow_denorm",
+    "save_results": true,
+    "no_show": true
+}

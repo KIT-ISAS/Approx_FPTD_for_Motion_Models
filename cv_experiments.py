@@ -46,10 +46,10 @@ flags.DEFINE_string('result_dir', default='/mnt/results/',
                     help='The directory where to save the results.')
 flags.DEFINE_bool('no_show', default=False,
                   help='Set this to True if you do not want to show evaluation graphics and only save them.')
-flags.DEFINE_bool('measure_computational_times', default=False,
-                    help='Whether to measure the computational times (using the first defined experiment).')
 flags.DEFINE_bool('for_paper', default=False,
                   help='Boolean, whether to use the plots for publication (omit headers, etc.)..')
+flags.DEFINE_bool('measure_computational_times', default=False,
+                    help='Whether to measure the computational times (using the first defined experiment).')
 
 flags.DEFINE_string('verbosity_level', default='INFO', help='Verbosity options.')
 flags.register_validator('verbosity_level',
@@ -65,7 +65,7 @@ FLAGS = flags.FLAGS
 """
 {
     # Experiment name
-    "experiment_name": "Long_Track_Sw1",
+    "experiment_name": "CV_Long_Track_Sw1",
     # Process parameters
     "x_L": [0.3, 6.2, 0.5, 0.2],
     "C_L": [[2E-7, 2E-5, 0, 0], [2E-5, 6E-3, 0, 0], [0, 0, 2E-7, 2E-5], [0, 0, 2E-5, 6E-3]],
@@ -85,7 +85,7 @@ FLAGS = flags.FLAGS
 experiments_config = [
     {
         # Experiment name
-        "experiment_name": "Long_Track_Sw1",
+        "experiment_name": "CV_Long_Track_Sw1",
         # Process parameters
         "x_L": [0.3, 6.2, 0.5, 0.2],
         "C_L": [[2E-7, 2E-5, 0, 0], [2E-5, 6E-3, 0, 0], [0, 0, 2E-7, 2E-5], [0, 0, 2E-5, 6E-3]],
@@ -98,7 +98,7 @@ experiments_config = [
         "y_range": [0.46, 0.56],
     }, {
         # Experiment name
-        "experiment_name": "Long_Track_Sw1_denorm",
+        "experiment_name": "CV_Long_Track_Sw1_denorm",
         # Process parameters
         "x_L": [29.0304,  599.9616, 64.96,  25.984],
         "C_L": [[1.87280916e-03, 1.87280916e-01, 0, 0],
@@ -114,7 +114,7 @@ experiments_config = [
         "y_range": [62, 71]
     }, {
         # Experiment name
-        "experiment_name": "Long_Track_Sw10",
+        "experiment_name": "CV_Long_Track_Sw10",
         # Process parameters
         "x_L": [0.3, 6.2, 0.5, 0.2],
         "C_L": [[2E-7, 2E-5, 0, 0], [2E-5, 6E-3, 0, 0], [0, 0, 2E-7, 2E-5], [0, 0, 2E-5, 6E-3]],
@@ -124,7 +124,7 @@ experiments_config = [
         "x_predTo": 0.6458623971412047,
     },  {
         # Experiment name
-        "experiment_name": "Long_Track_Sw10_denorm",
+        "experiment_name": "CV_Long_Track_Sw10_denorm",
         # Process parameters
         "x_L": [29.0304, 599.9616, 64.96, 25.984],
         "C_L": [[1.87280916e-03, 1.87280916e-01, 0, 0],
@@ -139,7 +139,7 @@ experiments_config = [
         "y_range": [55, 77]
     },  {
         # Experiment name
-        "experiment_name": "Long_Track_Sw100",
+        "experiment_name": "CV_Long_Track_Sw100",
         # Process parameters
         "x_L": [0.3, 6.2, 0.5, 0.2],
         "C_L": [[2E-7, 2E-5, 0, 0], [2E-5, 6E-3, 0, 0], [0, 0, 2E-7, 2E-5], [0, 0, 2E-5, 6E-3]],
@@ -152,7 +152,7 @@ experiments_config = [
         "y_range": [0.2, 1.3],
     },  {
         # Experiment name
-        "experiment_name": "Long_Track_Sw100_denorm",
+        "experiment_name": "CV_Long_Track_Sw100_denorm",
         # Process parameters
         "x_L": [29.0304, 599.9616, 64.96, 25.984],
         "C_L": [[1.87280916e-03, 1.87280916e-01, 0, 0],
@@ -168,7 +168,7 @@ experiments_config = [
         "y_range": [0, 150],
     },  {
         # Experiment name
-        "experiment_name": "Long_Track_Sw300",
+        "experiment_name": "CV_Long_Track_Sw300",
         # Process parameters
         "x_L": [0.3, 6.2, 0.5, 0.2],
         "C_L": [[2E-7, 2E-5, 0, 0], [2E-5, 6E-3, 0, 0], [0, 0, 2E-7, 2E-5], [0, 0, 2E-5, 6E-3]],
@@ -181,7 +181,7 @@ experiments_config = [
         "y_range": [0.0, 1.5],
     }, {
         # Experiment name
-        "experiment_name": "Long_Track_High_Initial_Noise",
+        "experiment_name": "CV_Long_Track_High_Initial_Noise",
         # Process parameters
         "x_L": [0.3, 6.2, 0.5, 0.2],
         "C_L": [[3.2E-3, 5.9E-4, 0, 0], [5.9E-4, 5.3, 0, 0], [0, 0, 3.2E-5, 5.9E-3], [0, 0, 5.9E-3, 5.3]],
@@ -191,7 +191,7 @@ experiments_config = [
         "x_predTo": 0.6458623971412047,
     }, {
         # Experiment name
-        "experiment_name": "Long_Track_High_tL",
+        "experiment_name": "CV_Long_Track_High_tL",
         # Process parameters
         "x_L": [0.3, 6.2, 0.5, 0.2],
         "C_L": [[2E-7, 2E-5, 0, 0], [2E-5, 6E-3, 0, 0], [0, 0, 2E-7, 2E-5], [0, 0, 2E-5, 6E-3]],
@@ -201,7 +201,7 @@ experiments_config = [
         "x_predTo": 0.6458623971412047,
     }, {
         # Experiment name
-        "experiment_name": "Short_Track_Sw18",
+        "experiment_name": "CV_Short_Track_Sw18",
         # Process parameters
         "x_L": [0.3, 6.2, 0.5, 0.2],
         "C_L": [[3.2E-7, 5.9E-5, 0, 0], [5.9E-5, 5.3E-2, 0, 0], [0, 0, 3.2E-7, 5.9E-5], [0, 0, 5.9E-5, 5.3E-2]],
@@ -212,7 +212,7 @@ experiments_config = [
         # Plot settings (optional)
     }, {
         # Experiment name
-        "experiment_name": "Long_Track_Sw10_slow",
+        "experiment_name": "CV_Long_Track_Sw10_slow",
         # Process parameters
         "x_L": [0.3, 3.2, 0.5, 0.2],
         "C_L": [[2E-7, 2E-5, 0, 0], [2E-5, 6E-3, 0, 0], [0, 0, 2E-7, 2E-5], [0, 0, 2E-5, 6E-3]],
@@ -225,7 +225,7 @@ experiments_config = [
         "y_range": [0.0, 1.5],
     },  {
         # Experiment name
-        "experiment_name": "Long_Track_Sw1_slow_denorm",
+        "experiment_name": "CV_Long_Track_Sw1_slow_denorm",
         # Process parameters
         "x_L": [29.0304, 400, 64.96, 25.984],
         "C_L": [[1.87280916e-03, 1.87280916e-01, 0, 0],
@@ -250,9 +250,9 @@ def main(args):
     logging.set_verbosity(logging.FLAGS.verbosity_level)
 
     # define the experiments to execute by name
-    # experiments_name_list = ['Long_Track_Sw1', 'Long_Track_Sw100', 'Long_Track_Sw300']
-    experiments_name_list = ['Long_Track_Sw1_denorm', 'Long_Track_Sw10_denorm', 'Long_Track_Sw100_denorm', 'Long_Track_Sw1_slow_denorm']
-    # experiments_name_list = ['Long_Track_Sw100_denorm']
+    # experiments_name_list = ['CV_Long_Track_Sw1', 'CV_Long_Track_Sw100', 'CV_Long_Track_Sw300']
+    experiments_name_list = ['CV_Long_Track_Sw1_denorm', 'CV_Long_Track_Sw10_denorm', 'CV_Long_Track_Sw100_denorm', 'CV_Long_Track_Sw1_slow_denorm']
+    # experiments_name_list = ['CV_Long_Track_Sw100_denorm']
 
     # get the configs
     experiments_list = get_experiments_by_name(experiments_name_list, experiments_config)
@@ -266,12 +266,10 @@ def main(args):
         convert_to_numpy(config)  # convert the configs entries to numpy arrays
         logging.info('Running experiment {}.'.format(config['experiment_name']))
         del config['experiment_name']  # name cannot be passed to run_experiment
-        run_experiment(**config, for_paper=FLAGS.for_paper)
-
-        # measure computational times
-        if FLAGS.measure_computational_times and i == 0:
-            # by default, takes the first defined experiment for measuring the computational times.
-            measure_computation_times(config['x_L'], config['C_L'], config['t_L'], config['S_w'],  config['x_predTo'])
+        run_experiment(**config,
+                       for_paper=FLAGS.for_paper,
+                       measure_computational_times=True if FLAGS.measure_computational_times and i == 0 else False)
+        # by default, takes the first defined experiment for measuring the computational times.
 
 
 if __name__ == "__main__":

@@ -45,7 +45,7 @@ class AbstractHittingTimeModel(ABC):
     @property
     def t_L(self):
         """The initial time."""
-        return self.t_L
+        return self._t_L
 
     @property
     @abstractmethod
@@ -376,7 +376,7 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
         :param theta: A float or np.array, the (assumed) time at which x(theta) = x_pred_to.
         :param q: A float, the desired confidence level, 0 <= q <= 1.
 
-        :returns: The value of the PPF for q and theta.
+        :returns: A np.array, the value of the PPF for q and theta, note that this a delta time w.r.t. theta.
         """
         # To be overwritten by subclass
         raise NotImplementedError('Call to abstract method.')
@@ -384,6 +384,10 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
     @abstractmethod
     def _get_max_cdf_value_and_location(self):
         """Method that finds the maximum of the CDF of the approximation and its location.
+
+        Approach:
+
+            set self.pdf(t) = 0, solve for t.
 
         :returns:
             q_max: A float, the maximum value of the CDF.
@@ -555,9 +559,9 @@ class AbstractEngineeringApproxHittingTimeModel(AbstractHittingTimeModel, ABC):
                           'ThirdQuantile': self.ppf(0.75),
                           'q_max': self.q_max,
                           't_max': self.t_max,
-                          #'ReturningProbs': self.returning_probs,  # do not use
-                          # 'ReturningProbs': self.returning_probs_uniform_samples,
-                          'ReturningProbs': self.returning_probs_integrate_quad,
+                          # 'ReturningProbs': self.returning_probs,  # do not use
+                          'ReturningProbs': self.returning_probs_uniform_samples,
+                          # 'ReturningProbs': self.returning_probs_integrate_quad,
                           })
         return hit_stats
 
@@ -586,7 +590,7 @@ class AbstractMCHittingTimeModel(AbstractHittingTimeModel, ABC):
 
         bins = int(bins * (max(t_samples) - min(t_samples)) / (
                 t_range[-1] - t_range[0]))
-        # we want to have 100 samples in the plot window
+        # we want to have bins samples in the plot window
         hist = np.histogram(self._t_samples, bins=bins, density=False)
         self._density = rv_histogram(hist, density=True)
 
@@ -630,7 +634,9 @@ class AbstractMCHittingTimeModel(AbstractHittingTimeModel, ABC):
         """Get some statistics from the model as a dict."""
         hit_stats = super().get_statistics()
         hit_stats.update({'PPF': self.ppf,
-                          'ReturningProbs': self.returning_probs_integrate_quad,
+                          # 'ReturningProbs': self.returning_probs,  # do not use
+                          'ReturningProbs': self.returning_probs_uniform_samples,
+                          # 'ReturningProbs': self.returning_probs_integrate_quad,
                           })
         return hit_stats
 

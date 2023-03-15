@@ -36,6 +36,7 @@ from hitting_time_uncertainty_utils import HittingTimeEvaluator
 from abstract_distributions import AbstractHittingTimeModel, AbstractEngineeringApproxHittingTimeModel, \
     AbstractMCHittingTimeModel
 from sampler import create_hitting_time_samples
+from timer import measure_computation_times
 
 
 flags.DEFINE_bool('load_samples', default=False,
@@ -50,10 +51,12 @@ flags.DEFINE_string('result_dir', default='/mnt/results/',
                     help='The directory where to save the results.')
 flags.DEFINE_bool('sw_fifty', default=False,
                     help='Whether to use Sw=50.')
-flags.DEFINE_bool('for_paper', default=False,
-                  help='Boolean, whether to use the plots for publication (omit headers, etc.)..')
 flags.DEFINE_bool('no_show', default=False,
                   help='Set this to True if you do not want to show evaluation graphics and only save them.')
+flags.DEFINE_bool('for_paper', default=False,
+                  help='Boolean, whether to use the plots for publication (omit headers, etc.)..')
+flags.DEFINE_bool('measure_computational_times', default=False,
+                    help='Whether to measure the computational times.')
 
 
 flags.DEFINE_string('verbosity_level', default='INFO', help='Verbosity options.')
@@ -64,27 +67,27 @@ flags.register_validator('verbosity_level',
 FLAGS = flags.FLAGS
 
 
-def main(args):  # TODO: Geht der auch für den normalen Wiener process?
+def main(args):
     del args
 
-    ## Setup logging
+    # Setup logging
     logging.set_verbosity(logging.FLAGS.verbosity_level)
 
-    ## Define system parameters
+    # Define system parameters
     # System noise
     mu = 600
     sigma = 50 if FLAGS.sw_fifty else 10
     x0 = 29.0304
 
-    ## Nozzle array position
+    # Nozzle array position
     x_predTo = 62.5
 
-    ## Plot settings
+    # Plot settings
     t_predicted = (x_predTo - x0) / mu
     if FLAGS.sw_fifty:
         t_range = [0, 0.15]  # for sigma = 50
     else:
-        t_range = [0.7 * t_predicted, 1.3* t_predicted]
+        t_range = [0.7 * t_predicted, 1.3 * t_predicted]
     plot_t = np.arange(t_range[0], t_range[1], 0.00001)
 
     # Create base class
@@ -95,59 +98,71 @@ def main(args):  # TODO: Geht der auch für den normalen Wiener process?
                                for_paper=FLAGS.for_paper,
                                no_show=FLAGS.no_show)
 
-    ## Create samples
+    # Create samples
     dt = 1 / 20000
     if not FLAGS.load_samples:
-        t_samples, _, fraction_of_returns = create_wiener_samples_hitting_time(mu,
-                                                                               sigma,
-                                                                               x0,
-                                                                               x_predTo,
-                                                                               N=500000,
-                                                                               dt=dt,
-                                                                               break_after_n_time_steps=3000)
-        #t_samples = create_wiener_samples_hitting_time(mu, sigma, x0, x_predTo)
+        t_samples, _, fraction_of_returns = create_wiener_samples_hitting_time(mu, sigma, x0, x_predTo, dt=dt)
+
         if FLAGS.save_samples:
-            np.savez(FLAGS.save_path, name1=t_samples)
+            np.savez(FLAGS.save_path, name1=t_samples, name2=fraction_of_returns)
             logging.info("Saved samples.")
     else:
-        # data = np.load('/mnt/ty_samples_with_system_noise_new.npz')
         data = np.load(FLAGS.save_path)
         t_samples = data['name1']
-        fraction_of_returns = None  # TODO
+        fraction_of_returns = data['name2']
     # hte.plot_sample_histogram(t_samples)
 
     # Show example tracks and visualize uncertainties over time
-    hte.plot_example_tracks(N=5)
+    # hte.plot_example_tracks(N=5)
     ev_fn = lambda t: x0 + mu*t
     var_fn = lambda t: sigma**2*t
     hte.plot_mean_and_stddev_over_time(ev_fn, var_fn, show_example_tracks=True)
 
-    # Setup the approaches
+    # Set up the approaches
     analytic_model = AnalyticHittingTimeModel(mu, sigma, x0, x_predTo)
     approx_model = EngineeringApproxHittingTimeModel(mu, sigma, x0, x_predTo)
+    mc_model = MCHittingTimeModel(mu, sigma, x0, x_predTo, t_range, t_samples=t_samples)
 
     # Plot valid regions
-    approx_model.plot_valid_regions(theta=t_predicted, save_results=FLAGS.save_results, result_dir=FLAGS.result_dir, for_paper=True, no_show=FLAGS.no_show)
+    approx_model.plot_valid_regions(theta=t_predicted, save_results=FLAGS.save_results, result_dir=FLAGS.result_dir,
+                                    for_paper=True, no_show=FLAGS.no_show)
     # no difference to the one before as the process is Markov
-    approx_model.plot_valid_regions(save_results=FLAGS.save_results, result_dir=FLAGS.result_dir, for_paper=True, no_show=FLAGS.no_show)
-    print('Mass inside invalid region:', approx_model.cdf(t_predicted + approx_model.trans_dens_ppf()) - approx_model.cdf(t_predicted))  # TODO: Das ist anders wie bei en anderen, warum?
-    # TODO: DIe ganzen vergleiche einfügen
+    # approx_model.plot_valid_regions(save_results=FLAGS.save_results, result_dir=FLAGS.result_dir, for_paper=True,
+    #                                 no_show=FLAGS.no_show)
+    logging.info('Mass inside invalid region: {}'.format(
+        approx_model.cdf(t_predicted + approx_model.trans_dens_ppf())[0] - approx_model.cdf(t_predicted)))
+    logging.info('Approximate returning probs after a crossing until time t_max: {}'.format(
+        approx_model.get_statistics()['ReturningProbs'](approx_model.t_max)))
 
-
-    # Results for temporal uncertainties
     approaches_temp_ls = [analytic_model, approx_model]
+
+    # Plot the quantile functions
+    hte.plot_quantile_functions(approaches_temp_ls)
     # Calculate moments and compare the results
     hte.compare_moments_temporal(approaches_temp_ls)
-    # Plot quantile functions
-    hte.plot_quantile_functions(approaches_temp_ls)
+
+    # Calculate wasserstein distance and compare results
+    hte.compare_wasserstein_distances_temporal(t_samples, approaches_temp_ls)
+    # Calculate the Hellinger distance
+    hte.compare_hellinger_distances_temporal(t_samples, approaches_temp_ls)
+    # Calculate the first wasserstein distance
+    hte.compare_first_wasserstein_distances_temporal(t_samples, approaches_temp_ls)
+    # Calculate the kolmogorov distance
+    hte.compare_kolmogorv_distances_temporal(t_samples, approaches_temp_ls)
+
     # Plot histogram of samples and hitting time distributions
     hte.plot_first_hitting_time_distributions(t_samples, approaches_temp_ls, plot_hist_for_all_particles=True)
-    # TODO: in one ergänzen
-    # hte.plot_returning_probs_from_fptd_histogram(ev_fn, var_fn, t_samples, approaches_temp_ls,
-    #                                              t_range=[t_range[0], 3 * t_range[1]])  # this is too noisy
-    # for this, we require longer samples paths, but we can use a reduced time resolution
+    hte.plot_fptd_and_paths_in_one(ev_fn, var_fn, t_samples, approaches_temp_ls, plot_hist_for_all_particles=True)
+    # Plot histogram of samples for returning distribution and estimated returning distribution
+    # hte.plot_returning_probs_from_fptd_histogram(ev_fn, var_fn, t_samples, approaches_temp_ls)   # this is too noisy
     hte.plot_returning_probs_from_sample_paths(fraction_of_returns, dt, approaches_temp_ls,
                                                t_range=[t_range[0], 3 * t_range[1]])
+
+    if FLAGS.measure_computational_times:
+        logging.info('Measuring computational time for wiener process.')
+        model_class_ls = [MCHittingTimeModel, EngineeringApproxHittingTimeModel]
+        model_attributes_ls = [[mu, sigma, x0, x_predTo, t_range]] + 2 * [[mu, sigma, x0, x_predTo]]
+        measure_computation_times(model_class_ls, model_attributes_ls, t_range=t_range)
 
 
 class WienerHittingTimeModel(AbstractHittingTimeModel, ABC):
@@ -156,20 +171,35 @@ class WienerHittingTimeModel(AbstractHittingTimeModel, ABC):
     def __init__(self, mu, sigma, x0, x_predTo, name='Wiener hitting time model', **kwargs):
         """Initialize the model.
 
-        :param mu: A float, the "velocity" (drift) of the Wiener process with drift
-        :param sigma: A float, the diffusion constant of the Wiener process with drift
+        :param mu: A float, the "velocity" (drift) of the Wiener process with drift.
+        :param sigma: A float, the diffusion constant of the Wiener process with drift.
         :param x0: A float, the starting position x(t=0) of the process.
         :param x_predTo: A float, position of the boundary.
         :param name: String, (default) name for the model.
         """
-        self.mu = mu
-        self.sigma = sigma
-        self.x0 = x0
+        self._mu = mu
+        self._sigma = sigma
+        self._x0 = x0
 
         super().__init__(x_predTo=x_predTo,
                          t_L=0,  # methods only support t_L = 0
                          name=name,
                          **kwargs)
+
+    @property
+    def mu(self):
+        """The "velocity" (drift) of the Wiener process with drift."""
+        return self._mu
+
+    @property
+    def sigma(self):
+        """The diffusion constant of the Wiener process with drift."""
+        return self._sigma
+
+    @property
+    def x0(self):
+        """The starting position x(t=0) of the process."""
+        return self._x0
 
     def ev_t(self, t):
         """The mean function of the Wiener motion model in x.
@@ -215,8 +245,8 @@ class AnalyticHittingTimeModel(WienerHittingTimeModel):
     def __init__(self, mu, sigma, x0, x_predTo, name='Analytic solution'):
         """Initialize the model.
 
-        :param mu: A float, the "velocity" (drift) of the Wiener process with drift
-        :param sigma: A float, the diffusion constant of the Wiener process with drift
+        :param mu: A float, the "velocity" (drift) of the Wiener process with drift.
+        :param sigma: A float, the diffusion constant of the Wiener process with drift.
         :param x0: A float, the starting position x(t=0) of the process.
         :param x_predTo: A float, position of the boundary.
         :param name: String, name for the model.
@@ -316,6 +346,7 @@ class AnalyticHittingTimeModel(WienerHittingTimeModel):
         """Get some statistics from the model as a dict."""
         hit_stats = super().get_statistics()
         hit_stats.update({#'ReturningProbs': self.returning_probs_integrate_quad_experimental,
+                          'ReturningProbs': self.returning_probs_integrate_quad,
                           'TrueReturningProbs': self.true_returning_probs,
                           })
         return hit_stats
@@ -329,8 +360,8 @@ class EngineeringApproxHittingTimeModel(WienerHittingTimeModel, AbstractEngineer
     def __init__(self, mu, sigma, x0, x_predTo, name='No-return approx.'):
         """Initialize the model.
 
-        :param mu: A float, the "velocity" (drift) of the Wiener process with drift
-        :param sigma: A float, the diffusion constant of the Wiener process with drift
+        :param mu: A float, the "velocity" (drift) of the Wiener process with drift.
+        :param sigma: A float, the diffusion constant of the Wiener process with drift.
         :param x0: A float, the starting position x(t=0) of the process.
         :param x_predTo: A float, position of the boundary.
         :param name: String, name for the model.
@@ -404,8 +435,9 @@ class EngineeringApproxHittingTimeModel(WienerHittingTimeModel, AbstractEngineer
             model.
         :param q: A float, the desired confidence level, 0 <= q <= 1.
 
-        :returns: The value of the PPF for q and theta.
+        :returns: A np.array, the value of the PPF for q and theta, note that this a delta time w.r.t. theta.
         """
+        # TODO: One could alternatively use scipy.norm's ppf function on self.trans_dens
         # t**2 + p*t + qq = 0
         qf = norm.ppf(1 - q)
         p = - qf ** 2 * self.sigma ** 2 / self.mu ** 2
@@ -413,10 +445,14 @@ class EngineeringApproxHittingTimeModel(WienerHittingTimeModel, AbstractEngineer
 
         # t = 0 is not a valid solution
         t = -p
-        return t
+        return np.array([t])
 
     def _get_max_cdf_value_and_location(self):
         """Method that finds the maximum of the CDF of the approximation and its location.
+
+        Approach:
+
+            set self.pdf(t) = 0, solve for t.
 
         :returns:
             q_max: A float, the maximum value of the CDF.
@@ -432,25 +468,23 @@ class MCHittingTimeModel(WienerHittingTimeModel, AbstractMCHittingTimeModel):
      using scipy.stats.rv_histogram.
     """
 
-    def __init__(self, mu, sigma, x0, x_predTo, t_range, bins=100, name='MC simulation'):
+    def __init__(self, mu, sigma, x0, x_predTo, t_range, bins=100, t_samples=None, name='MC simulation'):
         """Initialize the model.
 
-        :param mu: A float, the "velocity" (drift) of the Wiener process with drift
-        :param sigma: A float, the diffusion constant of the Wiener process with drift
+        :param mu: A float, the "velocity" (drift) of the Wiener process with drift.
+        :param sigma: A float, the diffusion constant of the Wiener process with drift.
         :param x0: A float, the starting position x(t=0) of the process.
         :param x_predTo: A float, position of the boundary.
         :param t_range: A list of length 2 representing the limits for the first passage time histogram (the number of
             bins within t_range will correspond to bins).
         :param bins: An integer, the number of bins to use to represent the histogram.
+        :param t_samples: None or a np.array of shape [N] containing the first passage times of the particles. If None,
+            t_samples will be created by a call to a sampling method. If given, given values will be used.
         :param name: String, name for the model.
         """
-        t_samples, _, _ = create_wiener_samples_hitting_time(mu,
-                                                             sigma,
-                                                             x0,
-                                                             x_predTo,
-                                                             N=500000,
-                                                             dt=1 / 20000,
-                                                             break_after_n_time_steps=3000)  # TODO: Diese Werte in die Default der create_wiener_hitting_time samples übernehmen?, Besser gleich t_samples übergeben? Geht nicht wegen Zeitmessung (beide optionen zulassen?)
+        if t_samples is None:
+            t_samples, _, _ = create_wiener_samples_hitting_time(mu, sigma, x0, x_predTo)
+
         super().__init__(mu=mu,
                          sigma=sigma,
                          x0=x0,
@@ -466,9 +500,9 @@ def create_wiener_samples_hitting_time(mu,
                                        x0,
                                        x_predTo,
                                        t_L=0.0,
-                                       N=100000,
-                                       dt=1 / 1000,
-                                       break_after_n_time_steps=1000,
+                                       N=500000,
+                                       dt=1 / 20000,
+                                       break_after_n_time_steps=3000,
                                        break_min_time=None):
     """Monte Carlo approach to solve the first passage time problem. Propagates particles through the discrete-time
     process model and determines their first passage at x_predTo by interpolating the positions between the last time

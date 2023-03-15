@@ -2,32 +2,21 @@
 
 """
 import os
-import sys
-
 from absl import logging
 
 from abc import ABC
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import scipy.stats
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
-# from matplotlib.backends.backend_pgf import FigureCanvasPgf
-# import matplotlib.font_manager as fm
-# fm._rebuild()
-# fm = matplotlib.font_manager.json_load(os.path.expanduser("~/.cache/matplotlib/fontlist-v300.json"))
-# fm.findfont("serif", rebuild_if_missing=False)
-# os.remove(mpl.font_manager._fmcache)
-# fm.findfont("serif", fontext="afm", rebuild_if_missing=False)
 
 import numpy as np
-from cycler import cycler
-from ot.lp import emd2
-
+import scipy.stats
 from scipy.stats import rv_histogram
 from scipy.stats import norm
 from scipy.spatial import distance_matrix
+from ot.lp import emd2
 
 
 class HittingTimeEvaluator(ABC):
@@ -45,7 +34,9 @@ class HittingTimeEvaluator(ABC):
                  save_results=False,
                  result_dir=None,
                  for_paper=True,
-                 fig_width=0.34*505.89*1/72,  # factor_of_textwidth*textwidth_in_pt*pt_to_inches
+                 fig_width=0.34 * 505.89 * 1 / 72,  # factor_of_textwidth * textwidth_in_pt * pt_to_inches
+                 font_size=6,
+                 paper_scaling_factor=2,
                  no_show=False):
         """Initialize the evaluator.
 
@@ -61,6 +52,8 @@ class HittingTimeEvaluator(ABC):
         :param result_dir: String, directory where to save the plots.
         :param for_paper: Boolean, whether to use a publication (omit headers, etc.).
         :param fig_width: A float, width of the figures in inches.
+        :param font_size: An integer, the font size in point.
+        :param paper_scaling_factor: A scaling factor to be applied to the figure and fonts if for_paper is true.
         :param no_show: Boolean, whether to show the plots (False).
         """
         self.x_predTo = x_predTo
@@ -69,8 +62,7 @@ class HittingTimeEvaluator(ABC):
         self.t_L = t_L
         self.plot_t = plot_t
         self.plot_y = plot_y
-        #self.color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
-        self.color_cycle = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
+        self.color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']  # get color cycle
         self.get_example_tracks = get_example_tracks_fn
 
         self.process_name = process_name
@@ -86,63 +78,58 @@ class HittingTimeEvaluator(ABC):
             basename = os.path.basename(os.path.normpath(result_dir))
             self.process_name_save = basename.lower().replace(" ", "_")
 
-            scaling_factor = 2
-            mpl.rcParams.update({'font.size': scaling_factor*8})  # font size   # TODO: Hier alles zusammenfassen!
-            mpl.rcParams.update({'legend.fontsize': scaling_factor*6})
-            # TODO: Ticks auch nach innen reinziehen?
+            # style
+            # see https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html
+            # use plt.style.available to print a list of all available styles
+            plt.style.use('seaborn-paper')
 
-            # plt.rcParams["ps.useafm"] = True
-            # mpl.use('pgf')
-            # mpl.use('agg')
+            # figure size
+            mpl.rcParams["figure.figsize"] = [paper_scaling_factor * fig_width,
+                                              paper_scaling_factor * fig_width * 5.5 / 7]
 
-            # See https://matplotlib.org/stable/gallery/userdemo/pgf_preamble_sgskip.html
-            mpl.rcParams.update({#"pgf.texsystem": "lualatex",
-                                 'pgf.rcfonts': False,  # don't setup fonts from rc parameters
+            # font size
+            mpl.rcParams.update({'font.size': paper_scaling_factor * font_size,
+                                 'legend.fontsize': paper_scaling_factor * font_size,
+                                 'xtick.labelsize': paper_scaling_factor * font_size,
+                                 'ytick.labelsize': paper_scaling_factor * font_size,
                                  })
-            # mpl.backend_bases.register_backend('pdf', FigureCanvasPgf)
-            # sys.path.append('/usr/bin/latex')
+
+            # latex appearance
+            # See, e.g.,  https://matplotlib.org/stable/gallery/userdemo/pgf_preamble_sgskip.html
+            latex_pream = "\n".join([
+                r"\usepackage{amsmath}",  # enable more math
+                r"\usepackage{mathtools}",
+                r"\usepackage{amssymb}",
+                r"\usepackage{newtxtext,newtxmath}",  # setup font to Times (font in IEEEtran)
+                r"\usepackage{accents}",  # underline
+                r"\usepackage{mleftright}",  # \mleft, \mright
+            ])
             plt.rcParams.update({
+                # "pgf.texsystem": "pdflatex",
+                "text.usetex": True,  # use inline maths for ticks
+                "pgf.rcfonts": False,  # don't setup fonts from rc parameters
                 "font.family": "serif",  # use serif/main font for text elements
                 "font.serif": "Times",
-                # "font.serif": "STIXGeneral",   #  this comes very close to Times or even is the same for most of the things (to use it, uncomment properties '
+                # "font.serif": "STIXGeneral",   # this comes very close to Times or even is the same for most of the
+                # things (to use it, uncomment properties 'pgf.texsystem' and 'pgf.rcfonts')
+                'text.latex.preamble': latex_pream,  # for pdf, png, ...
+                "pgf.preamble": latex_pream,  # for pgf plots
             })
 
-            plt.rcParams.update({
-                "pgf.preamble": "\n".join([
-                    r"\usepackage{amsmath}",  # enable more math
-                    r"\usepackage{amssymb}",
-                    r"\usepackage{newtxtext,newtxmath}",  # setup font to Times (font in IEEEtran)
-                    r"\usepackage{accents}",  # underline
-                    r"\usepackage{mleftright}",  # \mleft, \mright
-                ]),
-            })
-
-
-            plt.rc('text', usetex=True)  #  use inline maths for ticks
-            # # plt.rc('font.family', "Helvetica")
-            # plt.rc('font', family='serif')
-            # # plt.rc('font', **{'family': 'sans-serif', 'sans-serif': ['Helvetica']})
-
-            #plt.rcParams['axes.prop_cycle'] = cycler(color='bgrcmyk')
-            #plt.style.use('bmh')
-            #plt.style.use('seaborn')
-            self.color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
+            # other appearance options
+            plt.rcParams['legend.loc'] = 'upper left'  # legend location
+            # plt.rcParams.update({'xtick.direction': 'inout',
+            #                      'ytick.direction': 'inout'})  # move the ticks also inside the plot
 
             # 3 options to avoid cutting off the labels when reducing the figure size.
             plt.rcParams['savefig.bbox'] = 'tight'  # figsize (without labels) as defined add extra space for the labels
             # mpl.rcParams["figure.autolayout"] = True  # figure with labels! gets reduced to figsize
             # mpl.rcParams["figure.constrained_layout.use"] = True  # same as before, but more powerful function, use this one
 
+            # options for saving
             mpl.rcParams['savefig.dpi'] = 100  # dots per inch
-            mpl.rcParams['figure.dpi'] = 20  # takes a long time to show the figures otherwiese
-
-            # use them if scaling_factor = 1, but spines are not scaled properly then
-            # mpl.rcParams['axes.linewidth'] = 0.25  # pt
-            # mpl.rcParams['lines.linewidth'] = 0.5  # pt
-            # mpl.rcParams["figure.figsize"] = [scaling_factor*fig_width, scaling_factor*fig_width * 5 / 7]
-            mpl.rcParams["figure.figsize"] = [scaling_factor * fig_width, scaling_factor * fig_width * 5.5 / 7]
-            plt.rcParams['legend.loc'] = 'upper left'
             plt.rcParams["savefig.pad_inches"] = 0.0  # remove space outside the labels
+            mpl.rcParams['figure.dpi'] = 20  # takes a long time to show the figures otherwise
 
     @staticmethod
     def compare_moments_temporal(approaches_ls):
@@ -192,6 +179,9 @@ class HittingTimeEvaluator(ABC):
         """Compares the Wasserstein distance (using the euclidean distance on the feature axis) of different first
         passage time approaches with the MC-solution.
 
+        Note that the Wasserstein distance in not suitable to compare normalized and non-normalized densities since it
+        requires that the total moved mass stays constant (conservation of mass).
+
         :param t_samples: A np.array of shape [N] containing the first passage times of the particles.
         :param approaches_ls: A list of first passage time model objects for the same process to be compared against the
             MC histogram.
@@ -201,21 +191,22 @@ class HittingTimeEvaluator(ABC):
                 self.plot_t[-1] - self.plot_t[0]))
         mc_hist_values, left_edges = np.histogram(t_samples, bins=bins, density=True)
 
-        hist_midpoints = (left_edges[:-1] + left_edges[:1]) / 2  # left edges also contain the righthand-most edge
+        hist_midpoints = (left_edges[1:] + left_edges[:-1]) / 2  # left edges also contain the righthand-most edge
         # (right edge of the last bin)
-        mc_hist_values /= np.sum(mc_hist_values)  # norm them, they must sum up to one (this is only valid because bins
-        # are equidistant)
+        mc_hist_values /= np.sum(mc_hist_values)  # norm them, they must sum up to one for emd2 (this is only valid
+        # because bins are equidistant)
 
         wasserstein_distances = []
         for approach in approaches_ls:
             hit_stats = approach.get_statistics()
             hist_values = np.array([hit_stats['PDF'](t) for t in self.plot_t])
-            hist_values /= np.sum(hist_values)  # norm them, they must sum up to one (this is only valid because plot_t
-            # is equidistant) # TODO: Das führt aber dazu dass die eng approx schlechter gemacht wird, da diese ja nicht normalisiert ist...
             M = distance_matrix(hist_midpoints[:, None], self.plot_t[:, None])
+            hist_values /= np.sum(hist_values)  # norm them, they must sum up to one for emd2 (this is only valid
+            # because plot_t is equidistant)
             wasserstein_distances.append(emd2(mc_hist_values, hist_values, M))
 
-        logging.info('Wasserstein distances compared against MC histogram: \n{}'.format(wasserstein_distances))
+        logging.info(
+            'Wasserstein distances compared against MC histogram (in plot range!): \n{}'.format(wasserstein_distances))
 
     def compare_hellinger_distances_temporal(self, t_samples, approaches_ls, bins=500):
         """Compares the Hellinger distance of different first passage time approaches with the MC-solution.
@@ -235,12 +226,17 @@ class HittingTimeEvaluator(ABC):
             hit_stats = approach.get_statistics()
             hist_values = np.array([hit_stats['PDF'](t) for t in self.plot_t])
             mc_hist_values = np.array([mc_dist.pdf(t) for t in self.plot_t])
-            hellinger_distances.append(1 / np.sqrt(2) * np.sqrt(np.sum((np.sqrt(mc_hist_values) - np.sqrt(hist_values)) ** 2)))
+            hellinger_distances.append(
+                1 / np.sqrt(2) * np.sqrt(np.sum((np.sqrt(mc_hist_values) - np.sqrt(hist_values)) ** 2)))
 
-        logging.info('Hellinger distances compared against MC histogram: \n{}'.format(hellinger_distances))
+        logging.info(
+            'Hellinger distances compared against MC histogram (in plot range!): \n{}'.format(hellinger_distances))
 
     def compare_first_wasserstein_distances_temporal(self, t_samples, approaches_ls, bins=500):
         """Compares the first Wasserstein distance of different first passage time approaches with the MC-solution.
+
+        Note that the Wasserstein distance in not suitable to compare normalized and non-normalized densities since it
+        requires that the total moved mass stays constant (conservation of mass).
 
         :param t_samples: A np.array of shape [N] containing the first passage times of the particles.
         :param approaches_ls: A list of first passage time model objects for the same process to be compared against the
@@ -257,7 +253,8 @@ class HittingTimeEvaluator(ABC):
             hist_values = np.array([hit_stats['PDF'](t) for t in self.plot_t])
             wasserstein_distances.append(scipy.stats.wasserstein_distance(mc_hist_values, hist_values))
 
-        logging.info('First Wasserstein distances compared against MC histogram: \n{}'.format(wasserstein_distances))
+        logging.info('First Wasserstein distances compared against MC histogram (in plot range!): \n{}'.format(
+            wasserstein_distances))
 
     def compare_kolmogorv_distances_temporal(self, t_samples, approaches_ls, bins=500):
         """Compares the Kolmogorov distance of different first passage time approaches with the MC-solution.
@@ -272,16 +269,17 @@ class HittingTimeEvaluator(ABC):
         bins = int(bins * (max(t_samples) - min(t_samples)) / (
                 self.plot_t[-1] - self.plot_t[0]))
         mc_hist = np.histogram(t_samples, bins=bins, density=False)
-        mc_dist = rv_histogram(mc_hist, density=True)  # TODO: Das darf man hier eigentlich nicht machen! Wo darf man das auch nicht machen?
+        mc_dist = rv_histogram(mc_hist, density=True)
 
         kolmogorv_distances = []
         for approach in approaches_ls:
             hit_stats = approach.get_statistics()
             cdf_values = np.array([hit_stats['CDF'](t) for t in self.plot_t])
             mc_cdf_values = np.array([mc_dist.cdf(t) for t in self.plot_t])
-            kolmogorv_distances.append(np.nanmax(cdf_values - mc_cdf_values))
+            kolmogorv_distances.append(np.nanmax(np.abs(cdf_values - mc_cdf_values)))
 
-        logging.info('Kolmogorov distances compared against MC histogram: \n{}'.format(kolmogorv_distances))
+        logging.info(
+            'Kolmogorov distances compared against MC histogram (in plot range!): \n{}'.format(kolmogorv_distances))
 
     def plot_sample_histogram(self, samples, x_label='Time t in s'):
         """Plot histograms of the samples from the Monte Carlo simulations.
@@ -480,11 +478,6 @@ class HittingTimeEvaluator(ABC):
                            label=approach.name)
 
         # add legend manually since it fails sometimes
-        # lines = [Line2D([0], [0], color=c, linewidth=3) for c in self.color_cycle]
-        # lines.append(Patch(color=[0.8, 0.8, 0.8]))
-        # labels = [approach.name for approach in approaches_ls]
-        # labels.append('MC simulation')
-        # ax2.legend(lines, labels)
         legend_elements = [Line2D([0], [0], color=c, linewidth=3, label=approach.name) for c, approach in
                            zip(self.color_cycle, approaches_ls)]
         legend_elements.append(Patch(facecolor=[0.8, 0.8, 0.8], label='MC simulation'))
@@ -493,9 +486,6 @@ class HittingTimeEvaluator(ABC):
         ax1.set_ylim(0, 1.4 * y_hist_max)  # leave some space for labels
         ax2.set_ylim(0, 1.05)
         ax1.set_xlim(self.plot_t[0], self.plot_t[-1])
-        # ax2.set_yticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
-        # ax1.set_yticks(np.linspace(ax1.get_yticks()[0], ax1.get_yticks()[-1], len(ax2.get_yticks())))
-        # ax1.set_ylim(0, 1.05*ax1.get_yticks()[-1])
         ax1.set_xlabel("Time in s")
         ax1.set_ylabel("PDF")
         ax2.set_ylabel("CDF")

@@ -36,22 +36,25 @@ from hitting_time_uncertainty_utils import HittingTimeEvaluator
 from abstract_distributions import AbstractHittingTimeModel, AbstractTaylorHittingTimeModel, \
     AbstractEngineeringApproxHittingTimeModel, AbstractMCHittingTimeModel
 from sampler import create_lgssm_hitting_time_samples, get_example_tracks_lgssm
+from timer import measure_computation_times
 
 
 flags.DEFINE_bool('load_samples', default=False,
                     help='Whether the samples should be loaded from a .npz  file.')
 flags.DEFINE_bool('save_samples', default=False,
                     help='Whether the samples should be saved to a .npz  file.')
-flags.DEFINE_string('save_path', default='/mnt/ca_with_system_noise_samples.npz',
+flags.DEFINE_string('save_path', default='/mnt/cv_with_system_noise_samples.npz',
                     help='The path to save the .npz  file.')
 flags.DEFINE_bool('save_results', default=False,
                     help='Whether to save the results.')
 flags.DEFINE_string('result_dir', default='/mnt/results/',
                     help='The directory where to save the results.')
-flags.DEFINE_bool('for_paper', default=False,
-                  help='Boolean, whether to use the plots for publication (omit headers, etc.)..')
 flags.DEFINE_bool('no_show', default=False,
                   help='Set this to True if you do not want to show evaluation graphics and only save them.')
+flags.DEFINE_bool('for_paper', default=False,
+                  help='Boolean, whether to use the plots for publication (omit headers, etc.)..')
+flags.DEFINE_bool('measure_computational_times', default=False,
+                    help='Whether to measure the computational times.')
 
 flags.DEFINE_string('verbosity_level', default='INFO', help='Verbosity options.')
 flags.register_validator('verbosity_level',
@@ -59,6 +62,7 @@ flags.register_validator('verbosity_level',
                          message='dataset_type must one of ' + str(['FATAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']))
 
 FLAGS = flags.FLAGS
+
 
 def main(args):
     del args
@@ -75,7 +79,6 @@ def main(args):
     # Mean position at last timestep
     x_L = np.array([0.3, 6.2, 4.4, 0.5, 0.2, 2.8])
 
-
     # Boundary position
     x_predTo = 0.6458623971412047
     # Last time step
@@ -83,6 +86,7 @@ def main(args):
 
     # Run the experiment
     run_experiment(x_L, C_L, t_L, S_w, x_predTo,
+                   measure_computational_times=FLAGS.measure_computational_times,
                    load_samples=FLAGS.load_samples,
                    save_samples=FLAGS.save_samples,
                    save_path=FLAGS.save_path,
@@ -96,6 +100,7 @@ def main(args):
 def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
                    t_range=None,
                    y_range=None,
+                   measure_computational_times=False,
                    load_samples=False,
                    save_samples=False,
                    save_path=None,
@@ -103,7 +108,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
                    result_dir=None,
                    no_show=False,
                    for_paper=False):
-    """Runs an experiment including a comparision with Monte Carlo simulation with the given settings.
+    """Runs an experiment including a comparison with Monte Carlo simulation with the given settings.
 
     The underlying process is a 2D (x, y) constant acceleration (CA) model with independent components in x, y.
     Therefore, the state is [pos_x, vel_x, acc_x, pos_y, vel_y, acc_y].
@@ -117,6 +122,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     :param x_predTo: A float, position of the boundary.
     :param t_range: A list of length 2 representing the plot limits for the first passage time.
     :param y_range: A list of length 2 representing the plot limits for the y component at the first passage time.
+    :param measure_computational_times: A Boolean, whether to measure the computational times.
     :param load_samples: Boolean, whether to load the samples for the Monte Carlo simulation from file.
     :param save_samples: Boolean, whether to save the samples for the Monte Carlo simulation from file.
     :param save_path: String, path where to save the .npz file with the samples (suffix .npz).
@@ -126,9 +132,9 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     :param for_paper: Boolean, whether to use the plots for a publication (omit headers, etc.).
     """
     # Deterministic predictions
-    t_predicted = t_L + - x_L[1] / x_L[2] + np.sign(x_L[2]) * \
+    t_predicted = t_L - x_L[1] / x_L[2] + np.sign(x_L[2]) * \
                   np.sqrt((x_L[1] / x_L[2]) ** 2 + 2 / x_L[2] * (x_predTo - x_L[0]))
-    y_predicted = x_L[3] + (t_predicted - t_L)* x_L[4] + 1 / 2 * (t_predicted - t_L) ** 2 * x_L[5]
+    y_predicted = x_L[3] + (t_predicted - t_L) * x_L[4] + 1 / 2 * (t_predicted - t_L) ** 2 * x_L[5]
 
     # Plot settings
     if t_range is None:
@@ -162,12 +168,12 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
         data = np.load(save_path)
         t_samples = data['name1']
         y_samples = data['name2']
-        fraction_of_returns = None  # TODO
+        fraction_of_returns = data['name3']
     hte.plot_sample_histogram(t_samples)
-    hte.plot_sample_histogram(y_samples, x_label='y-Coordinate')
+    # hte.plot_sample_histogram(y_samples, x_label='y-Coordinate')
 
     # Show example tracks and visualize uncertainties over time
-    #hte.plot_example_tracks(N=5)
+    # hte.plot_example_tracks(N=5)
     ev_fn = lambda t: x_L[0] + x_L[1] * (t - t_L) + x_L[2]/ 2 *(t - t_L)**2
     var_fn = lambda t: C_L[0, 0] + (C_L[0, 1] + C_L[1, 0]) * (t - t_L) \
                        + (1 / 2 * C_L[0, 2] + 1 / 2 * C_L[2, 0] + C_L[1, 1]) * (t - t_L) ** 2 \
@@ -178,14 +184,18 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     # Set up the approaches
     taylor_model = TaylorHittingTimeModel(x_L, C_L, S_w, x_predTo, t_L)
     approx_model = EngineeringApproxHittingTimeModel(x_L, C_L, S_w, x_predTo, t_L)
+    mc_model = MCHittingTimeModel(x_L, C_L, S_w, x_predTo, t_L, t_range, t_samples=t_samples)
 
     # Results for temporal uncertainties
     logging.info('MAX CDF: {} at {}'.format(approx_model.q_max, approx_model.t_max))
-    approx_model.plot_valid_regions(theta=t_predicted, save_results=save_results, result_dir=result_dir, for_paper=True, no_show=no_show)
-    #approx_model.plot_valid_regions(save_results=save_results, result_dir=result_dir, for_paper=True, no_show=no_show)
+    approx_model.plot_valid_regions(theta=t_predicted, save_results=save_results, result_dir=result_dir, for_paper=True,
+                                    no_show=no_show)
+    # approx_model.plot_valid_regions(save_results=save_results, result_dir=result_dir, for_paper=True, no_show=no_show)
     logging.info('tau_max: {}'.format(approx_model.trans_dens_ppf(t_predicted)[0]))
     logging.info('Mass inside invalid region: {}'.format(
-          1 - approx_model.cdf(t_predicted + approx_model.trans_dens_ppf(t_predicted)[0])))
+        1 - approx_model.cdf(t_predicted + approx_model.trans_dens_ppf(t_predicted)[0])))
+    logging.info('Approximate returning probs after a crossing until time t_max: {}'.format(
+        approx_model.get_statistics()['ReturningProbs'](approx_model.t_max)))
 
     approaches_temp_ls = [taylor_model, approx_model]
 
@@ -195,14 +205,28 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     hte.compare_moments_temporal(approaches_temp_ls)
     # Calculate the skewness and compare the results
     hte.compare_skewness_temporal(approaches_temp_ls)
-    # TODO: DIe ganzen vergleiche für die distanzen einfügen einfügen
+
+    # Calculate wasserstein distance and compare results
+    hte.compare_wasserstein_distances_temporal(t_samples, approaches_temp_ls)
+    # Calculate the Hellinger distance
+    hte.compare_hellinger_distances_temporal(t_samples, approaches_temp_ls)
+    # Calculate the first wasserstein distance
+    hte.compare_first_wasserstein_distances_temporal(t_samples, approaches_temp_ls)
+    # Calculate the kolmogorov distance
+    hte.compare_kolmogorv_distances_temporal(t_samples, approaches_temp_ls)
+
     # Plot histogram of samples and hitting time distributions
     hte.plot_first_hitting_time_distributions(t_samples, approaches_temp_ls, plot_hist_for_all_particles=True)
     hte.plot_fptd_and_paths_in_one(ev_fn, var_fn, t_samples, approaches_temp_ls, plot_hist_for_all_particles=True)
     # Plot histogram of samples for returning distribution and estimated returning distribution
     # hte.plot_returning_probs_from_fptd_histogram(ev_fn, var_fn, t_samples, approaches_temp_ls)   # this is too noisy
-    # for this, we require longer samples paths, but we can use a reduced time resolution
     hte.plot_returning_probs_from_sample_paths(fraction_of_returns, dt, approaches_temp_ls)
+
+    if measure_computational_times:
+        logging.info('Measuring computational time for ca process.')
+        model_class_ls = [MCHittingTimeModel, TaylorHittingTimeModel, EngineeringApproxHittingTimeModel]
+        model_attributes_ls = [[x_L, C_L, S_w, x_predTo, t_L, t_range]] + 2 * [[x_L, C_L, S_w, x_predTo, t_L]]
+        measure_computation_times(model_class_ls, model_attributes_ls, t_range=t_range)
 
 
 # Approaches to solve problem
@@ -221,9 +245,9 @@ class CAHittingTimeModel(AbstractHittingTimeModel, ABC):
         :param t_L: A float, the time of the last state/measurement (initial time).
         :param name: String, (default) name for the model.
         """
-        self.x_L = x_L
-        self.C_L = C_L
-        self.S_w = S_w
+        self._x_L = x_L
+        self._C_L = C_L
+        self._S_w = S_w
         super().__init__(x_predTo=x_predTo,
                          t_L=t_L,
                          name=name,
@@ -238,6 +262,21 @@ class CAHittingTimeModel(AbstractHittingTimeModel, ABC):
         self._fourth_moment = None
         self._fifth_moment = None
         self._skew = None
+
+    @property
+    def x_L(self):
+        """The expected value of the initial state."""
+        return self._x_L
+
+    @property
+    def C_L(self):
+        """The covariance matrix of the initial state."""
+        return self._C_L
+
+    @property
+    def S_w(self):
+        """The power spectral density of the model."""
+        return self._S_w
 
     @property
     @abstractmethod
@@ -319,17 +358,17 @@ class CAHittingTimeModel(AbstractHittingTimeModel, ABC):
 
     def trans_density(self, dt, theta):
         """The transition density p(x(dt+theta)| x(theta) = x_predTo) from going from x_predTo at time theta to
-         x(dt+theta) at time dt+theta.
+        x(dt+theta) at time dt+theta.
 
-         Note that in terms of the used approximation, this can be seen as the first returning time to x_predTo after
-         a crossing of x_predTo at theta.
+        Note that in terms of the used approximation, this can be seen as the first returning time to x_predTo after
+        a crossing of x_predTo at theta.
 
-         :param dt: A float or np.array, the time difference. dt is zero at time = theta.
-         :param theta: A float or np.array, the (assumed) time at which x(theta) = x_pred_to.
+        :param dt: A float or np.array, the time difference. dt is zero at time = theta.
+        :param theta: A float or np.array, the (assumed) time at which x(theta) = x_pred_to.
 
-         :returns: The value of the transition density for the given dt and theta.
-         """
-        Phi = lambda dt: np.array([[1, dt, dt ** 2 / 2],  # TODO: Kann man die durch die get matrices ersetzen?
+        :returns: The value of the transition density for the given dt and theta.
+        """
+        Phi = lambda dt: np.array([[1, dt, dt ** 2 / 2],
                                    [0, 1, dt],
                                    [0, 0, 1]])
 
@@ -381,14 +420,11 @@ class TaylorHittingTimeModel(CAHittingTimeModel, AbstractTaylorHittingTimeModel)
                          t_L=t_L,
                          name=name)
 
-        # TODO: +-? Was kommt hier hin?
-        self._ev = t_L + - x_L[1] / x_L[2] + np.sign(x_L[2]) * \
-                        np.sqrt((x_L[1] / x_L[2])**2 + 2/x_L[2]*(x_predTo-x_L[0]))
-        dt_p = self._ev - t_L
-        x_p = mu_t(dt_p, x_L)  # TODO: Das sollte auch weg, das unten auch
-        self._var = (1 / x_p[1]) ** 2 * self.var_t(dt_p)   #  TODO: stimmt das ? Wird da nicht 2x t_L abgezogen?
-        # x_p = x_L[0] + dt_p * x_L[1] + dt_p**2 / 2 * x_L[2]  # Das scheint nicht zu stimmen
-        # self._var = (1 / x_p) ** 2 * self.var_t(dt_p)  #  TODO: stimmt das ? Wird da nicht 2x t_L abgezogen?
+        self._ev = t_L - x_L[1] / x_L[2] + np.sign(x_L[2]) * \
+                   np.sqrt((x_L[1] / x_L[2]) ** 2 + 2 / x_L[2] * (x_predTo - x_L[0]))
+        F, _ = _get_system_matrices_from_parameters(self._ev, self.S_w)
+        x_p = np.dot(F, self.x_L)
+        self._var = (1 / x_p[1]) ** 2 * self.var_t(self._ev)
 
     @property
     def third_central_moment(self):
@@ -460,11 +496,12 @@ class EngineeringApproxHittingTimeModel(CAHittingTimeModel, AbstractEngineeringA
         """
         # return derivative(self._cdf, t, dx=1e-6)
         gauss = norm.pdf((self.x_predTo - self.ev_t(t)) / np.sqrt(self.var_t(t)))  # Std. Gauss pdf
-        der_ev_t = self.x_L[1] + self.x_L[2]* (t - self.t_L)
-        der_var_t = 2*self.C_L[0, 1] + 2*(self.C_L[0, 2] + self.C_L[1, 1])*(t - self.t_L) + \
-                    3*self.C_L[1, 2]*(t - self.t_L)**2 + self.C_L[2, 2]*(t - self.t_L)**3 + \
-                    1/4*self.S_w*(t - self.t_L)**4
-        neg_der_arg = der_ev_t / np.sqrt(self.var_t(t)) + (self.x_predTo - self.ev_t(t))*der_var_t/(2*self.var_t(t)**(3/2)) # negative of the derivative
+        der_ev_t = self.x_L[1] + self.x_L[2] * (t - self.t_L)
+        der_var_t = 2 * self.C_L[0, 1] + 2 * (self.C_L[0, 2] + self.C_L[1, 1]) * (t - self.t_L) + \
+                    3 * self.C_L[1, 2] * (t - self.t_L) ** 2 + self.C_L[2, 2] * (t - self.t_L) ** 3 + \
+                    1 / 4 * self.S_w * (t - self.t_L) ** 4
+        neg_der_arg = der_ev_t / np.sqrt(self.var_t(t)) + (self.x_predTo - self.ev_t(t)) * der_var_t / (
+                    2 * self.var_t(t) ** (3 / 2))  # negative of the derivative
         return gauss * neg_der_arg
 
     def pdf(self, t):
@@ -475,7 +512,7 @@ class EngineeringApproxHittingTimeModel(CAHittingTimeModel, AbstractEngineeringA
         t = np.asarray([t]) if np.isscalar(t) else np.asarray(t)
         pdf_value = self._pdf(t)
         pdf_value[t > self.t_max] = 0  # piecewise function
-        return pdf_value
+        return np.squeeze(pdf_value)
 
     def ppf(self, q):
         """The quantile function / percent point function (PPF) of the first passage time distribution.
@@ -498,7 +535,7 @@ class EngineeringApproxHittingTimeModel(CAHittingTimeModel, AbstractEngineeringA
               1 - q = int(N(x, mu(t), var(t)), x = -inf .. x_predTo) = PHI ( (x_predTo - mu(t)) / sqrt(var(t))
               PHI^-1(1 -q) = (x_predTo - mu(t)) / sqrt(var(t)) -> solve for t...
 
-        We solve the equation for t = t - t_L to simplify calculations and at t_L at the end of the function.
+        We solve the equation for t = t - t_L to simplify calculations and add t_L at the end of the function.
 
         :param q: A float or np.array, the confidence parameter of the distribution, 0 <= q <= 1.
         """
@@ -544,6 +581,12 @@ class EngineeringApproxHittingTimeModel(CAHittingTimeModel, AbstractEngineeringA
     def _get_max_cdf_value_and_location(self):
         """Method that finds the maximum of the CDF of the approximation and its location.
 
+        Approach:
+
+            set self.pdf(t) = 0, solve for t.
+
+        We solve the equation for t = t - t_L to simplify calculations and add t_L at the end of the function.
+
         :returns:
             q_max: A float, the maximum value of the CDF.
             t_q_max: A float, the time, where the CDF visits its maximum.
@@ -564,10 +607,11 @@ class EngineeringApproxHittingTimeModel(CAHittingTimeModel, AbstractEngineeringA
         roots = np.roots([A, B, C, D, E, F, G])
         real_roots = roots[np.isreal(roots)].real
         t_q_max = max(real_roots)  # get the highest one
+        t_q_max += self.t_L
 
         # Get the CDF Value
         q_max = self._cdf(t_q_max)
-        return q_max, t_q_max  # TODO: Muss hier nicht wieder t_l hinzugefügt werden? Siehe
+        return q_max, t_q_max
 
     @property
     def third_central_moment(self):
@@ -624,18 +668,15 @@ class EngineeringApproxHittingTimeModel(CAHittingTimeModel, AbstractEngineeringA
         :param theta: A float or np.array, the (assumed) time at which x(theta) = x_pred_to.
         :param q: A float, the desired confidence level, 0 <= q <= 1.
 
-        :returns: The value of the PPF for q and theta.
+        :returns: A np.array, the value of the PPF for q and theta, note that this a delta time w.r.t. theta.The value of the PPF for q and theta, note that this a delta time w.r.t. theta.
         """
-        Phi = lambda dt: np.array([[1, dt, dt ** 2 / 2],
-                                   [0, 1, dt],
-                                   [0, 0, 1]])
+        # TODO: One could alternatively use scipy.norm's ppf function on self.trans_dens
+        F, Q = _get_system_matrices_from_parameters(theta - self.t_L, self.S_w)
+        F = F[:3, :3]
+        Q = Q[:3, :3]
 
-        Q = lambda dt: self.S_w * np.array([[pow(dt, 5) / 20, pow(dt, 4) / 8, pow(dt, 3) / 6],
-                                            [pow(dt, 4) / 8, pow(dt, 3) / 3, pow(dt, 2) / 2],
-                                            [pow(dt, 3) / 6, pow(dt, 2) / 2, dt]])
-
-        cov_theta = np.matmul(np.matmul(Phi(theta - self.t_L), self.C_L[0:3, 0:3]),
-                              np.transpose(Phi(theta - self.t_L))) + Q(theta - self.t_L)
+        cov_theta = np.matmul(np.matmul(F, self.C_L[0:3, 0:3]),
+                              np.transpose(F)) + Q
 
         p_theta_var = cov_theta[1:, 1:] - np.outer(cov_theta[1:, 0], cov_theta[0, 1:]) / cov_theta[0, 0]
         p_theta_mu = np.array([self.x_L[1] + self.x_L[2]*(theta - self.t_L), self.x_L[2]]) \
@@ -657,7 +698,7 @@ class EngineeringApproxHittingTimeModel(CAHittingTimeModel, AbstractEngineeringA
         trans_fpt_values = np.array([1 - self.trans_density(t, theta).cdf(self.x_predTo) for t in dt])
         valid_roots = dt[np.isclose(trans_fpt_values, q)].real
         positive_roots = valid_roots[valid_roots > 0]
-        return positive_roots  # TODO: Muss hier auch + t_l gerechnet werden? Nein, oder?
+        return positive_roots
 
     def get_statistics(self):
         """Get some statistics from the model as a dict."""
@@ -672,7 +713,7 @@ class MCHittingTimeModel(CAHittingTimeModel, AbstractMCHittingTimeModel):
      using scipy.stats.rv_histogram.
     """
 
-    def __init__(self, x_L, C_L, S_w, x_predTo, t_L, t_range, bins=100, name='MC simulation'):
+    def __init__(self, x_L, C_L, S_w, x_predTo, t_L, t_range, bins=100, t_samples=None, name='MC simulation'):
         """Initialize the model.
 
         :param x_L: A np.array of shape [4] representing the expected value of the initial state. We use index L here
@@ -685,9 +726,13 @@ class MCHittingTimeModel(CAHittingTimeModel, AbstractMCHittingTimeModel):
         :param t_range: A list of length 2 representing the limits for the first passage time histogram (the number of
             bins within t_range will correspond to bins).
         :param bins: An integer, the number of bins to use to represent the histogram.
+        :param t_samples: None or a np.array of shape [N] containing the first passage times of the particles. If None,
+            t_samples will be created by a call to a sampling method. If given, given values will be used.
         :param name: String, name for the model.
         """
-        t_samples, _, _ = create_ty_ca_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L)  # TODO: Lassen wir das nun so?
+        if t_samples is None:
+            t_samples, _, _ = create_ty_ca_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L)
+
         super().__init__(x_L=x_L,
                          C_L=C_L,
                          S_w=S_w,
@@ -727,24 +772,6 @@ class MCHittingTimeModel(CAHittingTimeModel, AbstractMCHittingTimeModel):
     def fifth_moment(self):
         """The fifth moment of the first passage time distribution."""
         return self._density.moment(5)
-
-
-# Mean and variance of the six-dimensional process
-def mu_t(delta_t, mu_0):  # TODO: Das dann auch weg
-    """Mean function of the 2D CA process.
-
-    :param delta_t: A float, time difference.
-    :param mu_0: A np.array of shape [6] reprenting the mean of the initial state.
-        Format: [pos_x, vel_x, acc_x, pos_y, vel_y, acc_y].
-    """
-    F = np.array([[1, delta_t, delta_t ** 2 / 2, 0, 0, 0],
-                  [0, 1, delta_t, 0, 0, 0],
-                  [0, 0, 1, 0, 0, 0],
-                  [0, 0, 0, 1, delta_t, delta_t ** 2 / 2],
-                  [0, 0, 0, 0, 1, delta_t],
-                  [0, 0, 0, 0, 0, 1]])
-    mu_t = F.dot(mu_0)
-    return mu_t
 
 
 def _get_system_matrices_from_parameters(dt, S_w):

@@ -1,0 +1,128 @@
+Matplotlib created a temporary config/cache directory at /tmp/matplotlib-j_6c46o_ because the default path (/.config/matplotlib) is not a writable directory; it is highly recommended to set the MPLCONFIGDIR environment variable to a writable directory, in particular to speed up the import of Matplotlib and to better support multiprocessing.
+2023-03-15 16:07:49.315595: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:936] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2023-03-15 16:07:49.319965: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:936] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2023-03-15 16:07:49.320206: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:936] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+I0315 16:07:49.338163 140309897799488 sampler.py:58] Timestep 0, x equals approx. 29.0304
+I0315 16:07:50.477817 140309897799488 sampler.py:58] Timestep 100, x equals approx. 29.000686328844242
+I0315 16:07:51.582897 140309897799488 sampler.py:58] Timestep 200, x equals approx. 33.9485991128098
+I0315 16:07:52.721361 140309897799488 sampler.py:58] Timestep 300, x equals approx. 34.55745518254138
+I0315 16:07:54.084946 140309897799488 sampler.py:58] Timestep 400, x equals approx. 38.435547080262786
+I0315 16:07:55.450919 140309897799488 sampler.py:58] Timestep 500, x equals approx. 34.36539275470036
+I0315 16:07:56.786961 140309897799488 sampler.py:58] Timestep 600, x equals approx. 39.08072591649847
+I0315 16:07:58.139460 140309897799488 sampler.py:58] Timestep 700, x equals approx. 39.884577469293944
+I0315 16:07:59.552185 140309897799488 sampler.py:58] Timestep 800, x equals approx. 44.07169288668105
+I0315 16:08:00.993194 140309897799488 sampler.py:58] Timestep 900, x equals approx. 51.098742919896935
+I0315 16:08:02.471630 140309897799488 sampler.py:58] Timestep 1000, x equals approx. 57.43611588018355
+I0315 16:08:03.969987 140309897799488 sampler.py:58] Timestep 1100, x equals approx. 53.237663376156306
+I0315 16:08:05.445480 140309897799488 sampler.py:58] Timestep 1200, x equals approx. 55.12215309858624
+I0315 16:08:06.897898 140309897799488 sampler.py:58] Timestep 1300, x equals approx. 59.30126317731263
+I0315 16:08:08.333006 140309897799488 sampler.py:58] Timestep 1400, x equals approx. 58.63677067757801
+I0315 16:08:09.743614 140309897799488 sampler.py:58] Timestep 1500, x equals approx. 61.87884216374924
+I0315 16:08:11.133789 140309897799488 sampler.py:58] Timestep 1600, x equals approx. 66.62958559294852
+I0315 16:08:12.494017 140309897799488 sampler.py:58] Timestep 1700, x equals approx. 74.10692479192254
+I0315 16:08:13.828213 140309897799488 sampler.py:58] Timestep 1800, x equals approx. 80.55489653912706
+I0315 16:08:15.149038 140309897799488 sampler.py:58] Timestep 1900, x equals approx. 90.61227985784288
+I0315 16:08:16.457304 140309897799488 sampler.py:58] Timestep 2000, x equals approx. 97.55041842317974
+I0315 16:08:17.760437 140309897799488 sampler.py:58] Timestep 2100, x equals approx. 98.26300323010864
+I0315 16:08:19.056284 140309897799488 sampler.py:58] Timestep 2200, x equals approx. 101.73377821678288
+I0315 16:08:20.344681 140309897799488 sampler.py:58] Timestep 2300, x equals approx. 106.41757767575871
+I0315 16:08:21.629001 140309897799488 sampler.py:58] Timestep 2400, x equals approx. 105.54670984676503
+I0315 16:08:22.909241 140309897799488 sampler.py:58] Timestep 2500, x equals approx. 110.56527574304265
+I0315 16:08:24.188945 140309897799488 sampler.py:58] Timestep 2600, x equals approx. 110.65136909107694
+I0315 16:08:25.462554 140309897799488 sampler.py:58] Timestep 2700, x equals approx. 110.02383254505543
+I0315 16:08:26.734219 140309897799488 sampler.py:58] Timestep 2800, x equals approx. 109.66165496631818
+I0315 16:08:27.995532 140309897799488 sampler.py:58] Timestep 2900, x equals approx. 108.92338596417001
+I0315 16:08:29.232944 140309897799488 sampler.py:58] Timestep 3000, x equals approx. 111.85807807503491
+I0315 16:08:29.243361 140309897799488 sampler.py:74] Warning: Sampling interrupted because 3000. reached. Please adjust break_after_n_time_steps if you want to move the particles more timesteps.
+I0315 16:08:29.243426 140309897799488 sampler.py:83] MC time: 39909ms
+/usr/local/lib/python3.8/dist-packages/scipy/stats/_distn_infrastructure.py:2176: RuntimeWarning: invalid value encountered in double_scalars
+  x = np.asarray((x - loc)/scale, dtype=dtyp)
+I0315 16:08:41.751034 140309897799488 wiener_process.py:132] Mass inside invalid region: 0.29549425876698643
+W0315 16:08:41.751237 140309897799488 abstract_distributions.py:450] Absolute Difference between lower and upper some is greater than 1e-05. Try increasing integration points
+W0315 16:08:41.751281 140309897799488 abstract_distributions.py:454] Relative Difference between lower and upper some is greater than 0.001. Try increasing integration points
+I0315 16:08:41.751360 140309897799488 abstract_distributions.py:338] EV integration time: 0.1314ms. Abs dev: 0.00046433473818592585, Rel. dev: 0.007807151503370007
+I0315 16:08:41.751448 140309897799488 abstract_distributions.py:354] Var integration time: 0.0243ms. Abs dev: 2.211090527208569e-07, Rel. dev: 0.0004951254657291415
+/usr/local/lib/python3.8/dist-packages/numpy/core/function_base.py:151: RuntimeWarning: invalid value encountered in multiply
+  y *= step
+/mnt/wiener_process.py:395: RuntimeWarning: invalid value encountered in double_scalars
+  mulipl = der_ev/np.sqrt(self.var_t(t)) + (self.x_predTo - self.ev_t(t))*der_var/(2*self.var_t(t)**(3.0/2.0))
+/mnt/wiener_process.py:396: RuntimeWarning: invalid value encountered in double_scalars
+  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self.ev_t(t))**2/(2*self.var_t(t)))
+/mnt/abstract_distributions.py:194: RuntimeWarning: invalid value encountered in double_scalars
+  [self.pdf(theta) * self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo) for
+/mnt/abstract_distributions.py:193: RuntimeWarning: Mean of empty slice
+  return (t - self.t_L) * np.nanmean(
+I0315 16:08:41.799888 140309897799488 wiener_process.py:134] Approximate returning probs after a crossing until time t_max: nan
+I0315 16:08:43.867430 140309897799488 hitting_time_uncertainty_utils.py:146] Temporal mean of Analytic solution: 0.055783
+I0315 16:08:43.867576 140309897799488 hitting_time_uncertainty_utils.py:147] Temporal stddev of Analytic solution: 0.019682
+I0315 16:08:43.868211 140309897799488 hitting_time_uncertainty_utils.py:146] Temporal mean of No-return approx.: 0.059011
+I0315 16:08:43.868295 140309897799488 hitting_time_uncertainty_utils.py:147] Temporal stddev of No-return approx.: 0.021127
+I0315 16:08:43.868629 140309897799488 hitting_time_uncertainty_utils.py:156] Pairwise relative deviations of temporal stddevs in percent: 
+[[0.   6.84]
+ [6.84 0.  ]]
+/mnt/wiener_process.py:271: RuntimeWarning: divide by zero encountered in double_scalars
+  return np.sqrt(self.lambdaa/(2*np.pi*t**3)) * np.exp(-self.lambdaa*(t - self.ev)**2/(2*self.ev**2*t))
+/mnt/wiener_process.py:271: RuntimeWarning: invalid value encountered in double_scalars
+  return np.sqrt(self.lambdaa/(2*np.pi*t**3)) * np.exp(-self.lambdaa*(t - self.ev)**2/(2*self.ev**2*t))
+/usr/local/lib/python3.8/dist-packages/ot/lp/__init__.py:547: UserWarning: Problem infeasible. Check that a and b are in the simplex
+  check_result(result_code)
+/mnt/wiener_process.py:395: RuntimeWarning: divide by zero encountered in double_scalars
+  mulipl = der_ev/np.sqrt(self.var_t(t)) + (self.x_predTo - self.ev_t(t))*der_var/(2*self.var_t(t)**(3.0/2.0))
+/mnt/wiener_process.py:396: RuntimeWarning: divide by zero encountered in double_scalars
+  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self.ev_t(t))**2/(2*self.var_t(t)))
+/mnt/wiener_process.py:396: RuntimeWarning: invalid value encountered in double_scalars
+  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self.ev_t(t))**2/(2*self.var_t(t)))
+I0315 16:08:45.050362 140309897799488 hitting_time_uncertainty_utils.py:208] Wasserstein distances compared against MC histogram (in plot range!): 
+[0.0, 0.0]
+I0315 16:08:47.214201 140309897799488 hitting_time_uncertainty_utils.py:232] Hellinger distances compared against MC histogram (in plot range!): 
+[nan, nan]
+I0315 16:08:47.377207 140309897799488 hitting_time_uncertainty_utils.py:256] First Wasserstein distances compared against MC histogram (in plot range!): 
+[nan, nan]
+/mnt/wiener_process.py:279: RuntimeWarning: divide by zero encountered in double_scalars
+  z1 = np.sqrt(self.lambdaa/t)*(t/self.ev - 1)
+/mnt/wiener_process.py:280: RuntimeWarning: divide by zero encountered in double_scalars
+  z2 = - np.sqrt(self.lambdaa / t) * (t / self.ev + 1)
+/usr/local/lib/python3.8/dist-packages/scipy/stats/_distn_infrastructure.py:2176: RuntimeWarning: divide by zero encountered in double_scalars
+  x = np.asarray((x - loc)/scale, dtype=dtyp)
+I0315 16:08:58.997127 140309897799488 hitting_time_uncertainty_utils.py:281] Kolmogorov distances compared against MC histogram (in plot range!): 
+[0.007618914522342535, 0.06200327187634791]
+/mnt/wiener_process.py:279: RuntimeWarning: divide by zero encountered in double_scalars
+  z1 = np.sqrt(self.lambdaa/t)*(t/self.ev - 1)
+/mnt/wiener_process.py:280: RuntimeWarning: divide by zero encountered in double_scalars
+  z2 = - np.sqrt(self.lambdaa / t) * (t / self.ev + 1)
+/mnt/wiener_process.py:271: RuntimeWarning: divide by zero encountered in double_scalars
+  return np.sqrt(self.lambdaa/(2*np.pi*t**3)) * np.exp(-self.lambdaa*(t - self.ev)**2/(2*self.ev**2*t))
+/mnt/wiener_process.py:271: RuntimeWarning: invalid value encountered in double_scalars
+  return np.sqrt(self.lambdaa/(2*np.pi*t**3)) * np.exp(-self.lambdaa*(t - self.ev)**2/(2*self.ev**2*t))
+/usr/local/lib/python3.8/dist-packages/scipy/stats/_distn_infrastructure.py:2176: RuntimeWarning: divide by zero encountered in double_scalars
+  x = np.asarray((x - loc)/scale, dtype=dtyp)
+/mnt/wiener_process.py:395: RuntimeWarning: divide by zero encountered in double_scalars
+  mulipl = der_ev/np.sqrt(self.var_t(t)) + (self.x_predTo - self.ev_t(t))*der_var/(2*self.var_t(t)**(3.0/2.0))
+/mnt/wiener_process.py:396: RuntimeWarning: divide by zero encountered in double_scalars
+  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self.ev_t(t))**2/(2*self.var_t(t)))
+/mnt/wiener_process.py:396: RuntimeWarning: invalid value encountered in double_scalars
+  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self.ev_t(t))**2/(2*self.var_t(t)))
+/mnt/wiener_process.py:236: RuntimeWarning: invalid value encountered in sqrt
+  return norm(loc=trans_mu, scale=np.sqrt(trans_var))
+/mnt/abstract_distributions.py:213: IntegrationWarning: The occurrence of roundoff error is detected, which prevents 
+  the requested tolerance from being achieved.  The error may be 
+  underestimated.
+  return integrate.quad(fn, a=a, b=t)[0]  # this is a tuple
+/mnt/wiener_process.py:279: RuntimeWarning: divide by zero encountered in double_scalars
+  z1 = np.sqrt(self.lambdaa/t)*(t/self.ev - 1)
+/mnt/wiener_process.py:280: RuntimeWarning: divide by zero encountered in double_scalars
+  z2 = - np.sqrt(self.lambdaa / t) * (t / self.ev + 1)
+/usr/local/lib/python3.8/dist-packages/scipy/stats/_distn_infrastructure.py:2176: RuntimeWarning: divide by zero encountered in double_scalars
+  x = np.asarray((x - loc)/scale, dtype=dtyp)
+/mnt/wiener_process.py:395: RuntimeWarning: divide by zero encountered in double_scalars
+  mulipl = der_ev/np.sqrt(self.var_t(t)) + (self.x_predTo - self.ev_t(t))*der_var/(2*self.var_t(t)**(3.0/2.0))
+/mnt/wiener_process.py:396: RuntimeWarning: divide by zero encountered in double_scalars
+  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self.ev_t(t))**2/(2*self.var_t(t)))
+/mnt/wiener_process.py:396: RuntimeWarning: invalid value encountered in double_scalars
+  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self.ev_t(t))**2/(2*self.var_t(t)))
+/usr/local/lib/python3.8/dist-packages/scipy/stats/_distn_infrastructure.py:2176: RuntimeWarning: invalid value encountered in double_scalars
+  x = np.asarray((x - loc)/scale, dtype=dtyp)
+/mnt/abstract_distributions.py:193: RuntimeWarning: Mean of empty slice
+  return (t - self.t_L) * np.nanmean(
+/usr/local/lib/python3.8/dist-packages/matplotlib/axes/_base.py:2503: UserWarning: Warning: converting a masked element to nan.
+  xys = np.asarray(xys)
