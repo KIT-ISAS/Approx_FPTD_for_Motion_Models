@@ -27,13 +27,11 @@ from absl import flags
 from abc import ABC, abstractmethod
 from timeit import time
 
-import matplotlib.pyplot as plt
-
 import numpy as np
 from scipy.stats import norm
 
-from hitting_time_uncertainty_utils import HittingTimeEvaluator
-from abstract_distributions import AbstractHittingTimeModel, AbstractTaylorHittingTimeModel, \
+from evaluators.hitting_time_evaluator import HittingTimeEvaluator
+from abstract_hitting_time_models import AbstractHittingTimeModel, AbstractTaylorHittingTimeModel, \
     AbstractEngineeringApproxHittingTimeModel, AbstractMCHittingTimeModel
 from sampler import create_lgssm_hitting_time_samples, get_example_tracks_lgssm
 from timer import measure_computation_times
@@ -142,12 +140,10 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     if y_range is None:
         y_range = [0.9 * y_predicted, 1.1 * y_predicted]
     plot_t = np.arange(t_range[0], t_range[1], 0.00001)
-    plot_y = np.arange(y_range[0], y_range[1], 0.001)
+    plot_y = np.arange(y_range[0], y_range[1], 0.001)  # TODO: Könnte evtl. auch raus, bei CV auch
 
     # Create base class
     hte = HittingTimeEvaluator('CA Process', x_predTo, plot_t, t_predicted, t_L,
-                               plot_y=plot_y,
-                               y_predicted=y_predicted,
                                get_example_tracks_fn=get_example_tracks_lgssm(x_L,
                                                                               C_L,
                                                                               S_w,
@@ -202,18 +198,18 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     # Plot the quantile functions
     hte.plot_quantile_functions(approaches_temp_ls)
     # Calculate moments and compare the results
-    hte.compare_moments_temporal(approaches_temp_ls)
+    hte.compare_moments(approaches_temp_ls)
     # Calculate the skewness and compare the results
-    hte.compare_skewness_temporal(approaches_temp_ls)
+    hte.compare_skewness(approaches_temp_ls)
 
     # Calculate wasserstein distance and compare results
-    hte.compare_wasserstein_distances_temporal(t_samples, approaches_temp_ls)
+    hte.compare_wasserstein_distances(t_samples, approaches_temp_ls)
     # Calculate the Hellinger distance
-    hte.compare_hellinger_distances_temporal(t_samples, approaches_temp_ls)
+    hte.compare_hellinger_distances(t_samples, approaches_temp_ls)
     # Calculate the first wasserstein distance
-    hte.compare_first_wasserstein_distances_temporal(t_samples, approaches_temp_ls)
+    hte.compare_first_wasserstein_distances(t_samples, approaches_temp_ls)
     # Calculate the kolmogorov distance
-    hte.compare_kolmogorv_distances_temporal(t_samples, approaches_temp_ls)
+    hte.compare_kolmogorv_distances(t_samples, approaches_temp_ls)
 
     # Plot histogram of samples and hitting time distributions
     hte.plot_first_hitting_time_distributions(t_samples, approaches_temp_ls, plot_hist_for_all_particles=True)
@@ -408,9 +404,9 @@ class TaylorHittingTimeModel(CAHittingTimeModel, AbstractTaylorHittingTimeModel)
             because it corresponds to the last time we see a particle in our optical belt sorting scenario.
             Format: [pos_x, vel_x, acc_x pos_y, vel_y, acc_y].
         :param C_L: A np.array of shape [6, 6] representing the covariance matrix of the initial state.
-        :param t_L: A float, the time of the last state/measurement (initial time).
         :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
         :param x_predTo: A float, position of the boundary.
+        :param t_L: A float, the time of the last state/measurement (initial time).
         :param name: String, name for the model.
         """
         super().__init__(x_L=x_L,

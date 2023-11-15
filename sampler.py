@@ -76,7 +76,7 @@ def create_hitting_time_samples(initial_samples,
                     break_after_n_time_steps))
             break
         x_curr = x_next
-        t += dt
+        t += dt   # TODO: Stimmt die Reihenfolge hier? müsste man nicht erst nach der nächsten Zeile +dt rechnen?
         time_before_arrival[np.logical_not(x_term)] = t
         ind += 1
 
@@ -165,7 +165,7 @@ def get_example_tracks_lgssm(x_L, C_L, S_w, get_system_matrices_from_parameters_
         :param N: Integer, number of tracks to create.
 
         :returns:
-            x_tracks: A np.array of shape [num_time_steps, N] containing the x-positions of the tracks.
+            x_tracks: A np.array of shape [num_time_steps, N] containing the x-positions of the tracks.  # TODO: Anpassen, sodass es auch mit den y-Positionen geht!
         """
         dt = plot_t[1] - plot_t[0]
         F, Q = get_system_matrices_from_parameters_func(dt, S_w)

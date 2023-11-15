@@ -30,10 +30,8 @@ import numpy as np
 import scipy.integrate as integrate
 from scipy.stats import norm, invgauss
 
-import matplotlib.pyplot as plt
-
-from hitting_time_uncertainty_utils import HittingTimeEvaluator
-from abstract_distributions import AbstractHittingTimeModel, AbstractEngineeringApproxHittingTimeModel, \
+from evaluators.hitting_time_evaluator import HittingTimeEvaluator
+from abstract_hitting_time_models import AbstractHittingTimeModel, AbstractEngineeringApproxHittingTimeModel, \
     AbstractMCHittingTimeModel
 from sampler import create_hitting_time_samples
 from timer import measure_computation_times
@@ -142,13 +140,13 @@ def main(args):
     hte.compare_moments_temporal(approaches_temp_ls)
 
     # Calculate wasserstein distance and compare results
-    hte.compare_wasserstein_distances_temporal(t_samples, approaches_temp_ls)
+    hte.compare_wasserstein_distances(t_samples, approaches_temp_ls)
     # Calculate the Hellinger distance
-    hte.compare_hellinger_distances_temporal(t_samples, approaches_temp_ls)
+    hte.compare_hellinger_distances(t_samples, approaches_temp_ls)
     # Calculate the first wasserstein distance
-    hte.compare_first_wasserstein_distances_temporal(t_samples, approaches_temp_ls)
+    hte.compare_first_wasserstein_distances(t_samples, approaches_temp_ls)
     # Calculate the kolmogorov distance
-    hte.compare_kolmogorv_distances_temporal(t_samples, approaches_temp_ls)
+    hte.compare_kolmogorv_distances(t_samples, approaches_temp_ls)
 
     # Plot histogram of samples and hitting time distributions
     hte.plot_first_hitting_time_distributions(t_samples, approaches_temp_ls, plot_hist_for_all_particles=True)

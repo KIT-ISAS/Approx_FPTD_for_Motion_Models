@@ -27,19 +27,19 @@ from absl import flags
 from abc import ABC, abstractmethod
 from timeit import time
 
-import matplotlib.pyplot as plt
-
 import numpy as np
 import scipy.integrate as integrate
 from scipy.stats import norm, multivariate_normal
 from scipy.special import cbrt
 
 
-from hitting_time_uncertainty_utils import HittingTimeEvaluator
-from abstract_distributions import AbstractHittingTimeModel, AbstractTaylorHittingTimeModel, \
+from evaluators.hitting_time_evaluator import HittingTimeEvaluator
+from evaluators.hitting_location_evaluator import HittingLocationEvaluator
+from abstract_hitting_time_models import AbstractHittingTimeModel, AbstractTaylorHittingTimeModel, \
     AbstractEngineeringApproxHittingTimeModel, AbstractMCHittingTimeModel
-from sampler import create_lgssm_hitting_time_samples
+from cv_hitting_location_model import CVTaylorHittingLocationModel, SimpleGaussCVHittingLocationModel, ProjectionCVHittingLocationModel, MCCVHittingLocationModel
 from sampler import get_example_tracks_lgssm as get_example_tracks
+from cv_utils import _get_system_matrices_from_parameters, create_ty_cv_samples_hitting_time
 from timer import measure_computation_times
 
 
@@ -148,8 +148,6 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
 
     # Create base class
     hte = HittingTimeEvaluator('CV Process', x_predTo, plot_t, t_predicted, t_L,
-                               plot_y=plot_y,
-                               y_predicted=y_predicted,
                                get_example_tracks_fn=get_example_tracks(x_L,
                                                                         C_L,
                                                                         S_w,
@@ -181,7 +179,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     hte.plot_mean_and_stddev_over_time(ev_fn, var_fn, show_example_tracks=True)
 
     # Set up the hitting time approaches
-    taylor_model = TaylorHittingTimeModel(x_L, C_L, S_w, x_predTo, t_L)
+    taylor_model = TaylorHittingTimeModel(x_L, C_L, S_w, x_predTo, t_L)  # TODO: CV hier aus reinmogeln in den Namen
     approx_model = EngineeringApproxHittingTimeModel(x_L, C_L, S_w, x_predTo, t_L)
     mc_model = MCHittingTimeModel(x_L, C_L, S_w, x_predTo, t_L, t_range, t_samples=t_samples)
 
@@ -199,37 +197,69 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     approaches_temp_ls = [taylor_model, approx_model]
 
     # Plot the quantile functions
-    hte.plot_quantile_functions(approaches_temp_ls)
-    # Calculate moments and compare the results
-    hte.compare_moments_temporal(approaches_temp_ls)
-    # Calculate the skewness and compare the results
-    hte.compare_skewness_temporal(approaches_temp_ls)
+    # hte.plot_quantile_functions(approaches_temp_ls)
+    # # Calculate moments and compare the results
+    # hte.compare_moments(approaches_temp_ls)
+    # # Calculate the skewness and compare the results
+    # hte.compare_skewness(approaches_temp_ls)
+    #
+    # # Calculate wasserstein distance and compare results
+    # hte.compare_wasserstein_distances(t_samples, approaches_temp_ls)
+    # # Calculate the Hellinger distance
+    # hte.compare_hellinger_distances(t_samples, approaches_temp_ls)
+    # # Calculate the first wasserstein distance
+    # hte.compare_first_wasserstein_distances(t_samples, approaches_temp_ls)
+    # # Calculate the kolmogorov distance
+    # hte.compare_kolmogorv_distances(t_samples, approaches_temp_ls)
+    #
+    # # Plot histogram of samples and hitting time distributions
+    # hte.plot_first_hitting_time_distributions(t_samples, approaches_temp_ls, plot_hist_for_all_particles=True)
+    # hte.plot_fptd_and_paths_in_one(ev_fn, var_fn, t_samples, approaches_temp_ls, plot_hist_for_all_particles=True)
+    # # Plot histogram of samples for returning distribution and estimated returning distribution
+    # # hte.plot_returning_probs_from_fptd_histogram(ev_fn, var_fn, t_samples, approaches_temp_ls)   # this is too noisy
+    # hte.plot_returning_probs_from_sample_paths(fraction_of_returns, dt, approaches_temp_ls)
 
-    # Calculate wasserstein distance and compare results
-    hte.compare_wasserstein_distances_temporal(t_samples, approaches_temp_ls)
-    # Calculate the Hellinger distance
-    hte.compare_hellinger_distances_temporal(t_samples, approaches_temp_ls)
-    # Calculate the first wasserstein distance
-    hte.compare_first_wasserstein_distances_temporal(t_samples, approaches_temp_ls)
-    # Calculate the kolmogorov distance
-    hte.compare_kolmogorv_distances_temporal(t_samples, approaches_temp_ls)
+    # Set up the hitting location approaches
+    spatial_taylor_model = CVTaylorHittingLocationModel(taylor_model, S_w)
+    spatial_simple_gauss_model = SimpleGaussCVHittingLocationModel(approx_model, S_w)
+    spatial_proj_model = ProjectionCVHittingLocationModel(approx_model, S_w)
+    spatial_mc_model = MCCVHittingLocationModel(mc_model, S_w, y_range, y_samples=y_samples)
+
+    # Results for spatial uncertainties
+    hte_spatial = HittingLocationEvaluator('CV Process', x_predTo, t_predicted, y_predicted, plot_y, t_L,
+                                   get_example_tracks_fn=get_example_tracks(x_L,
+                                                                            C_L,
+                                                                            S_w,
+                                                                            _get_system_matrices_from_parameters),
+                                   save_results=save_results,
+                                   result_dir=result_dir,
+                                   no_show=no_show,
+                                   for_paper=for_paper)
+
+    approaches_spatial_ls = [spatial_taylor_model,
+                             spatial_simple_gauss_model,
+                             # spatial_proj_model,
+                             spatial_mc_model]
+
+    # Plot the quantile functions
+    hte_spatial.plot_quantile_functions(approaches_spatial_ls)
+    # Calculate moments and compare the results
+    hte_spatial.compare_moments(approaches_spatial_ls)
 
     # Plot histogram of samples and hitting time distributions
-    hte.plot_first_hitting_time_distributions(t_samples, approaches_temp_ls, plot_hist_for_all_particles=True)
-    hte.plot_fptd_and_paths_in_one(ev_fn, var_fn, t_samples, approaches_temp_ls, plot_hist_for_all_particles=True)
-    # Plot histogram of samples for returning distribution and estimated returning distribution
-    # hte.plot_returning_probs_from_fptd_histogram(ev_fn, var_fn, t_samples, approaches_temp_ls)   # this is too noisy
-    hte.plot_returning_probs_from_sample_paths(fraction_of_returns, dt, approaches_temp_ls)
+    hte_spatial.plot_y_at_first_hitting_time_distributions(y_samples, approaches_spatial_ls)
 
-    if measure_computational_times:
+
+    if measure_computational_times:  # TODO: Auch für spatial?
         logging.info('Measuring computational time for cv process.')
         model_class_ls = [MCHittingTimeModel, TaylorHittingTimeModel, EngineeringApproxHittingTimeModel]
         model_attributes_ls = [[x_L, C_L, S_w, x_predTo,  t_L, t_range]] + 2 * [[x_L, C_L, S_w, x_predTo,  t_L]]
         measure_computation_times(model_class_ls, model_attributes_ls, t_range=t_range)
 
 
+# TODO: Das in ein anderes File verschieben!
 # Approaches to solve the problem
-class CVHittingTimeModel(AbstractHittingTimeModel, ABC):
+class AbstractCVHittingTimeModel(AbstractHittingTimeModel, ABC):
     """A base class for the CV hitting time models."""
 
     def __init__(self, x_L, C_L, S_w, x_predTo, t_L, name='CV hitting time model', **kwargs):
@@ -462,7 +492,7 @@ class CVHittingTimeModel(AbstractHittingTimeModel, ABC):
         return hit_stats
 
 
-class TaylorHittingTimeModel(CVHittingTimeModel, AbstractTaylorHittingTimeModel):
+class TaylorHittingTimeModel(AbstractCVHittingTimeModel, AbstractTaylorHittingTimeModel):
     """A simple Gaussian approximation for the first hitting time problem using a Taylor approximation and error
     propagation.
     """
@@ -474,9 +504,9 @@ class TaylorHittingTimeModel(CVHittingTimeModel, AbstractTaylorHittingTimeModel)
             because it corresponds to the last time we see a particle in our optical belt sorting scenario.
             Format: [pos_x, vel_x, pos_y, vel_y].
         :param C_L: A np.array of shape [4, 4] representing the covariance matrix of the initial state.
-        :param t_L: A float, the time of the last state/measurement (initial time).
         :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
         :param x_predTo: A float, position of the boundary.
+        :param t_L: A float, the time of the last state/measurement (initial time).
         :param name: String, name for the model.
         """
         super().__init__(x_L=x_L,
@@ -502,7 +532,7 @@ class TaylorHittingTimeModel(CVHittingTimeModel, AbstractTaylorHittingTimeModel)
         return 0  # Gaussian third central moment
 
 
-class EngineeringApproxHittingTimeModel(CVHittingTimeModel, AbstractEngineeringApproxHittingTimeModel):
+class EngineeringApproxHittingTimeModel(AbstractCVHittingTimeModel, AbstractEngineeringApproxHittingTimeModel):
     """An approximation to the first passage time distribution using the (engineering) assumption that particles
     are unlikely to move back once they have passed the boundary.
     """
@@ -842,7 +872,7 @@ class EngineeringApproxHittingTimeModel(CVHittingTimeModel, AbstractEngineeringA
         return hit_stats
 
 
-class MCHittingTimeModel(CVHittingTimeModel, AbstractMCHittingTimeModel):
+class MCHittingTimeModel(AbstractCVHittingTimeModel, AbstractMCHittingTimeModel):
     """Wraps the histogram derived by a Monte-Carlo approach to solve the first-passage time problem to a distribution
      using scipy.stats.rv_histogram.
     """
@@ -886,97 +916,6 @@ class MCHittingTimeModel(CVHittingTimeModel, AbstractMCHittingTimeModel):
     def third_moment(self):
         """The third moment of the first passage time distribution."""
         return self._density.moment(3)
-
-
-def _get_system_matrices_from_parameters(dt, S_w):
-    """Returns the transition matrix (F) and the noise covariance of the transition (Q) of the model.
-
-    Both matrices can be used, e.g., to simulate the discrete-time counterpart of the model.
-
-     Assumed CV state format:
-
-        [pos_x, velo_x, pos_y, velo_y]
-
-    :param dt: A float, time increment.
-    :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
-
-    :returns:
-        F: A np.array of shape [4, 4], the transition matrix.
-        Q: A np.array of shape [4, 4], the transition noise covariance matrix.
-    """
-    F = np.array([[1, dt, 0, 0], [0, 1, 0, 0], [0, 0, 1, dt], [0, 0, 0, 1]])
-    Q = S_w * np.array([[pow(dt, 3) / 3, pow(dt, 2) / 2, 0, 0],
-                        [pow(dt, 2) / 2, dt, 0, 0],
-                        [0, 0, pow(dt, 3) / 3, pow(dt, 2) / 2],
-                        [0, 0, pow(dt, 2) / 2, dt]])
-    return F, Q
-
-
-def create_ty_cv_samples_hitting_time(x_L,
-                                      C_L,
-                                      S_w,
-                                      x_predTo,
-                                      t_L=0.0,
-                                      N=100000,
-                                      dt=1 / 1000,
-                                      break_after_n_time_steps=1000,
-                                      break_min_time=None):
-    """Monte Carlo approach to solve the first passage time problem. Propagates particles through the 2D discrete-time
-    CV motion model and determines their first passage at x_predTo as well as the location in y at the first passage by
-    interpolating the positions between the last time before and the first time after the boundary.
-
-    Note that particles that do not reach the boundary after break_after_n_time_steps time_steps are handled with a
-    fallback value of max(t_samples) + 1 in the t_samples and np.nan in the y_samples.
-
-    :param x_L: A np.array of shape [4] representing the expected value of the initial state. We use index L here
-        because it corresponds to the last time we see a particle in our optical belt sorting scenario.
-        Format: [pos_x, vel_x, pos_y, vel_y].
-    :param C_L: A np.array of shape [4, 4] representing the covariance matrix of the initial state.
-    :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
-    :param x_predTo: A float, position of the boundary.
-    :param t_L: A float, the time of the last state/measurement (initial time).
-    :param N: Integer, number of samples to use.
-    :param dt: A float, time increment.
-    :param break_after_n_time_steps: Integer, maximum number of time steps for the simulation.
-    :param break_min_time: A float, the time (not the time step) up to which is simulated at least
-        (break_after_n_time_steps dominates break_min_time).
-
-    :returns:
-        t_samples: A np.array of shape [N] containing the first passage times of the particles.
-        y_samples: A np.array of shape [N] containing the y-position at the first passage times of the particles.
-        fraction_of_returns: A np.array of shape[num_simulated_time_steps], the fraction in each time steps of
-            tracks that have previously reached the boundary, but then fall below the boundary until the respective
-            time step.
-    """
-    F, Q = _get_system_matrices_from_parameters(dt, S_w)
-
-    time_before_arrival, x_before_arrival, x_after_arrival, x_term, fraction_of_returns = create_lgssm_hitting_time_samples(
-        F,
-        Q,
-        x_L,
-        C_L,
-        x_predTo,
-        t_L=t_L,
-        N=N,
-        dt=dt,
-        break_after_n_time_steps=break_after_n_time_steps,
-        break_min_time=break_min_time)
-
-    # Linear interpolation to get time
-    v_interpolated = (x_after_arrival[x_term, 1] - x_before_arrival[x_term, 1]) / (
-            x_after_arrival[x_term, 0] - x_before_arrival[x_term, 0]) * (x_predTo - x_before_arrival[x_term, 0]) + \
-                     x_before_arrival[x_term, 1]
-    last_t = (x_predTo - x_before_arrival[x_term, 0]) / v_interpolated
-    t_samples = time_before_arrival
-    t_samples[x_term] = time_before_arrival[x_term] + last_t
-    t_samples[np.logical_not(x_term)] = int(
-        max(t_samples)) + 1  # default value for particles that do not arrive
-
-    y_samples = x_before_arrival[:, 2]
-    y_samples[x_term] = x_before_arrival[x_term, 2] + last_t * x_before_arrival[x_term, 3]
-    y_samples[np.logical_not(x_term)] = np.nan  # default value for particles that do not arrive
-
-    return t_samples, y_samples, fraction_of_returns
 
 
 if __name__ == "__main__":
