@@ -185,19 +185,19 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     ]
 
     # plot the distribution of the particle front and back arrival time at one axis (the time axis)
-    # hte.plot_first_arrival_interval_distribution_on_time_axis(t_samples_first_front_arrival,
-    #                                                           t_samples_first_back_arrival,
-    #                                                           approaches_temp_ls,
-    #                                                           plot_hist_for_all_particles=True,
-    #                                                           )
-    #
-    # # plot the joint distribution of the particle front and back arrival time (2-dimensional distribution, heatmap)
-    # hte.plot_joint_first_arrival_interval_distribution(t_samples_first_front_arrival,
-    #                                                    t_samples_first_back_arrival,
-    #                                                    approaches_temp_ls,
-    #                                                    plot_hist_for_all_particles=True,
-    #                                                    plot_cdfs=False,
-    #                                                    )
+    hte.plot_first_arrival_interval_distribution_on_time_axis(t_samples_first_front_arrival,
+                                                              t_samples_first_back_arrival,
+                                                              approaches_temp_ls,
+                                                              plot_hist_for_all_particles=True,
+                                                              )
+
+    # plot the joint distribution of the particle front and back arrival time (2-dimensional distribution, heatmap)
+    hte.plot_joint_first_arrival_interval_distribution(t_samples_first_front_arrival,
+                                                       t_samples_first_back_arrival,
+                                                       approaches_temp_ls,
+                                                       plot_hist_for_all_particles=True,
+                                                       plot_marginals=False,
+                                                       )
 
     # # plot a simplifies joint distribution (based on the marginals and independence assumption) of the particle front
     # # and back arrival time (2-dimensional distribution, heatmap)
@@ -209,10 +209,10 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     #                                                    )
 
     # plot the calibration
-    # hte.plot_calibration(t_samples_first_front_arrival,
-    #                      t_samples_first_back_arrival,
-    #                      approaches_temp_ls,
-    #                      )
+    hte.plot_calibration(t_samples_first_front_arrival,
+                         t_samples_first_back_arrival,
+                         approaches_temp_ls,
+                         )
 
     # Set up the hitting location approaches
     hitting_location_model_kwargs = {'S_w': hitting_time_model_kwargs['S_w']}
@@ -395,6 +395,7 @@ class HittingLocationWithExtentsModel(AbstractHittingLocationWithExtentsModel):
         q_up = (1 + q) / 2
 
         y_start = self.min_y_model.ppf(q_low)
+        # y_start = self.min_y_model.ppf(q_up)
         y_end = self.max_y_model.ppf(q_up)
         return y_start, y_end
 
@@ -415,11 +416,13 @@ class MaxYModel(object):
         # return self._front_location_model.cdf(y - self._width / 2)
         back_location_value = self._back_location_model.cdf(y - self._width / 2)
         front_location_value = self._front_location_model.cdf(y - self._width / 2)
-        return np.min(np.array([back_location_value, front_location_value]))
+        half_model_value = 1 - 1 / 2 * ((1 - front_location_value) - (1 - back_location_value))
+        # half_model_value = 1/2 * (front_location_value + back_location_value)
+        return np.min(np.array([half_model_value, back_location_value, front_location_value]))
 
     def pdf(self, y):
         # by no return assumption
-        return self._back_location_model.pdf(y - self._width / 2)
+        # return self._back_location_model.pdf(y - self._width / 2)
         # return self._front_location_model.pdf(y - self._width / 2)
         back_location_value = self._back_location_model.pdf(y - self._width / 2)
         front_location_value = self._front_location_model.pdf(y - self._width / 2)
@@ -478,6 +481,10 @@ class MinYModel(object):
         back_location_value = self._back_location_model.ppf(q) - self._width / 2
         front_location_value = self._front_location_model.ppf(q) - self._width / 2
         return np.min(np.array([back_location_value, front_location_value]))
+        # back_location_value = self._back_location_model.ppf(q)  # - self._width / 2
+        # front_location_value = self._front_location_model.ppf(q)  # - self._width / 2
+        # return 1 - np.min(np.array([back_location_value, front_location_value])) - self._width / 2
+        # TODO: Warum funkioniert das auskommentierte nicht?
 
     def cdf_values(self, range):
         cdf_values = [self.cdf(ys) for ys in range]
