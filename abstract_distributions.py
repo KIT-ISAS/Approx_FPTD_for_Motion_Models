@@ -407,12 +407,19 @@ class AbstractMCDistribution(AbstractEjectionDistribution, ABC):
         """
         super().__init__(name=name, **kwargs)
 
-        self._samples = samples
+        self._samples = samples   # TODO: Check (Valuerror), dass die samples valide sind!
 
         bins = int(bins * (max(samples) - min(samples)) / (range[-1] - range[0]))
         # we want to have bins samples in the plot window
         hist = np.histogram(self._samples, bins=bins, density=False)
         self._density = rv_histogram(hist, density=True)
+
+        # TODO: For perfect fit with histogram, adjust when plotting mc_distribution
+        # fig, ax1 = plt.subplots()
+        # _, b, _ = ax1.hist(samples, bins=bins, density=True)
+        # ax1.plot((b[:-1] + b[1:])/2, [self._density.pdf(t) for t in (b[:-1] + b[1:])/2], color='b')
+        # plt.show()
+
 
     @property
     def samples(self):
@@ -441,7 +448,7 @@ class AbstractMCDistribution(AbstractEjectionDistribution, ABC):
 
         :param t: A float or np.array, the time parameter of the distribution.
         """
-        return self._density.pdf(t)
+        return self._density.cdf(t)
 
     def ppf(self, q):
         """The quantile function / percent point function (PPF) of the first passage time distribution.

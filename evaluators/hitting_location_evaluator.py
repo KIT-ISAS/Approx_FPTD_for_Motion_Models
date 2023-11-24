@@ -10,6 +10,8 @@ from evaluators.hitting_model_evaluator import AbstractHittingModelEvaluator
 
 class HittingLocationEvaluator(AbstractHittingModelEvaluator, ABC):
     """A class that handles the evaluations."""
+    # TODO: Die beschränkung auf valide samples überlall hinzufügen und defaultmäßig anstellen!
+
 
     def __init__(self,
                  process_name,
@@ -64,7 +66,7 @@ class HittingLocationEvaluator(AbstractHittingModelEvaluator, ABC):
         # change the defaults
         super().compare_moments(approaches_ls, prefix='spatial')
 
-    def plot_sample_histogram(self, samples, x_label='Location y in mm'):
+    def plot_sample_histogram(self, samples, x_label='Location y in mm'):  # TODO: Das sind eher in pixel -> umrechnen?
         # change the defaults
         super().plot_sample_histogram(samples, x_label)
 

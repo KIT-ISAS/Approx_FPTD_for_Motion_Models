@@ -59,10 +59,9 @@ class AbstractHittingLocationModel(AbstractEjectionDistribution, ABC):
         """Get some statistics from the model as a dict."""
         hit_stats = {}
         hit_stats['PDF'] = self.pdf
-        #hit_stats['CDF'] = self.cdf
         hit_stats['EV'] = self.ev
         hit_stats['STDDEV'] = self.stddev
-        hit_stats['SKEW'] = self.skew
+        hit_stats['SKEW'] = self.skew  # TODO: Auch bei Hitting time models? wie ist es aktuell dort gelöst?
         return hit_stats
 
 
@@ -102,14 +101,12 @@ class AbstractTaylorHittingLocationModel(AbstractEjectionNormalDistribution, Abs
         # overwrites the result of the base class (which is the true, theoretical moment)
         return self._var
 
-    def get_statistics(self):  # TODO: Evtl. doch in die distributions?
+    def get_statistics(self):
         """Get some statistics from the model as a dict."""
-        hit_stats = {}
-        hit_stats['PDF'] = self.pdf
-        hit_stats['CDF'] = self.cdf
-        hit_stats['EV'] = self.ev
-        hit_stats['STDDEV'] = self.stddev
-        hit_stats['SKEW'] = self.skew
+        hit_stats = super().get_statistics()
+        hit_stats.update({'CDF': self.cdf,
+                          'PPF': self.ppf,
+                          })
         return hit_stats
 
 
@@ -153,12 +150,10 @@ class AbstractSimpleGaussHittingLocationModel(AbstractEjectionNormalDistribution
 
     def get_statistics(self):
         """Get some statistics from the model as a dict."""
-        hit_stats = {}
-        hit_stats['PDF'] = self.pdf
-        hit_stats['CDF'] = self.cdf
-        hit_stats['EV'] = self.ev
-        hit_stats['STDDEV'] = self.stddev
-        hit_stats['SKEW'] = self.skew
+        hit_stats = super().get_statistics()
+        hit_stats.update({'CDF': self.cdf,
+                          'PPF': self.ppf,
+                          })
         return hit_stats
 
 
@@ -187,6 +182,14 @@ class AbstractUniformHittingLocationModel(AbstractEjectionUniformDistribution, A
         self.a = a
         super().__init__(name=name, **kwargs)
 
+    def get_statistics(self):
+        """Get some statistics from the model as a dict."""
+        hit_stats = super().get_statistics()
+        hit_stats.update({'CDF': self.cdf,
+                          'PPF': self.ppf,
+                          })
+        return hit_stats
+
 
 class AbstractMCHittingLocationModel(AbstractMCDistribution, AbstractHittingLocationModel, ABC):  # TODO: Die sehen von der intialisierung nicht aus wie die oberen, ändern!
     """Wraps the histogram derived by a Monte-Carlo approach to solve the first-passage time problem to a distribution
@@ -207,4 +210,12 @@ class AbstractMCHittingLocationModel(AbstractMCDistribution, AbstractHittingLoca
                          bins=bins,
                          name=name,
                          **kwargs)
+
+    def get_statistics(self):
+        """Get some statistics from the model as a dict."""
+        hit_stats = super().get_statistics()
+        hit_stats.update({'CDF': self.cdf,
+                          'PPF': self.ppf,
+                          })
+        return hit_stats
 

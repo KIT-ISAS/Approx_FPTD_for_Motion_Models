@@ -23,7 +23,8 @@ from absl import logging
 from absl import app
 from absl import flags
 
-from cv_process import run_experiment, measure_computation_times
+from cv_process import run_experiment
+from cv_process_with_extents import run_experiment as run_experiments_with_extents
 from experiments_runner import get_experiments_by_name, add_defaults, convert_to_numpy, store_config
 
 
@@ -49,7 +50,9 @@ flags.DEFINE_bool('no_show', default=False,
 flags.DEFINE_bool('for_paper', default=False,
                   help='Boolean, whether to use the plots for publication (omit headers, etc.)..')
 flags.DEFINE_bool('measure_computational_times', default=False,
-                    help='Whether to measure the computational times (using the first defined experiment).')
+                  help='Whether to measure the computational times (using the first defined experiment).')
+flags.DEFINE_bool('with_extents', default=False,
+                  help='Whether to run experiments based on a point-based (False) or extent-based representation of a particle (True).')  # TODO: Nicht ganz so schön, da z. B. measure comp times dann nicht geht!
 
 flags.DEFINE_string('verbosity_level', default='INFO', help='Verbosity options.')
 flags.register_validator('verbosity_level',
@@ -73,9 +76,13 @@ FLAGS = flags.FLAGS
     "S_w": 1,
     # Boundary
     "x_predTo": 0.6458623971412047,
+    # Particle size (only required for experiments with extents)
+        "particle_size": [0.08, 0.08],
     # Plot settings (optional)
     "t_range": [t_min, t_max], (floats, defaults by cv_process)
     "y_range": [y_min, y_max], (floats, defaults by cv_process)
+    "t_range_with_extents": [t_min, t_max], (floats, defaults by cv_process_with_extents)
+    "y_range_with_extents": [y_min, y_max], (floats, defaults by cv_process_with_extents)
     # Paths and directories (optional)
     "save_path": ..., (string, default by main function)
     "results_dir": ..., (string, default by main function)
@@ -93,6 +100,8 @@ experiments_config = [
         "S_w": 1,
         # Boundary
         "x_predTo": 0.6458623971412047,
+        # Particle size
+        "particle_size": [0.08, 0.08],  # TODO: This is rough guess
         # Plot settings (optional)
         "t_range": [0.05, 0.065],
         "y_range": [0.46, 0.56],
@@ -109,9 +118,13 @@ experiments_config = [
         "S_w": 9364.045824,
         # Boundary
         "x_predTo": 62.5,
+        # Particle size
+        "particle_size": [8, 8],  # TODO: This is rough guess
         # Plot settings (optional)
         "t_range": [0.05, 0.062],
-        "y_range": [62, 71]
+        "y_range": [62, 71],
+        "t_range_with_extents": [0.042, 0.072],
+        "y_range_with_extents": [58, 76],
     }, {
         # Experiment name
         "experiment_name": "CV_Long_Track_Sw10",
@@ -122,6 +135,8 @@ experiments_config = [
         "S_w": 10,
         # Boundary
         "x_predTo": 0.6458623971412047,
+        # Particle size
+        "particle_size": [0.08, 0.08],  # TODO: This is rough guess
     },  {
         # Experiment name
         "experiment_name": "CV_Long_Track_Sw10_denorm",
@@ -135,8 +150,13 @@ experiments_config = [
         "S_w": 93640.45824,
         # Boundary
         "x_predTo": 62.5,
+        # Particle size
+        "particle_size": [8, 8],  # TODO: This is rough guess
+        # Plot settings (optional)
         "t_range": [0.04, 0.08],
-        "y_range": [55, 77]
+        "y_range": [55, 77],
+        "t_range_with_extents": [0.033, 0.09],
+        "y_range_with_extents": [52, 85],
     },  {
         # Experiment name
         "experiment_name": "CV_Long_Track_Sw100",
@@ -147,6 +167,8 @@ experiments_config = [
         "S_w": 100,
         # Boundary
         "x_predTo": 0.6458623971412047,
+        # Particle size
+        "particle_size": [0.08, 0.08],  # TODO: This is rough guess
         # Plot settings (optional)
         "t_range": [0.0, 0.25],
         "y_range": [0.2, 1.3],
@@ -163,9 +185,13 @@ experiments_config = [
         "S_w": 9364054.5824,
         # Boundary
         "x_predTo": 62.5,
+        # Particle size
+        "particle_size": [8, 8],  # TODO: This is rough guess
         # Plot settings (optional)
         "t_range": [0.0, 0.25],
         "y_range": [0, 150],
+        "t_range_with_extents": [0.01, 0.3],
+        "y_range_with_extents": [-50, 200],
     },  {
         # Experiment name
         "experiment_name": "CV_Long_Track_Sw300",
@@ -176,6 +202,8 @@ experiments_config = [
         "S_w": 300,
         # Boundary
         "x_predTo": 0.6458623971412047,
+        # Particle size
+        "particle_size": [0.08, 0.08],  # TODO: This is rough guess
         # Plot settings (optional)
         "t_range": [0.0, 0.25],
         "y_range": [0.0, 1.5],
@@ -189,6 +217,8 @@ experiments_config = [
         "S_w": 10,
         # Boundary
         "x_predTo": 0.6458623971412047,
+        # Particle size
+        "particle_size": [0.08, 0.08],  # TODO: This is rough guess
     }, {
         # Experiment name
         "experiment_name": "CV_Long_Track_High_tL",
@@ -199,6 +229,8 @@ experiments_config = [
         "S_w": 10,
         # Boundary
         "x_predTo": 0.6458623971412047,
+        # Particle size
+        "particle_size": [0.08, 0.08],  # TODO: This is rough guess
     }, {
         # Experiment name
         "experiment_name": "CV_Short_Track_Sw18",
@@ -209,7 +241,8 @@ experiments_config = [
         "S_w": 18,
         # Boundary
         "x_predTo": 0.6458623971412047,
-        # Plot settings (optional)
+        # Particle size
+        "particle_size": [0.08, 0.08],  # TODO: This is rough guess
     }, {
         # Experiment name
         "experiment_name": "CV_Long_Track_Sw10_slow",
@@ -223,6 +256,8 @@ experiments_config = [
         # Plot settings (optional)
         "t_range": [0.07, 0.3],
         "y_range": [0.0, 1.5],
+        # Particle size
+        "particle_size": [0.08, 0.08],  # TODO: This is rough guess
     },  {
         # Experiment name
         "experiment_name": "CV_Long_Track_Sw1_slow_denorm",
@@ -236,9 +271,13 @@ experiments_config = [
         "S_w": 9364.045824,
         # Boundary
         "x_predTo": 62.5,
+        # Particle size
+        "particle_size": [8, 8],  # TODO: This is rough guess
         # Plot settings (optional)
         "t_range": [0.07, 0.105],
         "y_range": [60, 75],
+        "t_range_with_extents": [0.06, 0.12],
+        "y_range_with_extents": [55, 80],
     },
 ]
 
@@ -251,8 +290,8 @@ def main(args):
 
     # define the experiments to execute by name
     # experiments_name_list = ['CV_Long_Track_Sw1', 'CV_Long_Track_Sw100', 'CV_Long_Track_Sw300']
-    experiments_name_list = ['CV_Long_Track_Sw1_denorm', 'CV_Long_Track_Sw10_denorm', 'CV_Long_Track_Sw100_denorm', 'CV_Long_Track_Sw1_slow_denorm']
-    # experiments_name_list = ['CV_Long_Track_Sw100_denorm']
+    # experiments_name_list = ['CV_Long_Track_Sw1_denorm', 'CV_Long_Track_Sw10_denorm', 'CV_Long_Track_Sw100_denorm', 'CV_Long_Track_Sw1_slow_denorm']
+    experiments_name_list = ['CV_Long_Track_Sw100_denorm']
 
     # get the configs
     experiments_list = get_experiments_by_name(experiments_name_list, experiments_config)
@@ -266,10 +305,19 @@ def main(args):
         convert_to_numpy(config)  # convert the configs entries to numpy arrays
         logging.info('Running experiment {}.'.format(config['experiment_name']))
         del config['experiment_name']  # name cannot be passed to run_experiment
-        run_experiment(**config,
-                       for_paper=FLAGS.for_paper,
-                       measure_computational_times=True if FLAGS.measure_computational_times and i == 0 else False)
-        # by default, takes the first defined experiment for measuring the computational times.
+
+        if not FLAGS.with_extents:
+            del config['particle_size']  # particle_size cannot be passed to run_experiment
+            run_experiment(**config,
+                           for_paper=FLAGS.for_paper,
+                           measure_computational_times=True if FLAGS.measure_computational_times and i == 0 else False)
+            # by default, takes the first defined experiment for measuring the computational times.
+        else:
+            del config['t_range']  # TODO
+            del config['y_range']
+
+            run_experiments_with_extents(**config,
+                                         for_paper=FLAGS.for_paper)
 
 
 if __name__ == "__main__":

@@ -293,8 +293,11 @@ class MCCVHittingLocationModel(AbstractMCHittingLocationModel, AbstractCVHitting
         :param name: String, name for the model.
         """
         if y_samples is None:
-            _, y_samples, _ = create_ty_cv_samples_hitting_time(self._ht.x_L, self._ht.C_L, S_w, self._ht.x_predTo,
-                                                                self._ht.t_L)
+            _, y_samples, _ = create_ty_cv_samples_hitting_time(hitting_time_model.x_L,
+                                                                hitting_time_model.C_L,
+                                                                S_w,
+                                                                hitting_time_model.x_predTo,
+                                                                hitting_time_model.t_L)
 
         super().__init__(hitting_time_model=hitting_time_model,
                          S_w=S_w,

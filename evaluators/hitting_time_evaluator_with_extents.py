@@ -35,10 +35,8 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
 
         if not plot_hist_for_all_particles:
             # check if there are default values (particles that did not arrive) in the array
-            if max(lower_marginal_samples) - int(max(lower_marginal_samples)) == 0.0:
-                #  there are default values, remove them from array
-                lower_marginal_samples = lower_marginal_samples[
-                    lower_marginal_samples != max(lower_marginal_samples)]   # TODO: Für so sachen eine Funktion defininieren
+            lower_marginal_samples = self._remove_not_arriving_samples(lower_marginal_samples)
+
             y_hist, x_hist, _ = ax1.hist(lower_marginal_samples,
                                          bins=self._distribute_bins_in_plot_range(lower_marginal_samples, plot_points),
                                          # we want to have 100 samples in the plot window
@@ -49,10 +47,7 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
             # sums up to 1 (sum(y_hist * np.diff(x_hist))=1) not including particles that did not arrive
 
             # check if there are default values (particles that did not arrive) in the array
-            if max(upper_marginal_samples) - int(max(upper_marginal_samples)) == 0.0:
-                #  there are default values, remove them from array
-                upper_marginal_samples = upper_marginal_samples[
-                    upper_marginal_samples != max(upper_marginal_samples)]
+            upper_marginal_samples = self._remove_not_arriving_samples(upper_marginal_samples)
             ax1.hist(upper_marginal_samples,
                      bins=self._distribute_bins_in_plot_range(upper_marginal_samples, plot_points),
                      # we want to have 100 samples in the plot window
@@ -65,10 +60,8 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
 
         else:
             y_hist, x_hist, _ = ax1.hist(lower_marginal_samples,
-                                         bins=int(
-                                             100 * (max(lower_marginal_samples) - min(
-                                                 lower_marginal_samples)) / (
-                                                     plot_points[-1] - plot_points[0])),
+                                         bins=self._distribute_bins_in_plot_range(lower_marginal_samples,
+                                                                                        plot_points),
                                          # we want to have 100 samples in the plot window
                                          density=True,
                                          histtype='stepfilled',  # no space between the bars
@@ -128,50 +121,66 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
                 ax1.plot(plot_points, [approach.max_y_model.pdf(t) for t in plot_points],
                          label=approach.name,
                          color=self.color_cycle[i])
-                ax1.plot(plot_points, [approach._back_location_model.pdf(t - 0.1 / 2) for t in plot_points],
+                ax1.plot(plot_points, [approach.max_y_model.back_location_pdf(t) for t in plot_points],
                          label=approach.name,
                          linestyle='dashed',
                          color='red')
-                ax1.plot(plot_points, [approach._front_location_model.pdf(t - 0.1 / 2) for t in plot_points],
+                ax1.plot(plot_points, [approach.max_y_model.front_location_pdf(t) for t in plot_points],
                          label=approach.name,
                          linestyle='dotted',
                          color=self.color_cycle[i])
+                # ax1.plot(plot_points, [approach._half_location_model.pdf(t - 0.1 / 2) for t in plot_points],
+                #          label=approach.name,
+                #          linestyle='dashdot',
+                #          color=self.color_cycle[i])
                 if plot_cdfs:
                     ax2.plot(plot_points, [approach.max_y_model.cdf(t) for t in plot_points],
                              label=approach.name,
                              color=self.color_cycle[i])
-                    ax2.plot(plot_points, [approach._back_location_model.cdf(t - 0.1 / 2) for t in plot_points],
+                    ax2.plot(plot_points, [approach.max_y_model.back_location_cdf(t) for t in plot_points],
                              label=approach.name,
                              linestyle='dashed',
                              color='red')
-                    ax2.plot(plot_points, [approach._front_location_model.cdf(t - 0.1 / 2) for t in plot_points],
+                    ax2.plot(plot_points, [approach.max_y_model.front_location_cdf(t) for t in plot_points],
                              label=approach.name,
                              linestyle='dotted',
                              color=self.color_cycle[i])
+                    # ax2.plot(plot_points, [approach._half_location_model.cdf(t - 0.1 / 2) for t in plot_points],
+                    #          label=approach.name,
+                    #          linestyle='dashdot',
+                    #          color=self.color_cycle[i])
             if hasattr(approach, 'min_y_model'):
                 ax1.plot(plot_points, [approach.min_y_model.pdf(t) for t in plot_points],
                          label=approach.name,
                          color=self.color_cycle[i])
-                ax1.plot(plot_points, [approach._back_location_model.pdf(t + 0.1 / 2) for t in plot_points],
+                ax1.plot(plot_points, [approach.min_y_model.back_location_pdf(t) for t in plot_points],
                          label=approach.name,
                          linestyle='dashed',
                          color='red')
-                ax1.plot(plot_points, [approach._front_location_model.pdf(t + 0.1 / 2) for t in plot_points],
+                ax1.plot(plot_points, [approach.min_y_model.front_location_pdf(t) for t in plot_points],
                          label=approach.name,
                          linestyle='dotted',
                          color=self.color_cycle[i])
+                # ax1.plot(plot_points, [approach._half_location_model.pdf(t + 0.1 / 2) for t in plot_points],
+                #          label=approach.name,
+                #          linestyle='dashdot',
+                #          color=self.color_cycle[i])
                 if plot_cdfs:
                     ax2.plot(plot_points, [approach.min_y_model.cdf(t) for t in plot_points],
                              label=approach.name,
                              color=self.color_cycle[i])
-                    ax2.plot(plot_points, [approach._back_location_model.cdf(t + 0.1 / 2) for t in plot_points],
+                    ax2.plot(plot_points, [approach.min_y_model.back_location_cdf(t) for t in plot_points],
                              label=approach.name,
                              linestyle='dashed',
                              color='red')
-                    ax2.plot(plot_points, [approach._front_location_model.cdf(t + 0.1 / 2) for t in plot_points],
+                    ax2.plot(plot_points, [approach.min_y_model.front_location_cdf(t) for t in plot_points],
                              label=approach.name,
                              linestyle='dotted',
                              color=self.color_cycle[i])
+                    # ax2.plot(plot_points, [approach._half_location_model.cdf(t + 0.1 / 2) for t in plot_points],
+                    #          label=approach.name,
+                    #          linestyle='dashdot',
+                    #          color=self.color_cycle[i])
 
         # add legend manually since it fails sometimes
         legend_elements = [Line2D([0], [0], color=c, linewidth=3, label=approach.name) for c, approach in
@@ -197,14 +206,8 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
 
         if not plot_hist_for_all_particles:
             # check if there are default values (particles that did not arrive) in the array
-            if max(lower_marginal_samples) - int(max(lower_marginal_samples)) == 0.0:
-                #  there are default values, remove them from array
-                lower_marginal_samples = lower_marginal_samples[
-                    lower_marginal_samples != max(lower_marginal_samples)]
-            if max(upper_marginal_samples) - int(max(upper_marginal_samples)) == 0.0:
-                #  there are default values, remove them from array
-                upper_marginal_samples = upper_marginal_samples[
-                    upper_marginal_samples != max(upper_marginal_samples)]
+            lower_marginal_samples = self._remove_not_arriving_samples(lower_marginal_samples)
+            upper_marginal_samples = self._remove_not_arriving_samples(upper_marginal_samples)
 
         if marginal_x_axis is not None or marginal_y_axis is not None or use_independent_joint:
             # marginal densities
@@ -310,6 +313,8 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
                           approaches_ls,
                           plot_points,
                           ):
+
+        # TODO: Da muss man die samples auch auf jeden Fall filtern!
 
         # joint densities
         twod_hist, xedges, yedges, = np.histogram2d(lower_marginal_samples,

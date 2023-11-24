@@ -130,6 +130,14 @@ class AbstractHittingModelEvaluator(ABC):
                 plot_points[-1] - plot_points[0]))
 
     @staticmethod
+    def _remove_not_arriving_samples(samples):
+        samples = samples[np.isfinite(samples)] #  there are default values, remove them from array
+        if max(samples) - int(max(samples)) == 0.0:
+            #  there are default values, remove them from array
+            samples = samples[samples != max(samples)]
+        return samples
+
+    @staticmethod
     def compare_moments(approaches_ls, prefix='temporal'):
         """Compare the means and standard deviations of different hitting models and print them to stdout.
 

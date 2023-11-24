@@ -2,7 +2,6 @@ from absl import logging
 from absl import app
 from absl import flags
 
-from abc import ABC, abstractmethod
 from timeit import time
 
 import numpy as np
@@ -13,6 +12,7 @@ from cv_process import TaylorHittingTimeModel, EngineeringApproxHittingTimeModel
 from sampler import get_example_tracks_lgssm as get_example_tracks
 from cv_utils import _get_system_matrices_from_parameters, create_ty_cv_samples_hitting_time
 from cv_hitting_location_model import CVTaylorHittingLocationModel, SimpleGaussCVHittingLocationModel, ProjectionCVHittingLocationModel, MCCVHittingLocationModel
+from extent_models import  HittingTimeWithExtentsModel, HittingTimeWithExtentsSimplifiedModel, HittingLocationWithExtentsModel
 
 from evaluators.hitting_time_evaluator_with_extents import HittingTimeEvaluatorWithExtents, HittingLocationEvaluatorWithExtents
 
@@ -63,7 +63,7 @@ def main(args):
     # Mean position at last timestep
     x_L = np.array([0.3, 6.2, 0.5, 0.0])
     # length and width of the particle
-    particle_size = [0.1, 0.1]  # TODO: Die sind halt recht klein! Ist das nicht in m?
+    particle_size = [0.08, 0.08]
 
     # Boundary position
     x_predTo = 0.6458623971412047
@@ -86,8 +86,8 @@ def main(args):
 
 def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
                    particle_size,
-                   t_range=None,
-                   y_range=None,
+                   t_range_with_extents=None,
+                   y_range_with_extents=None,
                    measure_computational_times=False,
                    load_samples=False,
                    save_samples=False,
@@ -109,8 +109,9 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
     :param x_predTo: A float, position of the boundary.
     :param length: TODO
-    :param t_range: A list of length 2 representing the plot limits for the first passage time.
-    :param y_range: A list of length 2 representing the plot limits for the y component at the first passage time.
+    :param t_range_with_extents: A list of length 2 representing the plot limits for the first passage time.
+    :param y_range_with_extents: A list of length 2 representing the plot limits for the y component at the first
+        passage time.
     :param measure_computational_times: A Boolean, whether to measure the computational times.
     :param load_samples: Boolean, whether to load the samples for the Monte Carlo simulation from file.
     :param save_samples: Boolean, whether to save the samples for the Monte Carlo simulation from file.
@@ -131,14 +132,14 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     y_predicted = x_L[2] + (t_predicted - t_L) * x_L[3]
 
     # Plot settings
-    if t_range is None:
-        t_range = [t_predicted - 0.3 * (t_predicted - t_L) - 1 / 2 * particle_size[0] / x_L[1],
-                   t_predicted + 0.3 * (t_predicted - t_L) + particle_size[0] / x_L[1]]
-    if y_range is None:
-        y_range = [0.7 * y_predicted - 1 / 2 * particle_size[1],
-                   1.3 * y_predicted + 1 / 2 * particle_size[1]]
-    plot_t = np.arange(t_range[0], t_range[1], 0.00001)
-    plot_y = np.arange(y_range[0], y_range[1], 0.001)
+    if t_range_with_extents is None:
+        t_range_with_extents = [t_predicted - 0.3 * (t_predicted - t_L) - 1 / 2 * particle_size[0] / x_L[1],
+                                t_predicted + 0.3 * (t_predicted - t_L) + particle_size[0] / x_L[1]]
+    if y_range_with_extents is None:
+        y_range_with_extents = [0.7 * y_predicted - 1 / 2 * particle_size[1],
+                                1.3 * y_predicted + 1 / 2 * particle_size[1]]
+    plot_t = np.arange(t_range_with_extents[0], t_range_with_extents[1], 0.00001)
+    plot_y = np.arange(y_range_with_extents[0], y_range_with_extents[1], 0.001)
 
     # Create base class
     hte = HittingTimeEvaluatorWithExtents('CV Process', x_predTo, plot_t, t_predicted, t_L,
@@ -154,7 +155,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
 
     # Create samples
     dt = 1 / 1000
-    t_samples_first_front_arrival, t_samples_first_back_arrival, y_min_samples, y_max_samples = create_ty_cv_samples_hitting_time(
+    first_passage_statistics, first_arrival_interval_statistics = create_ty_cv_samples_hitting_time(
         x_L=x_L,
         C_L=C_L,
         S_w=S_w,
@@ -163,6 +164,8 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
         length=particle_size[0],
         dt=dt,
         N=100000)
+    _, y_samples, _ = first_passage_statistics
+    t_samples_first_front_arrival, t_samples_first_back_arrival, y_min_samples, y_max_samples, y_samples_first_front_arrival, y_samples_first_back_arrival = first_arrival_interval_statistics
 
     # Set up the hitting time approaches
     taylor_model_with_extents = HittingTimeWithExtentsModel(particle_size[0], TaylorHittingTimeModel,
@@ -191,13 +194,13 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
                                                               plot_hist_for_all_particles=True,
                                                               )
 
-    # plot the joint distribution of the particle front and back arrival time (2-dimensional distribution, heatmap)
-    hte.plot_joint_first_arrival_interval_distribution(t_samples_first_front_arrival,
-                                                       t_samples_first_back_arrival,
-                                                       approaches_temp_ls,
-                                                       plot_hist_for_all_particles=True,
-                                                       plot_marginals=False,
-                                                       )
+    # # plot the joint distribution of the particle front and back arrival time (2-dimensional distribution, heatmap)
+    # hte.plot_joint_first_arrival_interval_distribution(t_samples_first_front_arrival,
+    #                                                    t_samples_first_back_arrival,
+    #                                                    approaches_temp_ls,
+    #                                                    plot_hist_for_all_particles=True,
+    #                                                    plot_marginals=False,
+    #                                                    )
 
     # # plot a simplifies joint distribution (based on the marginals and independence assumption) of the particle front
     # # and back arrival time (2-dimensional distribution, heatmap)
@@ -209,20 +212,34 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     #                                                    )
 
     # plot the calibration
-    hte.plot_calibration(t_samples_first_front_arrival,
-                         t_samples_first_back_arrival,
-                         approaches_temp_ls,
-                         )
+    # hte.plot_calibration(t_samples_first_front_arrival,
+    #                      t_samples_first_back_arrival,
+    #                      approaches_temp_ls,
+    #                      )
 
     # Set up the hitting location approaches
     hitting_location_model_kwargs = {'S_w': hitting_time_model_kwargs['S_w']}
+    # taylor_model_with_extents = HittingLocationWithExtentsModel(*particle_size,
+    #                                                             TaylorHittingTimeModel,
+    #                                                             CVTaylorHittingLocationModel,
+    #                                                             hitting_time_model_kwargs,
+    #                                                             hitting_location_model_kwargs,
+    #                                                             name="Gauß-Taylor with extent",
+    #                                                             )
+
+    hitting_location_model_kwargs['y_range'] = y_range_with_extents
+    y_samples_for_mc = y_samples.copy()
+    y_samples_for_mc = y_samples_for_mc[np.isfinite(
+        y_samples_for_mc)]  # TODO: Das mit der _remove_not_arriving_samples Funktion verbinden, wo das am besten hinmachen? in die AbstractMCHitting*Model jeweils getrennt für Location (immer) und für time (nach wahl)
+    hitting_location_model_kwargs['y_samples'] = y_samples_for_mc
     taylor_model_with_extents = HittingLocationWithExtentsModel(*particle_size,
                                                                 TaylorHittingTimeModel,
-                                                                CVTaylorHittingLocationModel,
+                                                                MCCVHittingLocationModel,
                                                                 hitting_time_model_kwargs,
                                                                 hitting_location_model_kwargs,
                                                                 name="Gauß-Taylor with extent",
                                                                 )
+
 
 
     # Results for spatial uncertainties
@@ -239,260 +256,29 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     approaches_spatial_ls = [taylor_model_with_extents]
 
     # plot the distribution of the particle front and back arrival time at one axis (the time axis)
-    hte_spatial.plot_y_at_first_arrival_interval_distribution_on_y_axis(y_min_samples - particle_size[1] / 2,
-                                                                        y_max_samples + particle_size[1] / 2,
-                                                                        approaches_spatial_ls,
-                                                                        plot_hist_for_all_particles=True,
-                                                                        )
+    hte_spatial.plot_y_at_first_arrival_interval_distribution_on_y_axis(
+        # min_y_samples=y_min_samples - particle_size[1] / 2,
+        # may_y_samples=y_max_samples + particle_size[1] / 2,
+        min_y_samples=np.min(np.vstack([y_samples_first_front_arrival, y_samples_first_back_arrival]), axis=0) - particle_size[1] / 2,
+        max_y_samples=np.max(np.vstack([y_samples_first_front_arrival, y_samples_first_back_arrival]), axis=0) + particle_size[1] / 2,
+        approaches_ls=approaches_spatial_ls,
+        plot_hist_for_all_particles=False,
+        # TODO: Das ist auch bisschen unschön, muss man ansstellen für das sehr unsichere Partikel, sonst geht der distribute_bins code nicht
+    )
 
-    # plot the joint distribution of the particle front and back arrival time (2-dimensional distribution, heatmap)
-    hte_spatial.plot_joint_y_at_first_arrival_interval_distribution(y_min_samples - particle_size[1] / 2,
-                                                                    y_max_samples + particle_size[1] / 2,
-                                                                    approaches_spatial_ls,
-                                                                    plot_hist_for_all_particles=True,
-                                                                    plot_marginals=False,
-                                                                    )
+    # # plot the joint distribution of the particle front and back arrival time (2-dimensional distribution, heatmap)
+    # hte_spatial.plot_joint_y_at_first_arrival_interval_distribution(y_min_samples - particle_size[1] / 2,
+    #                                                                 y_max_samples + particle_size[1] / 2,
+    #                                                                 approaches_spatial_ls,
+    #                                                                 plot_hist_for_all_particles=True,
+    #                                                                 plot_marginals=False,
+    #                                                                 )
     # plot the calibration
     hte_spatial.plot_calibration(y_min_samples - particle_size[1] / 2,
                                  y_max_samples + particle_size[1] / 2,
                                  approaches_spatial_ls,
                                  )
 
-
-class AbstractHittingTimeWithExtentsModel(ABC):
-
-    def __init__(self, length, name):
-
-        self._length = length
-        self._name = name
-
-    @property
-    def name(self):
-        return self._name
-
-    @abstractmethod
-    def calculate_ejection_windows(self, q):
-        # To be overwritten by subclass
-        raise NotImplementedError('Call to abstract method.')
-
-
-class HittingTimeWithExtentsModel(AbstractHittingTimeWithExtentsModel):
-
-    def __init__(self, length, hitting_time_model_class, hitting_time_model_kwargs, name):
-
-        super().__init__(length=length,
-                         name=name,
-                         )
-
-        htm_kwargs = hitting_time_model_kwargs.copy()
-        x_predTo = htm_kwargs.pop('x_predTo')
-
-        self._front_arrival_model = hitting_time_model_class(x_predTo=x_predTo - length / 2,
-                                                             **htm_kwargs)
-        self._back_arrival_model = hitting_time_model_class(x_predTo=x_predTo + length / 2,
-                                                            **htm_kwargs)
-
-    @property
-    def front_arrival_model(self):
-        return self._front_arrival_model
-
-    @property
-    def back_arrival_model(self):
-        return self._back_arrival_model
-
-    def calculate_ejection_windows(self, q):
-        q_front = (1 - q) / 2
-        q_back = (1 + q) / 2
-
-        t_start = self._front_arrival_model.ppf(q_front)
-        t_end = self._back_arrival_model.ppf(q_back)
-        return t_start, t_end
-
-
-class HittingTimeWithExtentsSimplifiedModel(AbstractHittingTimeWithExtentsModel):
-
-    def __init__(self, length, hitting_time_model_class, hitting_time_model_kwargs, name):
-
-        super().__init__(length=length,
-                         name=name,
-                         )
-
-        self._arrival_model = hitting_time_model_class(**hitting_time_model_kwargs)
-
-    def calculate_ejection_windows(self, q):
-        q_front = (1 - q) / 2
-        q_back = (1 + q) / 2
-
-        t_start = self._arrival_model.ppf(q_front) - self._length/(2 * self._arrival_model._x_L[1])   # TODO: Ist das überhaupt so wie gedacht?
-        t_end = self._arrival_model.ppf(q_back) + self._length/(2 * self._arrival_model._x_L[1])
-        return t_start, t_end
-
-
-class AbstractHittingLocationWithExtentsModel(ABC):
-
-    def __init__(self, length, width, name):
-
-        self._length = length
-        self._width = width
-        self._name = name
-
-    @property
-    def name(self):
-        return self._name
-
-    @abstractmethod
-    def calculate_ejection_windows(self, q):
-        # To be overwritten by subclass
-        raise NotImplementedError('Call to abstract method.')
-
-
-class HittingLocationWithExtentsModel(AbstractHittingLocationWithExtentsModel):
-
-    def __init__(self,
-                 length,
-                 width,
-                 hitting_time_model_class,
-                 hitting_location_model_class,
-                 hitting_time_model_kwargs,
-                 hitting_location_model_kwargs,
-                 name,
-                 ):
-        super().__init__(length=length,
-                         width=width,
-                         name=name,
-                         )
-
-        htm_kwargs = hitting_time_model_kwargs.copy()
-        x_predTo = htm_kwargs.pop('x_predTo')
-
-        self._front_arrival_model = hitting_time_model_class(x_predTo=x_predTo - length / 2,
-                                                             **htm_kwargs)
-        self._back_arrival_model = hitting_time_model_class(x_predTo=x_predTo + length / 2,
-                                                            **htm_kwargs)
-        self._front_location_model = hitting_location_model_class(hitting_time_model=self._front_arrival_model,
-                                                                  **hitting_location_model_kwargs)  # TODO: Das geht so allgemein nicht
-        self._back_location_model = hitting_location_model_class(hitting_time_model=self._back_arrival_model,
-                                                                 **hitting_location_model_kwargs)  # TODO: Das geht so allgemein nicht
-
-    @property
-    def front_location_model(self):  # TODO: Brauchen wir die zwei überhaupt?
-        return self._front_location_model
-
-    @property
-    def back_location_model(self):
-        return self._back_location_model
-
-    @property
-    def max_y_model(self):
-        return MaxYModel(self._front_location_model, self._back_location_model, self._width)
-
-    @property
-    def min_y_model(self):
-        return MinYModel(self._front_location_model, self._back_location_model, self._width)
-
-    def calculate_ejection_windows(self, q):
-        q_low = (1 - q) / 2
-        q_up = (1 + q) / 2
-
-        y_start = self.min_y_model.ppf(q_low)
-        # y_start = self.min_y_model.ppf(q_up)
-        y_end = self.max_y_model.ppf(q_up)
-        return y_start, y_end
-
-
-class MaxYModel(object):
-
-    def __init__(self, front_location_model, back_location_model, width):
-        self._front_location_model = front_location_model
-        self._back_location_model = back_location_model
-
-        self._width = width
-
-    def cdf(self, y):
-        # by independence assumption
-        # return self._front_location_model.cdf(y - self._width / 2) * self._back_location_model.cdf(y - self._width / 2)
-        # by no return assumption
-        # return self._back_location_model.cdf(y - self._width / 2)
-        # return self._front_location_model.cdf(y - self._width / 2)
-        back_location_value = self._back_location_model.cdf(y - self._width / 2)
-        front_location_value = self._front_location_model.cdf(y - self._width / 2)
-        half_model_value = 1 - 1 / 2 * ((1 - front_location_value) - (1 - back_location_value))
-        # half_model_value = 1/2 * (front_location_value + back_location_value)
-        return np.min(np.array([half_model_value, back_location_value, front_location_value]))
-
-    def pdf(self, y):
-        # by no return assumption
-        # return self._back_location_model.pdf(y - self._width / 2)
-        # return self._front_location_model.pdf(y - self._width / 2)
-        back_location_value = self._back_location_model.pdf(y - self._width / 2)
-        front_location_value = self._front_location_model.pdf(y - self._width / 2)
-        back_location_cdf_value = self._back_location_model.cdf(y - self._width / 2)
-        front_location_cdf_value = self._front_location_model.cdf(y - self._width / 2)
-        return np.array([back_location_value, front_location_value])[
-            np.argmin(np.array([back_location_cdf_value, front_location_cdf_value]))]
-
-    def ppf(self, q):
-        # by no return assumption
-        # return self._back_location_model.ppf(q) + self._width / 2
-        # return self._front_location_model.ppf(q) + self._width / 2
-        back_location_value = self._back_location_model.ppf(q) + self._width / 2
-        front_location_value = self._front_location_model.ppf(q) + self._width / 2
-        return np.max(np.array([back_location_value, front_location_value]))
-
-    def cdf_values(self, range):
-        cdf_values = [self.cdf(ys) for ys in range]
-        return cdf_values
-
-    def pdf_values(self, range):
-        pdf_values = np.gradient(self.cdf_values(range), range)
-        return pdf_values
-
-
-class MinYModel(object):
-
-    def __init__(self, front_location_model, back_location_model, width):
-        self._front_location_model = front_location_model
-        self._back_location_model = back_location_model
-        self._width = width
-
-    def cdf(self, y):
-        # # by independence assumption
-        # return 1 - (1 - self._front_location_model.cdf(y + self._width / 2)) * (
-        #         1 - self._back_location_model.cdf(y + self._width / 2))
-        # by no return assumption
-        # return self._back_location_model.cdf(y + self._width / 2)
-        back_location_value = self._back_location_model.cdf(y + self._width / 2)
-        front_location_value = self._front_location_model.cdf(y + self._width / 2)
-        return np.max(np.array([back_location_value, front_location_value]))
-
-    def pdf(self, y):
-        # by no return assumption
-        # return self._back_location_model.pdf(y + self._width / 2)
-        back_location_value = self._back_location_model.pdf(y + self._width / 2)
-        front_location_value = self._front_location_model.pdf(y + self._width / 2)
-        back_location_cdf_value = self._back_location_model.cdf(y + self._width / 2)
-        front_location_cdf_value = self._front_location_model.cdf(y + self._width / 2)
-        return np.array([back_location_value, front_location_value])[
-            np.argmax(np.array([back_location_cdf_value, front_location_cdf_value]))]
-
-    def ppf(self, q):
-        # by no return assumption
-        # return self._back_location_model.ppf(q) - self._width / 2
-        back_location_value = self._back_location_model.ppf(q) - self._width / 2
-        front_location_value = self._front_location_model.ppf(q) - self._width / 2
-        return np.min(np.array([back_location_value, front_location_value]))
-        # back_location_value = self._back_location_model.ppf(q)  # - self._width / 2
-        # front_location_value = self._front_location_model.ppf(q)  # - self._width / 2
-        # return 1 - np.min(np.array([back_location_value, front_location_value])) - self._width / 2
-        # TODO: Warum funkioniert das auskommentierte nicht?
-
-    def cdf_values(self, range):
-        cdf_values = [self.cdf(ys) for ys in range]
-        return cdf_values
-
-    def pdf_values(self, range):
-        pdf_values = np.gradient(self.cdf_values(range), range)
-        return pdf_values
 
 
 def create_hitting_time_samples(initial_samples,
@@ -503,7 +289,7 @@ def create_hitting_time_samples(initial_samples,
                                 N=100000,
                                 dt=1 / 1000,
                                 break_after_n_time_steps=1000,
-                                break_min_time=None):
+                                break_min_time=None):  # TODO: Mit anderer Funktion verbinden bzw. die andere sampling function ersetzen
     """Monte Carlo approach to solve the first passage time problem. Propagates particles through the motion model and
     determines time before arrival, and positions before and after the arrival as well as more statistics.
 
@@ -531,21 +317,34 @@ def create_hitting_time_samples(initial_samples,
     start_time = time.time()
     # Let the samples move to the boundary
 
-    x_curr = initial_samples
-    x_term_first_front_arrival = np.zeros(initial_samples.shape[0], dtype=bool)
-    x_term_first_back_not_in = np.zeros(initial_samples.shape[0], dtype=bool)
     t = t_L
     ind = 0
+    x_curr = initial_samples
+
+    fraction_of_returns = []
+
+    x_term = np.zeros(initial_samples.shape[0], dtype=bool)
+    x_term_first_front_arrival = np.zeros(initial_samples.shape[0], dtype=bool)
+    x_term_first_back_not_in = np.zeros(initial_samples.shape[0], dtype=bool)
+
+    time_before_arrival = np.full(N, t_L, dtype=np.float64)
     time_before_first_front_arrival = np.full(N, t_L, dtype=np.float64)
     time_before_first_back_not_in = np.full(N, t_L, dtype=np.float64)
+
+    x_before_arrival = np.empty((initial_samples.shape[0], initial_samples.shape[1]))
+    x_before_arrival[:] = np.nan
     x_before_front_arrival = np.empty((initial_samples.shape[0], initial_samples.shape[1]))
     x_before_front_arrival[:] = np.nan
-    x_after_front_arrival = np.empty((initial_samples.shape[0], initial_samples.shape[1]))
-    x_after_front_arrival[:] = np.nan
     x_before_first_back_not_in = np.empty((initial_samples.shape[0], initial_samples.shape[1]))
     x_before_first_back_not_in[:] = np.nan
+
+    x_after_arrival = np.empty((initial_samples.shape[0], initial_samples.shape[1]))
+    x_after_arrival[:] = np.nan
+    x_after_front_arrival = np.empty((initial_samples.shape[0], initial_samples.shape[1]))
+    x_after_front_arrival[:] = np.nan
     x_after_first_back_not_in = np.empty((initial_samples.shape[0], initial_samples.shape[1]))
     x_after_first_back_not_in[:] = np.nan
+
     y_min = np.empty((initial_samples.shape[0]))
     y_min[:] = np.inf
     y_max = np.empty((initial_samples.shape[0]))
@@ -553,12 +352,17 @@ def create_hitting_time_samples(initial_samples,
     while True:
         if ind % 100 == 0:
             logging.info('Timestep {0}, x equals approx. {1}'.format(ind, x_curr[0, 0]))
+        fraction_of_returns.append(np.sum(np.logical_and(x_curr[:, 0] < x_predTo, x_term)) / N)
 
         x_next = compute_x_next_func(x_curr)
 
+        first_passage = np.logical_and(np.logical_not(x_term), x_next[:, 0] >= x_predTo)
+        x_term[first_passage] = True
+        x_before_arrival[first_passage] = x_curr[first_passage]
+        x_after_arrival[first_passage] = x_next[first_passage]
+
         first_front_arrival = np.logical_and(np.logical_not(x_term_first_front_arrival), x_next[:, 0] + length/2 >= x_predTo)
         first_back_not_in = np.logical_and(np.logical_not(x_term_first_back_not_in), x_next[:, 0] - length/2 > x_predTo)
-
         x_term_first_front_arrival[first_front_arrival] = True
         x_term_first_back_not_in[first_back_not_in] = True
         
@@ -591,7 +395,16 @@ def create_hitting_time_samples(initial_samples,
         ind += 1
 
     logging.info('MC time: {0}ms'.format(round(1000 * (time.time() - start_time))))
-    return time_before_first_front_arrival, time_before_first_back_not_in, x_before_front_arrival, x_after_front_arrival, x_before_first_back_not_in, x_after_first_back_not_in, x_term_first_front_arrival, x_term_first_back_not_in, y_min, y_max
+
+    first_passage_statistics = (
+        time_before_arrival, x_before_arrival, x_after_arrival, x_term, np.array(fraction_of_returns))
+    first_arrival_interval_statistics = (
+        time_before_first_front_arrival, time_before_first_back_not_in, x_before_front_arrival, x_after_front_arrival,
+        x_before_first_back_not_in, x_after_first_back_not_in, x_term_first_front_arrival, x_term_first_back_not_in,
+        y_min,
+        y_max)
+
+    return first_passage_statistics, first_arrival_interval_statistics
 
 
 def create_lgssm_hitting_time_samples(F,
@@ -642,7 +455,7 @@ def create_lgssm_hitting_time_samples(F,
         x_next = x_next + w_k
         return x_next
 
-    time_before_first_front_arrival, time_before_first_back_not_in, x_before_front_arrival, x_after_front_arrival, x_before_first_back_not_in, x_after_first_back_not_in, x_term_first_front_arrival, x_term_first_back_not_in, y_min, y_max = create_hitting_time_samples(
+    return create_hitting_time_samples(
         initial_samples,
         compute_x_next_func,
         x_predTo,
@@ -652,8 +465,6 @@ def create_lgssm_hitting_time_samples(F,
         dt=dt,
         break_after_n_time_steps=break_after_n_time_steps,
         break_min_time=break_min_time)
-
-    return time_before_first_front_arrival, time_before_first_back_not_in, x_before_front_arrival, x_after_front_arrival, x_before_first_back_not_in, x_after_first_back_not_in, x_term_first_front_arrival, x_term_first_back_not_in, y_min, y_max
 
 
 def create_ty_cv_samples_hitting_time(x_L,
@@ -697,7 +508,7 @@ def create_ty_cv_samples_hitting_time(x_L,
     """
     F, Q = _get_system_matrices_from_parameters(dt, S_w)
 
-    time_before_first_front_arrival, time_before_first_back_not_in, x_before_front_arrival, x_after_front_arrival, x_before_first_back_not_in, x_after_first_back_not_in, x_term_first_front_arrival, x_term_first_back_not_in, y_min_samples, y_max_samples = create_lgssm_hitting_time_samples(
+    first_passage_statistics, first_arrival_interval_statistics = create_lgssm_hitting_time_samples(
         F,
         Q,
         x_L,
@@ -709,6 +520,28 @@ def create_ty_cv_samples_hitting_time(x_L,
         dt=dt,
         break_after_n_time_steps=break_after_n_time_steps,
         break_min_time=break_min_time)
+
+    # first for the first-passage statistics
+    time_before_arrival, x_before_arrival, x_after_arrival, x_term, fraction_of_returns = first_passage_statistics
+
+    # Linear interpolation to get time
+    v_interpolated = (x_after_arrival[x_term, 1] - x_before_arrival[x_term, 1]) / (
+            x_after_arrival[x_term, 0] - x_before_arrival[x_term, 0]) * (x_predTo - x_before_arrival[x_term, 0]) + \
+                     x_before_arrival[x_term, 1]
+    last_t = (x_predTo - x_before_arrival[x_term, 0]) / v_interpolated
+    t_samples = time_before_arrival
+    t_samples[x_term] = time_before_arrival[x_term] + last_t
+    t_samples[np.logical_not(x_term)] = int(
+        max(t_samples)) + 1  # default value for particles that do not arrive
+
+    y_samples = x_before_arrival[:, 2]
+    y_samples[x_term] = x_before_arrival[x_term, 2] + last_t * x_before_arrival[x_term, 3]
+    y_samples[np.logical_not(x_term)] = np.nan  # default value for particles that do not arrive
+
+    first_passage_statistics = t_samples, y_samples, fraction_of_returns
+
+    # then for the first-interval statistics
+    time_before_first_front_arrival, time_before_first_back_not_in, x_before_front_arrival, x_after_front_arrival, x_before_first_back_not_in, x_after_first_back_not_in, x_term_first_front_arrival, x_term_first_back_not_in, y_min_samples, y_max_samples = first_arrival_interval_statistics
 
     # Linear interpolation to get time
     v_interpolated_arrival = (x_after_front_arrival[x_term_first_front_arrival, 1] - x_before_front_arrival[
@@ -744,6 +577,10 @@ def create_ty_cv_samples_hitting_time(x_L,
     y_samples_first_front_arrival[x_term_first_front_arrival] = x_before_front_arrival[
                                                                     x_term_first_front_arrival, 2] + delta_t_first_arrival * \
                                                                 x_before_front_arrival[x_term_first_front_arrival, 3]
+
+    y_min_samples[np.logical_not(x_term_first_front_arrival)] = np.nan # default value for particles that do not arrive
+    y_max_samples[np.logical_not(x_term_first_front_arrival)] = np.nan
+
     y_samples_first_front_arrival[
         np.logical_not(x_term_first_front_arrival)] = np.nan  # default value for particles that do not arrive
 
@@ -764,7 +601,11 @@ def create_ty_cv_samples_hitting_time(x_L,
     y_max_samples[y_samples_first_front_arrival > y_min_samples] = y_samples_first_front_arrival[
         y_samples_first_front_arrival > y_min_samples]
 
-    return t_samples_first_front_arrival, t_samples_first_back_arrival, y_min_samples, y_max_samples
+    first_arrival_interval_statistics = (
+        t_samples_first_front_arrival, t_samples_first_back_arrival, y_min_samples, y_max_samples,
+        y_samples_first_front_arrival, y_samples_first_back_arrival)
+
+    return first_passage_statistics, first_arrival_interval_statistics
 
 
 if __name__ == "__main__":

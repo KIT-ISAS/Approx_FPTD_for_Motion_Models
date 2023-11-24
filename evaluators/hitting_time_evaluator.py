@@ -201,9 +201,7 @@ class HittingTimeEvaluator(AbstractHittingModelEvaluator):
         """
         if not plot_hist_for_all_particles:
             # check if there are default values (particles that did not arrive) in the array
-            if max(t_samples) - int(max(t_samples)) == 0.0:
-                #  there are default values, remove them from array
-                t_samples = t_samples[t_samples != max(t_samples)]
+            t_samples = self._remove_not_arriving_samples(t_samples)
             y_hist, x_hist, _ = ax1.hist(t_samples,
                                          bins=self._distribute_bins_in_plot_range(t_samples, self.plot_t),
                                          # we want to have 100 samples in the plot window
