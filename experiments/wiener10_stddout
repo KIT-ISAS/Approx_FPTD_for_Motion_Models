@@ -29,9 +29,9 @@ I0315 15:52:38.647650 140049724585792 abstract_distributions.py:354] Var integra
 /usr/local/lib/python3.8/dist-packages/numpy/core/function_base.py:151: RuntimeWarning: invalid value encountered in multiply
   y *= step
 /mnt/wiener_process.py:395: RuntimeWarning: invalid value encountered in double_scalars
-  mulipl = der_ev/np.sqrt(self.var_t(t)) + (self.x_predTo - self.ev_t(t))*der_var/(2*self.var_t(t)**(3.0/2.0))
+  mulipl = der_ev/np.sqrt(self._var_t(t)) + (self.x_predTo - self._ev_t(t))*der_var/(2*self._var_t(t)**(3.0/2.0))
 /mnt/wiener_process.py:396: RuntimeWarning: invalid value encountered in double_scalars
-  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self.ev_t(t))**2/(2*self.var_t(t)))
+  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self._ev_t(t))**2/(2*self._var_t(t)))
 /mnt/abstract_distributions.py:194: RuntimeWarning: invalid value encountered in double_scalars
   [self.pdf(theta) * self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo) for
 /mnt/abstract_distributions.py:193: RuntimeWarning: Mean of empty slice

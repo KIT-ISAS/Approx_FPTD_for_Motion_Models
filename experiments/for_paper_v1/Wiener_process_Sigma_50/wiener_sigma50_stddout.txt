@@ -63,8 +63,8 @@ Pairwise relative deviations of temporal stddevs in percent:
 /usr/local/lib/python3.6/dist-packages/scipy/stats/_distn_infrastructure.py:1824: RuntimeWarning: divide by zero encountered in double_scalars
   x = np.asarray((x - loc)/scale, dtype=dtyp)
 /mnt/wiener_process.py:272: RuntimeWarning: divide by zero encountered in double_scalars
-  mulipl = der_ev/np.sqrt(self.var_t(t)) + (self.x_predTo - self.ev_t(t))*der_var/(2*self.var_t(t)**(3.0/2.0))
+  mulipl = der_ev/np.sqrt(self._var_t(t)) + (self.x_predTo - self._ev_t(t))*der_var/(2*self._var_t(t)**(3.0/2.0))
 /mnt/wiener_process.py:273: RuntimeWarning: divide by zero encountered in double_scalars
-  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self.ev_t(t))**2/(2*self.var_t(t)))
+  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self._ev_t(t))**2/(2*self._var_t(t)))
 /mnt/wiener_process.py:273: RuntimeWarning: invalid value encountered in double_scalars
-  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self.ev_t(t))**2/(2*self.var_t(t)))
+  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self._ev_t(t))**2/(2*self._var_t(t)))

@@ -17,7 +17,7 @@ def measure_computation_times(model_class_ls, model_attributes_ls, t_range, num_
     :param model_class_ls: A list of AbstractHittingTimeModel class, the classes which computational times should be
         measured.
     :param model_attributes_ls: A list of lists containing args to initialize classes in model_class_ls.
-    :param t_range: A list of length 2 representing the plot limits for the first passage time (used to find suitable
+    :param t_range: A list of length 2 representing the plot limits for the first-passage time (used to find suitable
         values to insert in the pdf or cdf methods).
     :param num_runs: An integer, the number of runs to average the computational times.
     """

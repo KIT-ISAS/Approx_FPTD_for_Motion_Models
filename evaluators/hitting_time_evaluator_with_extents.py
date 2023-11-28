@@ -103,7 +103,7 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
             ax2.set_ylabel("CDF")
 
         for i, approach in enumerate(approaches_ls):
-            lower_bound, upper_bound = approach.calculate_ejection_windows(0.95)
+            lower_bound, upper_bound = approach.calculate_confidence_bounds(0.95)
             logging.info('Ejection windows for model {}: {}, {}'.format(approach.name, round(lower_bound, 4),
                                                                         round(upper_bound, 4)))
             ax1.vlines((lower_bound, upper_bound), ymin=0, ymax=1.4 * y_hist_max,
@@ -262,12 +262,12 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
                  color='black', label='Bisector')  # bisector
 
         for i, approach in enumerate(approaches_ls):
-            ax1.vlines(approach.calculate_ejection_windows(0.95)[0],
+            ax1.vlines(approach.calculate_confidence_bounds(0.95)[0],
                        ymin=min(upper_marginal_samples),
                        ymax=max(upper_marginal_samples),
                        label=approach.name,
                        color=self.color_cycle[i])
-            ax1.hlines(approach.calculate_ejection_windows(0.95)[1],
+            ax1.hlines(approach.calculate_confidence_bounds(0.95)[1],
                        xmin=min(lower_marginal_samples),
                        xmax=max(lower_marginal_samples),
                        label=approach.name,
@@ -278,7 +278,7 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
                     marginal_x_axis.plot(plot_points, pdf_values,
                                          label=approach.name,
                                          color=self.color_cycle[i])
-                    marginal_x_axis.vlines(approach.calculate_ejection_windows(0.95)[0],
+                    marginal_x_axis.vlines(approach.calculate_confidence_bounds(0.95)[0],
                                            ymin=0,
                                            ymax=max(pdf_values),
                                            label=approach.name,
@@ -289,7 +289,7 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
                     marginal_y_axis.plot(pdf_values, plot_points,
                                          label=approach.name,
                                          color=self.color_cycle[i])
-                    marginal_y_axis.hlines(approach.calculate_ejection_windows(0.95)[1],
+                    marginal_y_axis.hlines(approach.calculate_confidence_bounds(0.95)[1],
                                            xmin=0,
                                            xmax=max(pdf_values),
                                            label=approach.name,
@@ -356,7 +356,7 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
             ratio = []
             marginal_ratio = []
             for q in q_range:
-                lower_bound, upper_bound = approach.calculate_ejection_windows(q)
+                lower_bound, upper_bound = approach.calculate_confidence_bounds(q)
                 ratio.append(get_prob_from_hist(lower_bound, upper_bound))
                 marginal_ratio.append(
                     back_arrival_time_density.cdf(upper_bound) - front_arrival_time_density.cdf(lower_bound))

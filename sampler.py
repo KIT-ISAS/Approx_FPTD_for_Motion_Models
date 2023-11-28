@@ -18,7 +18,7 @@ def create_hitting_time_samples(initial_samples,
                                 dt=1 / 1000,
                                 break_after_n_time_steps=1000,
                                 break_min_time=None):
-    """Monte Carlo approach to solve the first passage time problem. Propagates particles through the motion model and
+    """Monte Carlo approach to solve the first-passage time problem. Propagates particles through the motion model and
     determines time before arrival, and positions before and after the arrival as well as more statistics.
 
     :param initial_samples: A np.array of shape [num_samples, state_size], the initial particles samples at time step
@@ -34,8 +34,8 @@ def create_hitting_time_samples(initial_samples,
         (break_after_n_time_steps dominates break_min_time).
 
     :returns:
-        t_samples: A np.array of shape [N] containing the first passage times of the particles.
-        y_samples: A np.array of shape [N] containing the y-position at the first passage times of the particles.
+        t_samples: A np.array of shape [N] containing the first-passage times of the particles.
+        y_samples: A np.array of shape [N] containing the y-position at the first-passage times of the particles.
         fraction_of_returns: A np.array of shape[num_simulated_time_steps], the fraction in each time steps of
             tracks that have previously reached the boundary, but then fall below the boundary until the respective
             time step.
@@ -94,8 +94,8 @@ def create_lgssm_hitting_time_samples(F,
                                       dt=1 / 1000,
                                       break_after_n_time_steps=1000,
                                       break_min_time=None):
-    """Monte Carlo approach to solve the first passage time problem. Propagates particles through the discrete-time
-    LGSSM motion model and determines their first passage at x_predTo as well as the location in y at the first passage 
+    """Monte Carlo approach to solve the first-passage time problem. Propagates particles through the discrete-time
+    LGSSM motion model and determines their first-passage at x_predTo as well as the location in y at the first-passage 
     by interpolating the positions between the last time before and the first time after the boundary.
 
     :param F: A np.array of shape [4, 4], the transition matrix of the LGSSM.
@@ -112,8 +112,8 @@ def create_lgssm_hitting_time_samples(F,
         (break_after_n_time_steps dominates break_min_time).
 
     :returns:
-        t_samples: A np.array of shape [N] containing the first passage times of the particles.
-        y_samples: A np.array of shape [N] containing the y-position at the first passage times of the particles.
+        t_samples: A np.array of shape [N] containing the first-passage times of the particles.
+        y_samples: A np.array of shape [N] containing the y-position at the first-passage times of the particles.
         fraction_of_returns: A np.array of shape[num_simulated_time_steps], the fraction in each time steps of
             tracks that have previously reached the boundary, but then fall below the boundary until the respective
             time step.
@@ -147,7 +147,7 @@ def get_example_tracks_lgssm(x_L, C_L, S_w, get_system_matrices_from_parameters_
 
     :param x_L: A np.array of shape [4] representing the expected value of the initial state. We use index L here
         because it corresponds to the last time we see a particle in our optical belt sorting scenario.
-        Format: [pos_x, vel_x, pos_y, vel_y].
+        Format: [pos_x, velo_x, pos_y, velo_y].
     :param C_L: A np.array of shape [4, 4] representing the covariance matrix of the initial state.
     :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
     :param get_system_matrices_from_parameters_func: A function that returns the system matrices of the LGSSM.

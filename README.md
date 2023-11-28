@@ -6,11 +6,11 @@ Code belonging to the paper
 
 *Marcel Reith-Braun, Jakob Thumm, Florian Pfaff, und Uwe D. Hanebeck, "Approximate First Passage Time Distributions for Gaussian Motion and Transportation Models," (submitted to Fusion), 2023.*
 
-The repo contains methods to compute approximate first passage time distributions (FPTD) for Gaussian processes with an increasing trend, such as motion and transportation models for which it is valid to assume that the increasing trend in the mean is primarily resposible for the first passage. This may include, e.g., models such as the *constant velocity (CV) model*, and the *constant acceleration (CA) model*.
+The repo contains methods to compute approximate first-passage time distributions (FPTD) for Gaussian processes with an increasing trend, such as motion and transportation models for which it is valid to assume that the increasing trend in the mean is primarily resposible for the first-passage. This may include, e.g., models such as the *constant velocity (CV) model*, and the *constant acceleration (CA) model*.
 
 The repo contains examples for three different process, the *Wiener process with drift*, for which the analytical solution is known, the *CV model* and the *CA model*. The methods are compared with Monte Carlo simulations of the corresponding discrete-time process model.
 
-Note that the code is intended to support two-dimensional processes, where one is also interested in the distribution of *y* at the first passage time. The *CV* and *CA* models are therefore defined as 2D processes, where the process in *x* is independent of the process in *y*.
+Note that the code is intended to support two-dimensional processes, where one is also interested in the distribution of *y* at the first-passage time. The *CV* and *CA* models are therefore defined as 2D processes, where the process in *x* is independent of the process in *y*.
 
 ## Prerequisites
 
@@ -38,14 +38,14 @@ docker run -u $(id -u):$(id -g) --gpus all -it --rm -e DISPLAY=$DISPLAY -v /tmp/
 
 ### `wiener_process.py`
 
-- Methods and simulations for a first passage time problem with a *Wiener process with drift*, for which the analytical solution is known.
+- Methods and simulations for a first-passage time problem with a *Wiener process with drift*, for which the analytical solution is known.
 ### `cv_process.py`
 
-- Methods and simulations for a first passage time problem with a *CV model*.
+- Methods and simulations for a first-passage time problem with a *CV model*.
 
 ### `ca_process.py`
 
-- Methods and simulations for a first passage time problem with a *CA model*.
+- Methods and simulations for a first-passage time problem with a *CA model*.
 
 ### `cv_experiments.py`
 

@@ -45,9 +45,9 @@ I0315 16:08:41.751448 140309897799488 abstract_distributions.py:354] Var integra
 /usr/local/lib/python3.8/dist-packages/numpy/core/function_base.py:151: RuntimeWarning: invalid value encountered in multiply
   y *= step
 /mnt/wiener_process.py:395: RuntimeWarning: invalid value encountered in double_scalars
-  mulipl = der_ev/np.sqrt(self.var_t(t)) + (self.x_predTo - self.ev_t(t))*der_var/(2*self.var_t(t)**(3.0/2.0))
+  mulipl = der_ev/np.sqrt(self._var_t(t)) + (self.x_predTo - self._ev_t(t))*der_var/(2*self._var_t(t)**(3.0/2.0))
 /mnt/wiener_process.py:396: RuntimeWarning: invalid value encountered in double_scalars
-  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self.ev_t(t))**2/(2*self.var_t(t)))
+  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self._ev_t(t))**2/(2*self._var_t(t)))
 /mnt/abstract_distributions.py:194: RuntimeWarning: invalid value encountered in double_scalars
   [self.pdf(theta) * self.trans_density(dt=t - theta, theta=theta).cdf(self.x_predTo) for
 /mnt/abstract_distributions.py:193: RuntimeWarning: Mean of empty slice
@@ -67,11 +67,11 @@ I0315 16:08:43.868629 140309897799488 hitting_time_uncertainty_utils.py:156] Pai
 /usr/local/lib/python3.8/dist-packages/ot/lp/__init__.py:547: UserWarning: Problem infeasible. Check that a and b are in the simplex
   check_result(result_code)
 /mnt/wiener_process.py:395: RuntimeWarning: divide by zero encountered in double_scalars
-  mulipl = der_ev/np.sqrt(self.var_t(t)) + (self.x_predTo - self.ev_t(t))*der_var/(2*self.var_t(t)**(3.0/2.0))
+  mulipl = der_ev/np.sqrt(self._var_t(t)) + (self.x_predTo - self._ev_t(t))*der_var/(2*self._var_t(t)**(3.0/2.0))
 /mnt/wiener_process.py:396: RuntimeWarning: divide by zero encountered in double_scalars
-  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self.ev_t(t))**2/(2*self.var_t(t)))
+  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self._ev_t(t))**2/(2*self._var_t(t)))
 /mnt/wiener_process.py:396: RuntimeWarning: invalid value encountered in double_scalars
-  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self.ev_t(t))**2/(2*self.var_t(t)))
+  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self._ev_t(t))**2/(2*self._var_t(t)))
 I0315 16:08:45.050362 140309897799488 hitting_time_uncertainty_utils.py:208] Wasserstein distances compared against MC histogram (in plot range!): 
 [0.0, 0.0]
 I0315 16:08:47.214201 140309897799488 hitting_time_uncertainty_utils.py:232] Hellinger distances compared against MC histogram (in plot range!): 
@@ -97,11 +97,11 @@ I0315 16:08:58.997127 140309897799488 hitting_time_uncertainty_utils.py:281] Kol
 /usr/local/lib/python3.8/dist-packages/scipy/stats/_distn_infrastructure.py:2176: RuntimeWarning: divide by zero encountered in double_scalars
   x = np.asarray((x - loc)/scale, dtype=dtyp)
 /mnt/wiener_process.py:395: RuntimeWarning: divide by zero encountered in double_scalars
-  mulipl = der_ev/np.sqrt(self.var_t(t)) + (self.x_predTo - self.ev_t(t))*der_var/(2*self.var_t(t)**(3.0/2.0))
+  mulipl = der_ev/np.sqrt(self._var_t(t)) + (self.x_predTo - self._ev_t(t))*der_var/(2*self._var_t(t)**(3.0/2.0))
 /mnt/wiener_process.py:396: RuntimeWarning: divide by zero encountered in double_scalars
-  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self.ev_t(t))**2/(2*self.var_t(t)))
+  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self._ev_t(t))**2/(2*self._var_t(t)))
 /mnt/wiener_process.py:396: RuntimeWarning: invalid value encountered in double_scalars
-  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self.ev_t(t))**2/(2*self.var_t(t)))
+  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self._ev_t(t))**2/(2*self._var_t(t)))
 /mnt/wiener_process.py:236: RuntimeWarning: invalid value encountered in sqrt
   return norm(loc=trans_mu, scale=np.sqrt(trans_var))
 /mnt/abstract_distributions.py:213: IntegrationWarning: The occurrence of roundoff error is detected, which prevents 
@@ -115,11 +115,11 @@ I0315 16:08:58.997127 140309897799488 hitting_time_uncertainty_utils.py:281] Kol
 /usr/local/lib/python3.8/dist-packages/scipy/stats/_distn_infrastructure.py:2176: RuntimeWarning: divide by zero encountered in double_scalars
   x = np.asarray((x - loc)/scale, dtype=dtyp)
 /mnt/wiener_process.py:395: RuntimeWarning: divide by zero encountered in double_scalars
-  mulipl = der_ev/np.sqrt(self.var_t(t)) + (self.x_predTo - self.ev_t(t))*der_var/(2*self.var_t(t)**(3.0/2.0))
+  mulipl = der_ev/np.sqrt(self._var_t(t)) + (self.x_predTo - self._ev_t(t))*der_var/(2*self._var_t(t)**(3.0/2.0))
 /mnt/wiener_process.py:396: RuntimeWarning: divide by zero encountered in double_scalars
-  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self.ev_t(t))**2/(2*self.var_t(t)))
+  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self._ev_t(t))**2/(2*self._var_t(t)))
 /mnt/wiener_process.py:396: RuntimeWarning: invalid value encountered in double_scalars
-  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self.ev_t(t))**2/(2*self.var_t(t)))
+  return mulipl*1/np.sqrt(2*np.pi)*np.exp(-(self.x_predTo - self._ev_t(t))**2/(2*self._var_t(t)))
 /usr/local/lib/python3.8/dist-packages/scipy/stats/_distn_infrastructure.py:2176: RuntimeWarning: invalid value encountered in double_scalars
   x = np.asarray((x - loc)/scale, dtype=dtyp)
 /mnt/abstract_distributions.py:193: RuntimeWarning: Mean of empty slice

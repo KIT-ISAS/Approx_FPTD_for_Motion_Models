@@ -2,7 +2,7 @@
 ########################################### cv_experiments.py #########################################
 Authors: Marcel Reith-Braun (ISAS, marcel.reith-braun@kit.edu), Jakob Thumm
 #######################################################################################################
-Defines and executes experiments (first passage time problems) for the constant velocity model.
+Defines and executes experiments (first-passage time problems) for the constant velocity model.
 See cv_process.py for details.
 
 usage:

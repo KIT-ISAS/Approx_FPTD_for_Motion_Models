@@ -14,7 +14,7 @@ class AbstractHittingTimeWithExtentsModel(ABC):
         return self._name
 
     @abstractmethod
-    def calculate_ejection_windows(self, q):
+    def calculate_confidence_bounds(self, q):
         # To be overwritten by subclass
         raise NotImplementedError('Call to abstract method.')
 
@@ -43,7 +43,7 @@ class HittingTimeWithExtentsModel(AbstractHittingTimeWithExtentsModel):
     def back_arrival_model(self):
         return self._back_arrival_model
 
-    def calculate_ejection_windows(self, q):
+    def calculate_confidence_bounds(self, q):
         q_front = (1 - q) / 2
         q_back = (1 + q) / 2
 
@@ -62,7 +62,7 @@ class HittingTimeWithExtentsSimplifiedModel(AbstractHittingTimeWithExtentsModel)
 
         self._arrival_model = hitting_time_model_class(**hitting_time_model_kwargs)
 
-    def calculate_ejection_windows(self, q):
+    def calculate_confidence_bounds(self, q):
         q_front = (1 - q) / 2
         q_back = (1 + q) / 2
 

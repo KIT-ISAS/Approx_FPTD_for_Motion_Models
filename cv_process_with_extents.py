@@ -8,10 +8,10 @@ import numpy as np
 import tensorflow as tf
 
 
-from cv_process import TaylorHittingTimeModel, EngineeringApproxHittingTimeModel
+from cv_process import GaussTaylorCVHittingTimeDistribution, NoReturnCVHittingTimeDistribution
 from sampler import get_example_tracks_lgssm as get_example_tracks
-from cv_utils import _get_system_matrices_from_parameters, create_ty_cv_samples_hitting_time
-from cv_hitting_location_model import CVTaylorHittingLocationModel, SimpleGaussCVHittingLocationModel, ProjectionCVHittingLocationModel, MCCVHittingLocationModel
+from cv_arrival_distributions.cv_utils import _get_system_matrices_from_parameters, create_ty_cv_samples_hitting_time
+from cv_arrival_distributions.cv_hitting_location_distributions import MCCVHittingLocationDistribution
 from extent_models import  HittingTimeWithExtentsModel, HittingTimeWithExtentsSimplifiedModel, HittingLocationWithExtentsModel
 
 from evaluators.hitting_time_evaluator_with_extents import HittingTimeEvaluatorWithExtents, HittingLocationEvaluatorWithExtents
@@ -99,17 +99,17 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     """Runs an experiment including a comparison with Monte Carlo simulation with the given settings.
 
     The underlying process is a 2D (x, y) constant velocity (CV) model with independent components in x, y.
-    Therefore, the state is [pos_x, vel_x, pos_y, vel_y].
+    Therefore, the state is [pos_x, velo_x, pos_y, velo_y].
 
     :param x_L: A np.array of shape [4] representing the expected value of the initial state. We use index L here
         because it corresponds to the last time we see a particle in our optical belt sorting scenario.
-        Format: [pos_x, vel_x, pos_y, vel_y].
+        Format: [pos_x, velo_x, pos_y, velo_y].
     :param C_L: A np.array of shape [4, 4] representing the covariance matrix of the initial state.
     :param t_L: A float, the time of the last state/measurement (initial time).
     :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
     :param x_predTo: A float, position of the boundary.
     :param length: TODO
-    :param t_range_with_extents: A list of length 2 representing the plot limits for the first passage time.
+    :param t_range_with_extents: A list of length 2 representing the plot limits for the first-passage time.
     :param y_range_with_extents: A list of length 2 representing the plot limits for the y component at the first
         passage time.
     :param measure_computational_times: A Boolean, whether to measure the computational times.
@@ -168,17 +168,17 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     t_samples_first_front_arrival, t_samples_first_back_arrival, y_min_samples, y_max_samples, y_samples_first_front_arrival, y_samples_first_back_arrival = first_arrival_interval_statistics
 
     # Set up the hitting time approaches
-    taylor_model_with_extents = HittingTimeWithExtentsModel(particle_size[0], TaylorHittingTimeModel,
+    taylor_model_with_extents = HittingTimeWithExtentsModel(particle_size[0], GaussTaylorCVHittingTimeDistribution,
                                                             hitting_time_model_kwargs,
                                                             name="Gauß-Taylor with extent")
-    approx_model_with_extents = HittingTimeWithExtentsModel(particle_size[0], EngineeringApproxHittingTimeModel,
+    approx_model_with_extents = HittingTimeWithExtentsModel(particle_size[0], NoReturnCVHittingTimeDistribution,
                                                             hitting_time_model_kwargs,
                                                             name="No-return approx. with extent")
-    simplified_taylor_model_with_extents = HittingTimeWithExtentsSimplifiedModel(particle_size[0], TaylorHittingTimeModel,
+    simplified_taylor_model_with_extents = HittingTimeWithExtentsSimplifiedModel(particle_size[0], GaussTaylorCVHittingTimeDistribution,
                                                                                  hitting_time_model_kwargs,
                                                                                  name="Gauß-Taylor with extent (simplified)")
     simplified_approx_model_with_extents = HittingTimeWithExtentsSimplifiedModel(particle_size[0],
-                                                                                 EngineeringApproxHittingTimeModel,
+                                                                                 NoReturnCVHittingTimeDistribution,
                                                                                  hitting_time_model_kwargs,
                                                                                  name="No-return approx. with extent (simplified)")
     approaches_temp_ls = [taylor_model_with_extents,
@@ -220,8 +220,8 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     # Set up the hitting location approaches
     hitting_location_model_kwargs = {'S_w': hitting_time_model_kwargs['S_w']}
     # taylor_model_with_extents = HittingLocationWithExtentsModel(*particle_size,
-    #                                                             TaylorHittingTimeModel,
-    #                                                             CVTaylorHittingLocationModel,
+    #                                                             TaylorCVHittingTimeModel,
+    #                                                             TaylorCVHittingLocationModel,
     #                                                             hitting_time_model_kwargs,
     #                                                             hitting_location_model_kwargs,
     #                                                             name="Gauß-Taylor with extent",
@@ -233,8 +233,8 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
         y_samples_for_mc)]  # TODO: Das mit der _remove_not_arriving_samples Funktion verbinden, wo das am besten hinmachen? in die AbstractMCHitting*Model jeweils getrennt für Location (immer) und für time (nach wahl)
     hitting_location_model_kwargs['y_samples'] = y_samples_for_mc
     taylor_model_with_extents = HittingLocationWithExtentsModel(*particle_size,
-                                                                TaylorHittingTimeModel,
-                                                                MCCVHittingLocationModel,
+                                                                GaussTaylorCVHittingTimeDistribution,
+                                                                MCCVHittingLocationDistribution,
                                                                 hitting_time_model_kwargs,
                                                                 hitting_location_model_kwargs,
                                                                 name="Gauß-Taylor with extent",
@@ -290,7 +290,7 @@ def create_hitting_time_samples(initial_samples,
                                 dt=1 / 1000,
                                 break_after_n_time_steps=1000,
                                 break_min_time=None):  # TODO: Mit anderer Funktion verbinden bzw. die andere sampling function ersetzen
-    """Monte Carlo approach to solve the first passage time problem. Propagates particles through the motion model and
+    """Monte Carlo approach to solve the first-passage time problem. Propagates particles through the motion model and
     determines time before arrival, and positions before and after the arrival as well as more statistics.
 
     :param initial_samples: A np.array of shape [num_samples, state_size], the initial particles samples at time step
@@ -307,8 +307,8 @@ def create_hitting_time_samples(initial_samples,
         (break_after_n_time_steps dominates break_min_time).
 
     :returns:
-        t_samples: A np.array of shape [N] containing the first passage times of the particles.
-        y_samples: A np.array of shape [N] containing the y-position at the first passage times of the particles.
+        t_samples: A np.array of shape [N] containing the first-passage times of the particles.
+        y_samples: A np.array of shape [N] containing the y-position at the first-passage times of the particles.
         fraction_of_returns: A np.array of shape[num_simulated_time_steps], the fraction in each time steps of
             tracks that have previously reached the boundary, but then fall below the boundary until the respective
             time step.
@@ -418,8 +418,8 @@ def create_lgssm_hitting_time_samples(F,
                                       dt=1 / 1000,
                                       break_after_n_time_steps=1000,
                                       break_min_time=None):
-    """Monte Carlo approach to solve the first passage time problem. Propagates particles through the discrete-time
-    LGSSM motion model and determines their first passage at x_predTo as well as the location in y at the first passage 
+    """Monte Carlo approach to solve the first-passage time problem. Propagates particles through the discrete-time
+    LGSSM motion model and determines their first-passage at x_predTo as well as the location in y at the first-passage 
     by interpolating the positions between the last time before and the first time after the boundary.
 
     :param F: A np.array of shape [4, 4], the transition matrix of the LGSSM.
@@ -437,8 +437,8 @@ def create_lgssm_hitting_time_samples(F,
         (break_after_n_time_steps dominates break_min_time).
 
     :returns:
-        t_samples: A np.array of shape [N] containing the first passage times of the particles.
-        y_samples: A np.array of shape [N] containing the y-position at the first passage times of the particles.
+        t_samples: A np.array of shape [N] containing the first-passage times of the particles.
+        y_samples: A np.array of shape [N] containing the y-position at the first-passage times of the particles.
         fraction_of_returns: A np.array of shape[num_simulated_time_steps], the fraction in each time steps of
             tracks that have previously reached the boundary, but then fall below the boundary until the respective
             time step.
@@ -477,8 +477,8 @@ def create_ty_cv_samples_hitting_time(x_L,
                                       dt=1 / 1000,
                                       break_after_n_time_steps=1000,
                                       break_min_time=None):
-    """Monte Carlo approach to solve the first passage time problem. Propagates particles through the 2D discrete-time
-    CV motion model and determines their first passage at x_predTo as well as the location in y at the first passage by
+    """Monte Carlo approach to solve the first-passage time problem. Propagates particles through the 2D discrete-time
+    CV motion model and determines their first-passage at x_predTo as well as the location in y at the first-passage by
     interpolating the positions between the last time before and the first time after the boundary.
 
     Note that particles that do not reach the boundary after break_after_n_time_steps time_steps are handled with a
@@ -486,7 +486,7 @@ def create_ty_cv_samples_hitting_time(x_L,
 
     :param x_L: A np.array of shape [4] representing the expected value of the initial state. We use index L here
         because it corresponds to the last time we see a particle in our optical belt sorting scenario.
-        Format: [pos_x, vel_x, pos_y, vel_y].
+        Format: [pos_x, velo_x, pos_y, velo_y].
     :param C_L: A np.array of shape [4, 4] representing the covariance matrix of the initial state.
     :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
     :param x_predTo: A float, position of the boundary.
@@ -499,8 +499,8 @@ def create_ty_cv_samples_hitting_time(x_L,
         (break_after_n_time_steps dominates break_min_time).
 
     :returns:
-        t_samples: A np.array of shape [N] containing the first passage times of the particles.
-        y_samples: A np.array of shape [N] containing the y-position at the first passage times of the particles.
+        t_samples: A np.array of shape [N] containing the first-passage times of the particles.
+        y_samples: A np.array of shape [N] containing the y-position at the first-passage times of the particles.
         fraction_of_returns: A np.array of shape[num_simulated_time_steps], the fraction in each time steps of
             tracks that have previously reached the boundary, but then fall below the boundary until the respective
             time step.

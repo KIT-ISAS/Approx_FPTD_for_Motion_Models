@@ -141,7 +141,7 @@ class AbstractHittingModelEvaluator(ABC):
     def compare_moments(approaches_ls, prefix='temporal'):
         """Compare the means and standard deviations of different hitting models and print them to stdout.
 
-        :param approaches_ls: A list of first passage time model objects for the same process to be compared. # TODO
+        :param approaches_ls: A list of first-passage time model objects for the same process to be compared. # TODO
         :param prefix: TODO
         """
         # TODO: Value erorrs
@@ -269,7 +269,7 @@ class AbstractHittingModelEvaluator(ABC):
     def plot_quantile_functions(self, approaches_ls, q_min=0.005, q_max=0.995, y_label='Time t in s'):
         """Plots the quantile functions of the different approaches.
 
-        :param approaches_ls: A list of first passage time model objects for the same process to be compared.
+        :param approaches_ls: A list of first-passage time model objects for the same process to be compared.
         :param q_min: A float, the smallest value of the confidence plot range.
         :param q_max: A float, the highest value of the confidence plot range.
         :param y_label:  String, y_label of the plot.

@@ -83,10 +83,10 @@ class HittingLocationEvaluator(AbstractHittingModelEvaluator, ABC):
         super().plot_quantile_functions(approaches_ls, q_min, q_max, y_label)
 
     def _plot_y_at_first_hitting_time_distributions(self, ax1, y_samples, approaches_ls):
-        """Plots the distribution of y at the first passage time.
+        """Plots the distribution of y at the first-passage time.
 
         :param ax1: A plt.axis object.
-        :param y_samples: A np.array of shape [N] containing the y-position at the first passage times of the particles.
+        :param y_samples: A np.array of shape [N] containing the y-position at the first-passage times of the particles.
         :param approaches_ls: A list of model objects for the same process to be compared.
         """
         y_hist, x_hist, _ = ax1.hist(y_samples,
@@ -130,9 +130,9 @@ class HittingLocationEvaluator(AbstractHittingModelEvaluator, ABC):
         ax2.set_ylabel("CDF")
 
     def plot_y_at_first_hitting_time_distributions(self, y_samples, approaches_ls):
-        """Plots the distribution of y at the first passage time.
+        """Plots the distribution of y at the first-passage time.
 
-        :param y_samples: A np.array of shape [N] containing the y-position at the first passage times of the particles.
+        :param y_samples: A np.array of shape [N] containing the y-position at the first-passage times of the particles.
         :param approaches_ls: A list of model objects for the same process to be compared.
         """
         fig, ax1 = plt.subplots()

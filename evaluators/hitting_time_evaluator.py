@@ -70,9 +70,9 @@ class HittingTimeEvaluator(AbstractHittingModelEvaluator):
 
     @staticmethod
     def compare_skewness(approaches_ls):
-        """Compare the skewness of different first passage time approaches and print them to stdout.
+        """Compare the skewness of different first-passage time approaches and print them to stdout.
 
-        :param approaches_ls: A list of first passage time model objects for the same process to be compared.
+        :param approaches_ls: A list of first-passage time model objects for the same process to be compared.
         """
         skew_t_ls = []
         for approach in approaches_ls:
@@ -95,8 +95,8 @@ class HittingTimeEvaluator(AbstractHittingModelEvaluator):
         Note that the Wasserstein distance in not suitable to compare normalized and non-normalized densities since it
         requires that the total moved mass stays constant (conservation of mass).
 
-        :param t_samples: A np.array of shape [N] containing the first passage times of the particles.
-        :param approaches_ls: A list of first passage time model objects for the same process to be compared against the
+        :param t_samples: A np.array of shape [N] containing the first-passage times of the particles.
+        :param approaches_ls: A list of first-passage time model objects for the same process to be compared against the
             MC histogram.
         :param bins: An integer, the number of bins to use to represent the histogram.
         """
@@ -121,10 +121,10 @@ class HittingTimeEvaluator(AbstractHittingModelEvaluator):
             'Wasserstein distances compared against MC histogram (in plot range!): \n{}'.format(wasserstein_distances))
 
     def compare_hellinger_distances(self, t_samples, approaches_ls, bins=500):
-        """Compares the Hellinger distance of different first passage time approaches with the MC-solution.
+        """Compares the Hellinger distance of different first-passage time approaches with the MC-solution.
 
-        :param t_samples: A np.array of shape [N] containing the first passage times of the particles.
-        :param approaches_ls: A list of first passage time model objects for the same process to be compared against the
+        :param t_samples: A np.array of shape [N] containing the first-passage times of the particles.
+        :param approaches_ls: A list of first-passage time model objects for the same process to be compared against the
             MC histogram.
         :param bins: An integer, the number of bins to use to represent the histogram.
         """
@@ -144,13 +144,13 @@ class HittingTimeEvaluator(AbstractHittingModelEvaluator):
             'Hellinger distances compared against MC histogram (in plot range!): \n{}'.format(hellinger_distances))
 
     def compare_first_wasserstein_distances(self, t_samples, approaches_ls, bins=500):
-        """Compares the first Wasserstein distance of different first passage time approaches with the MC-solution.
+        """Compares the first Wasserstein distance of different first-passage time approaches with the MC-solution.
 
         Note that the Wasserstein distance in not suitable to compare normalized and non-normalized densities since it
         requires that the total moved mass stays constant (conservation of mass).
 
-        :param t_samples: A np.array of shape [N] containing the first passage times of the particles.
-        :param approaches_ls: A list of first passage time model objects for the same process to be compared against the
+        :param t_samples: A np.array of shape [N] containing the first-passage times of the particles.
+        :param approaches_ls: A list of first-passage time model objects for the same process to be compared against the
             MC histogram.
         :param bins: An integer, the number of bins to use to represent the histogram.
         """
@@ -167,12 +167,12 @@ class HittingTimeEvaluator(AbstractHittingModelEvaluator):
             wasserstein_distances))
 
     def compare_kolmogorv_distances(self, t_samples, approaches_ls, bins=500):
-        """Compares the Kolmogorov distance of different first passage time approaches with the MC-solution.
+        """Compares the Kolmogorov distance of different first-passage time approaches with the MC-solution.
 
         The Kolmogorov distance is defined as the maximum deviation in CDF.
 
-        :param t_samples: A np.array of shape [N] containing the first passage times of the particles.
-        :param approaches_ls: A list of first passage time model objects for the same process to be compared against the
+        :param t_samples: A np.array of shape [N] containing the first-passage times of the particles.
+        :param approaches_ls: A list of first-passage time model objects for the same process to be compared against the
             MC histogram.
         :param bins: An integer, the number of bins to use to represent the histogram.
         """
@@ -191,11 +191,11 @@ class HittingTimeEvaluator(AbstractHittingModelEvaluator):
             'Kolmogorov distances compared against MC histogram (in plot range!): \n{}'.format(kolmogorv_distances))
 
     def _plot_first_hitting_time_distributions(self, ax1, t_samples, approaches_ls, plot_hist_for_all_particles=True):
-        """Plots the first passage time distribution.
+        """Plots the first-passage time distribution.
 
         :param ax1: A plt.axis object.
-        :param t_samples: A np.array of shape [N] containing the first passage times of the particles.
-        :param approaches_ls: A list of first passage time model objects for the same process to be compared.
+        :param t_samples: A np.array of shape [N] containing the first-passage times of the particles.
+        :param approaches_ls: A list of first-passage time model objects for the same process to be compared.
         :param plot_hist_for_all_particles: Boolean, whether to plot the histogram
                 only for particles that arrive at the boundary (False).
         """
@@ -269,10 +269,10 @@ class HittingTimeEvaluator(AbstractHittingModelEvaluator):
         ax2.set_ylabel("CDF")
 
     def plot_first_hitting_time_distributions(self, t_samples, approaches_ls, plot_hist_for_all_particles=True):
-        """Plots the first passage time distribution.
+        """Plots the first-passage time distribution.
 
-        :param t_samples: A np.array of shape [N] containing the first passage times of the particles.
-        :param approaches_ls: A list of first passage time model objects for the same process to be compared.
+        :param t_samples: A np.array of shape [N] containing the first-passage times of the particles.
+        :param approaches_ls: A list of first-passage time model objects for the same process to be compared.
         :param plot_hist_for_all_particles: Boolean, whether to plot the histogram
                 only for particles that arrive at the boundary (False).
         """
@@ -292,13 +292,13 @@ class HittingTimeEvaluator(AbstractHittingModelEvaluator):
         plt.close()
 
     def plot_fptd_and_paths_in_one(self, ev_fn, var_fn, t_samples, approaches_ls, plot_hist_for_all_particles=True):
-        """Creates a stacked plot of two subplots. The upper one is the first passage time distribution and the lower
+        """Creates a stacked plot of two subplots. The upper one is the first-passage time distribution and the lower
         one is the plot of paths over time.
 
         :param ev_fn: The mean function of the process.
         :param var_fn: The variance function of the process.
-        :param t_samples: A np.array of shape [N] containing the first passage times of the particles.
-        :param approaches_ls: A list of first passage time model objects for the same process to be compared.
+        :param t_samples: A np.array of shape [N] containing the first-passage times of the particles.
+        :param approaches_ls: A list of first-passage time model objects for the same process to be compared.
         :param plot_hist_for_all_particles: Boolean, whether to plot the histogram
                 only for particles that arrive at the boundary (False).
         """
@@ -332,7 +332,7 @@ class HittingTimeEvaluator(AbstractHittingModelEvaluator):
             mc_return_plot_t, mc_return_plot_probs_values both np.arrays of shape [num_evaluated_times] with
             mc_return_plot_t containing the times where the MC function for the return probabilities was evaluated
             and mc_return_plot_probs_values its values.
-        :param approaches_ls: A list of first passage time model objects for the same process to be compared.
+        :param approaches_ls: A list of first-passage time model objects for the same process to be compared.
         :param t_range: None or a list of length 2, the (min, max) time for the plots.
         """
         if t_range is None:
@@ -340,7 +340,7 @@ class HittingTimeEvaluator(AbstractHittingModelEvaluator):
                     't_max' in approach.get_statistics().keys()]
             if len(tmax) == 0:
                 raise ValueError(
-                    'If no t_range is given, at least one approach must be of class EngineeringApproxHittingTimeModel.')
+                    'If no t_range is given, at least one approach must be of class EngineeringApproxCVHittingTimeModel.')
             t_range = [self.t_predicted - 0.3 * (self.t_predicted - self.t_L), 10 * tmax[0]]
 
         plot_t = np.arange(t_range[0], t_range[1], 0.001)
@@ -388,8 +388,8 @@ class HittingTimeEvaluator(AbstractHittingModelEvaluator):
 
         :param ev_fn: The mean function of the process.
         :param var_fn: The variance function of the process.
-        :param t_samples: A np.array of shape [N] containing the first passage times of the particles.
-        :param approaches_ls: A list of first passage time model objects for the same process to be compared.
+        :param t_samples: A np.array of shape [N] containing the first-passage times of the particles.
+        :param approaches_ls: A list of first-passage time model objects for the same process to be compared.
         :param bins: An integer, the number of bins to use to represent the histogram.
         :param t_range: None or a list of length 2, the (min, max) time for the plots.
         """
@@ -410,7 +410,7 @@ class HittingTimeEvaluator(AbstractHittingModelEvaluator):
             tracks that have previously reached the boundary, but then fall below the boundary until the respective
             time step.
         :param dt: A float, time increment.
-        :param approaches_ls: A list of first passage time model objects for the same process to be compared.
+        :param approaches_ls: A list of first-passage time model objects for the same process to be compared.
         :param t_range: None or a list of length 2, the (min, max) time for the plots.
         """
         def mc_hist_func(plot_t):

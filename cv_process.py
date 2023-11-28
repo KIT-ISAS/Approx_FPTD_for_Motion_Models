@@ -2,7 +2,7 @@
 ############################################ cv_process.py  ###########################################
 Authors: Marcel Reith-Braun (ISAS, marcel.reith-braun@kit.edu), Jakob Thumm
 #######################################################################################################
-Calculates approximate first passage time distributions for a constant velocity model using different
+Calculates approximate first-passage time distributions for a constant velocity model using different
 approaches.
 
 usage:
@@ -27,11 +27,11 @@ from absl import flags
 import numpy as np
 
 from evaluators.hitting_time_evaluator import HittingTimeEvaluator
-from cv_hitting_time_models import TaylorHittingTimeModel, EngineeringApproxHittingTimeModel, MCHittingTimeModel
+from cv_arrival_distributions.cv_hitting_time_distributions import GaussTaylorCVHittingTimeDistribution, NoReturnCVHittingTimeDistribution, MCCVHittingTimeDistribution
 from evaluators.hitting_location_evaluator import HittingLocationEvaluator
-from cv_hitting_location_model import CVTaylorHittingLocationModel, SimpleGaussCVHittingLocationModel, ProjectionCVHittingLocationModel, MCCVHittingLocationModel
+from cv_arrival_distributions.cv_hitting_location_distributions import GaussTaylorCVHittingLocationDistribution, SimpleGaussCVHittingLocationDistribution, MCCVHittingLocationDistribution
 from sampler import get_example_tracks_lgssm as get_example_tracks
-from cv_utils import _get_system_matrices_from_parameters, create_ty_cv_samples_hitting_time
+from cv_arrival_distributions.cv_utils import get_system_matrices_from_parameters, create_ty_cv_samples_hitting_time
 from timer import measure_computation_times
 
 
@@ -106,17 +106,17 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     """Runs an experiment including a comparison with Monte Carlo simulation with the given settings.
 
     The underlying process is a 2D (x, y) constant velocity (CV) model with independent components in x, y.
-    Therefore, the state is [pos_x, vel_x, pos_y, vel_y].
+    Therefore, the state is [pos_x, velo_x, pos_y, velo_y].
 
     :param x_L: A np.array of shape [4] representing the expected value of the initial state. We use index L here
         because it corresponds to the last time we see a particle in our optical belt sorting scenario.
-        Format: [pos_x, vel_x, pos_y, vel_y].
+        Format: [pos_x, velo_x, pos_y, velo_y].
     :param C_L: A np.array of shape [4, 4] representing the covariance matrix of the initial state.
     :param t_L: A float, the time of the last state/measurement (initial time).
     :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
     :param x_predTo: A float, position of the boundary.
-    :param t_range: A list of length 2 representing the plot limits for the first passage time.
-    :param y_range: A list of length 2 representing the plot limits for the y component at the first passage time.
+    :param t_range: A list of length 2 representing the plot limits for the first-passage time.
+    :param y_range: A list of length 2 representing the plot limits for the y component at the first-passage time.
     :param measure_computational_times: A Boolean, whether to measure the computational times.
     :param load_samples: Boolean, whether to load the samples for the Monte Carlo simulation from file.
     :param save_samples: Boolean, whether to save the samples for the Monte Carlo simulation from file.
@@ -143,7 +143,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
                                get_example_tracks_fn=get_example_tracks(x_L,
                                                                         C_L,
                                                                         S_w,
-                                                                        _get_system_matrices_from_parameters),
+                                                                        get_system_matrices_from_parameters),
                                save_results=save_results,
                                result_dir=result_dir,
                                no_show=no_show,
@@ -171,9 +171,11 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     hte.plot_mean_and_stddev_over_time(ev_fn, var_fn, show_example_tracks=True)
 
     # Set up the hitting time approaches
-    taylor_model = TaylorHittingTimeModel(x_L, C_L, S_w, x_predTo, t_L)  # TODO: CV hier aus reinmogeln in den Namen
-    approx_model = EngineeringApproxHittingTimeModel(x_L, C_L, S_w, x_predTo, t_L)
-    mc_model = MCHittingTimeModel(x_L, C_L, S_w, x_predTo, t_L, t_range, t_samples=t_samples)
+    cv_temporal_point_predictor = lambda pos_l, v_l: (x_predTo - pos_l) / v_l
+    cv_spatial_point_predictor = lambda pos_l, v_l, dt:  v_l * dt
+    taylor_model = GaussTaylorCVHittingTimeDistribution(x_L, C_L, S_w, x_predTo, t_L, point_predictor=cv_temporal_point_predictor)
+    approx_model = NoReturnCVHittingTimeDistribution(x_L, C_L, S_w, x_predTo, t_L)
+    mc_model = MCCVHittingTimeDistribution(x_L, C_L, S_w, x_predTo, t_L, t_range, t_samples=t_samples)
 
     # Results for temporal uncertainties
     logging.info('MAX CDF: {} at {}'.format(approx_model.q_max, approx_model.t_max))
@@ -212,17 +214,17 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     # hte.plot_returning_probs_from_sample_paths(fraction_of_returns, dt, approaches_temp_ls)
 
     # Set up the hitting location approaches
-    spatial_taylor_model = CVTaylorHittingLocationModel(taylor_model, S_w)
-    spatial_simple_gauss_model = SimpleGaussCVHittingLocationModel(approx_model, S_w)
-    spatial_proj_model = ProjectionCVHittingLocationModel(approx_model, S_w)
-    spatial_mc_model = MCCVHittingLocationModel(mc_model, S_w, y_range, y_samples=y_samples)
+    spatial_taylor_model = GaussTaylorCVHittingLocationDistribution(taylor_model, S_w, point_predictor=cv_spatial_point_predictor)
+    spatial_simple_gauss_model = SimpleGaussCVHittingLocationDistribution(approx_model, S_w, point_predictor=cv_spatial_point_predictor)
+    # spatial_proj_model = ProjectionCVHittingLocationModel(approx_model, S_w)
+    spatial_mc_model = MCCVHittingLocationDistribution(mc_model, S_w, y_range, y_samples=y_samples)
 
     # Results for spatial uncertainties
     hte_spatial = HittingLocationEvaluator('CV Process', x_predTo, t_predicted, y_predicted, plot_y, t_L,
                                    get_example_tracks_fn=get_example_tracks(x_L,
                                                                             C_L,
                                                                             S_w,
-                                                                            _get_system_matrices_from_parameters),
+                                                                            get_system_matrices_from_parameters),
                                    save_results=save_results,
                                    result_dir=result_dir,
                                    no_show=no_show,
@@ -244,7 +246,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
 
     if measure_computational_times:  # TODO: Auch für spatial?
         logging.info('Measuring computational time for cv process.')
-        model_class_ls = [MCHittingTimeModel, TaylorHittingTimeModel, EngineeringApproxHittingTimeModel]
+        model_class_ls = [MCCVHittingTimeDistribution, GaussTaylorCVHittingTimeDistribution, NoReturnCVHittingTimeDistribution]
         model_attributes_ls = [[x_L, C_L, S_w, x_predTo,  t_L, t_range]] + 2 * [[x_L, C_L, S_w, x_predTo,  t_L]]
         measure_computation_times(model_class_ls, model_attributes_ls, t_range=t_range)
 

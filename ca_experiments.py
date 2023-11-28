@@ -2,7 +2,7 @@
 ########################################### ca_experiments.py #########################################
 Authors: Marcel Reith-Braun (ISAS, marcel.reith-braun@kit.edu), Jakob Thumm
 #######################################################################################################
-Defines and executes experiments (first passage time problems) for the constant acceleration model.
+Defines and executes experiments (first-passage time problems) for the constant acceleration model.
 See ca_process.py for details.
 
 usage:
