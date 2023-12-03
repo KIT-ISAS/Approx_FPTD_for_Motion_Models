@@ -45,11 +45,11 @@ flags.DEFINE_string('save_path', default='/mnt/cv_with_system_noise_samples.npz'
                     help='The path to save the .npz  file.')
 flags.DEFINE_bool('save_results', default=False,
                     help='Whether to save the results.')
-flags.DEFINE_string('result_dir', default='/mnt/results/',
+flags.DEFINE_string('_result_dir', default='/mnt/results/',
                     help='The directory where to save the results.')
 flags.DEFINE_bool('no_show', default=False,
                   help='Set this to True if you do not want to show evaluation graphics and only save them.')
-flags.DEFINE_bool('for_paper', default=False,
+flags.DEFINE_bool('_for_paper', default=False,
                   help='Boolean, whether to use the plots for publication (omit headers, etc.)..')
 flags.DEFINE_bool('measure_computational_times', default=False,
                     help='Whether to measure the computational times.')
@@ -89,8 +89,8 @@ def main(args):  # TODO: Auch für spatial
                    save_samples=FLAGS.save_samples,
                    save_path=FLAGS.save_path,
                    save_results=FLAGS.save_results,
-                   result_dir=FLAGS.result_dir,
-                   for_paper=FLAGS.for_paper,
+                   result_dir=FLAGS._result_dir,
+                   for_paper=FLAGS._for_paper,
                    no_show=FLAGS.no_show,
                    )
 
@@ -117,7 +117,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     :param C_L: A np.array of shape [6, 6] representing the covariance matrix of the initial state.
     :param t_L: A float, the time of the last state/measurement (initial time).
     :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
-    :param x_predTo: A float, position of the boundary.
+    :param x_predTo: A float, the position of the boundary.
     :param t_range: A list of length 2 representing the plot limits for the first-passage time.
     :param y_range: A list of length 2 representing the plot limits for the y component at the first-passage time.
     :param measure_computational_times: A Boolean, whether to measure the computational times.
@@ -186,7 +186,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     logging.info('MAX CDF: {} at {}'.format(approx_model.q_max, approx_model.t_max))
     approx_model.plot_valid_regions(theta=t_predicted, save_results=save_results, result_dir=result_dir, for_paper=True,
                                     no_show=no_show)
-    # approx_model.plot_valid_regions(save_results=save_results, result_dir=result_dir, for_paper=True, no_show=no_show)
+    # approx_model.plot_valid_regions(save_results=save_results, _result_dir=_result_dir, _for_paper=True, no_show=no_show)
     logging.info('tau_max: {}'.format(approx_model.trans_dens_ppf(t_predicted)[0]))
     logging.info('Mass inside invalid region: {}'.format(
         1 - approx_model.cdf(t_predicted + approx_model.trans_dens_ppf(t_predicted)[0])))
@@ -209,7 +209,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     # Calculate the first wasserstein distance
     hte.compare_first_wasserstein_distances(t_samples, approaches_temp_ls)
     # Calculate the kolmogorov distance
-    hte.compare_kolmogorv_distances(t_samples, approaches_temp_ls)
+    hte.compare_kolmogorov_distances(t_samples, approaches_temp_ls)
 
     # Plot histogram of samples and hitting time distributions
     hte.plot_first_hitting_time_distributions(t_samples, approaches_temp_ls, plot_hist_for_all_particles=True)

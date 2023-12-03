@@ -69,21 +69,21 @@ docker run -u $(id -u):$(id -g) --gpus all -it --rm -e DISPLAY=$DISPLAY -v /tmp/
 - Run a single experiment with a *CV model* with predefined settings (see the main function of `cv_experiments.py`) and save the plots to `/mnt/results/`.
 
   ```shell script
-	 python3 /mnt/cv_process.py --save_results --result_dir /mnt/results/
+	 python3 /mnt/cv_process.py --save_results --_result_dir /mnt/results/
   ```
   Similar for `ca_process.py` and `wiener_process.py`.
   
 - Run a single experiment with a *CV model* with predefined settings (see the main function of `cv_experiments.py`), save the plots to `/mnt/results/`, and save stdout to `/mnt/results/stdout_cv_model.txt`.
 
   ```shell script
-	 python3 /mnt/cv_process.py --save_results --result_dir /mnt/results/ > /mnt/results/stdout_cv_model.txt
+	 python3 /mnt/cv_process.py --save_results --_result_dir /mnt/results/ > /mnt/results/stdout_cv_model.txt
   ```
   Similar for `ca_process.py` and `wiener_process.py`.
   
 - Run predefined experiments with *CV models*, save the plots to `/mnt/results/cv_experiments/`, and save stdout to `/mnt/results/cv_experiments/stdout_cv_models.txt`, but do not show the plots.
 
   ```shell script
-	 python3 /mnt/cv_experiments.py --save_results --result_dir /mnt/results/cv_experimenents/ --no_show > /mnt/results/cv_experimenents/stdout_cv_model.txt
+	 python3 /mnt/cv_experiments.py --save_results --_result_dir /mnt/results/cv_experimenents/ --no_show > /mnt/results/cv_experimenents/stdout_cv_model.txt
   ```
   
   Similar for `ca_experiments.py`. Experiment configs and chosen experiments can be adjusted in `cv_experiments.py` and `ca_experiments.py`, respectively.

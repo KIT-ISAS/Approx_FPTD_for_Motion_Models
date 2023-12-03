@@ -143,7 +143,7 @@ class AbstractCAHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
 
         :returns: A np.array of shape [batch_size, sample_size], the mean in x at time t.
         """
-        # return self.x_L[0] + self.x_L[1] * (t - self.t_L) + self.x_L[2] / 2 * (t - self.t_L) ** 2
+        # return self.x_L[0] + self.x_L[1] * (t - self._t_L) + self.x_L[2] / 2 * (t - self._t_L) ** 2
         return self.x_L[:, np.newaxis, 0] + self.x_L[:, np.newaxis, 1] * (t - self.t_L) + self.x_L[:, np.newaxis,
                                                                                           2] / 2 * (t - self.t_L) ** 2
 
@@ -155,11 +155,11 @@ class AbstractCAHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
 
         :returns: A np.array of shape [batch_size, sample_size], the variance in x at time t.
         """
-        # return self.C_L[0, 0] + 2*self.C_L[0, 1] * (t - self.t_L) \
-        #                + (self.C_L[0, 2] + self.C_L[1, 1]) * (t - self.t_L) ** 2 \
-        #                + self.C_L[1, 2] * (t - self.t_L) ** 3 \
-        #                + 1 / 4 * self.C_L[2, 2] * (t - self.t_L) ** 4 \
-        #                + 1 / 20 * self.S_w * (t - self.t_L) ** 5
+        # return self.C_L[0, 0] + 2*self.C_L[0, 1] * (t - self._t_L) \
+        #                + (self.C_L[0, 2] + self.C_L[1, 1]) * (t - self._t_L) ** 2 \
+        #                + self.C_L[1, 2] * (t - self._t_L) ** 3 \
+        #                + 1 / 4 * self.C_L[2, 2] * (t - self._t_L) ** 4 \
+        #                + 1 / 20 * self.S_w * (t - self._t_L) ** 5
         return self.C_L[:, np.newaxis, 0, 0] + 2 * self.C_L[:, np.newaxis, 0, 1] * (t - self.t_L) \
                + (self.C_L[:, np.newaxis, 0, 2] + self.C_L[:, np.newaxis, 1, 1]) * (t - self.t_L) ** 2 \
                + self.C_L[:, np.newaxis, 1, 2] * (t - self.t_L) ** 3 \
@@ -168,11 +168,11 @@ class AbstractCAHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
 
     @AbstractArrivalDistribution.batch_size_one_function
     def trans_density(self, dt, theta):
-        """The transition density p(x(dt+theta)| x(theta) = x_predTo) from going from x_predTo at time theta to
+        """The transition density p(x(dt+theta)| x(theta) =x_predTo) from going fromx_predTo at time theta to
         x(dt+theta) at time dt+theta.
 
-        Note that in terms of the used approximation, this can be seen as the first returning time to x_predTo after
-        a crossing of x_predTo at theta.
+        Note that in terms of the used approximation, this can be seen as the first returning time tox_predTo after
+        a crossing ofx_predTo at theta.
 
         This function does not support batch-wise processing, i.e., a batch dimension of 1 is required.
 
@@ -271,11 +271,11 @@ class GaussTaylorCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Ab
             (pos_last, v_last, a_last)  --> dt_pred
 
          where
-            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the t_L.
-            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the t_L.
-            - a_last is a np.array of shape [batch_size, 2] and format [x, y] containing the accelerations at the t_L.
+            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the _t_L.
+            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the _t_L.
+            - a_last is a np.array of shape [batch_size, 2] and format [x, y] containing the accelerations at the _t_L.
             - dt_pred is a np.array of shape [batch_size] with arrival time point estimates as difference times w.r.t.
-                t_L.
+                _t_L.
 
         :param x_L: A np.array of shape [state_length] or [batch_size, state_length] representing the expected value of
             the initial state. We use index L here because it usually corresponds to the last time we see a particle in
@@ -316,18 +316,18 @@ class GaussTaylorCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Ab
         # ev = point_predictor.predict(pos_last, v_last, a_last)
 
         # # Evaluate the equation at the time at the boundary
-        # var = self._compute_var(ev, x_L, C_L, t_L, S_w)
+        # var = self._compute_var(ev, x_L, C_L, _t_L, S_w)
         # super().__init__(x_L=x_L,
         #                  C_L=C_L,
         #                  S_w=S_w,
-        #                  x_predTo=x_predTo,
-        #                  t_L=t_L,
+        #                 x_predTo=_x_predTo,
+        #                  _t_L=_t_L,
         #                  point_predictor=point_predictor,
         #                  name=name,
         #                  ev=ev,
         #                  var=var)
 
-        # self._ev = t_L - x_L[1] / x_L[2] + np.sign(x_L[2]) * \
+        # self._ev = _t_L - x_L[1] / x_L[2] + np.sign(x_L[2]) * \
         #            np.sqrt((x_L[1] / x_L[2]) ** 2 + 2 / x_L[2] * (x_predTo - x_L[0]))
         # F, _ = _get_system_matrices_from_parameters(self._ev, self.S_w)
         # x_p = np.dot(F, self.x_L)
@@ -427,7 +427,7 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
         self._fifth_central_moment = None
             
     # @classmethod
-    # def _from_private_arguments(cls, x_L, C_L, S_w, x_predTo, t_L, q_max, t_max,
+    # def _from_private_arguments(cls, x_L, C_L, S_w,x_predTo, _t_L, q_max, t_max,
     #                             ev=None,
     #                             var=None,
     #                             third_central_moment=None,
@@ -445,8 +445,8 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
     #     :param C_L: A np.array of shape [state_size, state_length] or [batch_size, state_length, state_length]
     #         representing the covariance matrix of the initial state.
     #     :param S_w: A float or np.array of shape [batch_size], the power spectral density (PSD).
-    #     :param x_predTo: A float or np.array of shape [batch_size], the position of the boundary.
-    #     :param t_L: A float, the time of the last state/measurement (initial time).
+    #     :paramx_predTo: A float or np.array of shape [batch_size], the position of the boundary.
+    #     :param _t_L: A float, the time of the last state/measurement (initial time).
     #     :param q_max: A float or np.array of shape [batch_size], the maximum value of the CDF.
     #     :param t_max: A float or np.array of shape [batch_size], the time, when the CDF visits its maximum.
     #     :param ev: A float or a np.array of shape [batch_size], the expected value of the first-passage time
@@ -464,7 +464,7 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
     #     :returns: A NoReturnCAHittingTimeDistribution object, a (potentially modified) copy of the distribution.
     #     """
     #     obj = cls.__new__(cls)  # create a new object
-    #     super(cls, obj).__init__(x_L, C_L, S_w, x_predTo, t_L, name)
+    #     super(cls, obj).__init__(x_L, C_L, S_w,x_predTo, _t_L, name)
     #
     #     # overwrite all privates
     #     obj._q_max = q_max
@@ -484,7 +484,7 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
         Can be calculated from the standard Gaussian PDF N( ) with an argument (x_predTo - ev(t))/stddev(t) times the
         derivative w.r.t. of these argument (chain rule), i.e.,
 
-           d/dt [ 1 - int( p(x(t), x= -infty .. x_predTo ) ] = d/dt [ PHI( (x_predTo - ev(t))/stddev(t) ) ]
+           d/dt [ 1 - int( p(x(t), x= -infty ..x_predTo ) ] = d/dt [ PHI( (x_predTo - ev(t))/stddev(t) ) ]
 
                                                              = d/dt (x_predTo - ev(t))/stddev(t) )
                                                                         * N(x_predTo; ev(t), stddev(t)^2 )
@@ -497,12 +497,12 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
         :returns: A np.array of shape [batch_size, sample_size], the time derivative of self._cdf.
         """
         # return derivative(self._cdf, t, dx=1e-6)
-        # gauss = norm.pdf((self.x_predTo - self._ev_t(t)) / np.sqrt(self._var_t(t)))  # Std. Gauss pdf
-        # der_ev_t = self.x_L[1] + self.x_L[2] * (t - self.t_L)
-        # der_var_t = 2 * self.C_L[0, 1] + 2 * (self.C_L[0, 2] + self.C_L[1, 1]) * (t - self.t_L) + \
-        #             3 * self.C_L[1, 2] * (t - self.t_L) ** 2 + self.C_L[2, 2] * (t - self.t_L) ** 3 + \
-        #             1 / 4 * self.S_w * (t - self.t_L) ** 4
-        # neg_der_arg = der_ev_t / np.sqrt(self._var_t(t)) + (self.x_predTo - self._ev_t(t)) * der_var_t / (
+        # gauss = norm.pdf((self._x_predTo - self._ev_t(t)) / np.sqrt(self._var_t(t)))  # Std. Gauss pdf
+        # der_ev_t = self.x_L[1] + self.x_L[2] * (t - self._t_L)
+        # der_var_t = 2 * self.C_L[0, 1] + 2 * (self.C_L[0, 2] + self.C_L[1, 1]) * (t - self._t_L) + \
+        #             3 * self.C_L[1, 2] * (t - self._t_L) ** 2 + self.C_L[2, 2] * (t - self._t_L) ** 3 + \
+        #             1 / 4 * self.S_w * (t - self._t_L) ** 4
+        # neg_der_arg = der_ev_t / np.sqrt(self._var_t(t)) + (self._x_predTo - self._ev_t(t)) * der_var_t / (
         #         2 * self._var_t(t) ** (3 / 2))  # negative of the derivative
         # return gauss * neg_der_arg
         gauss = norm.pdf((self._x_predTo - self._ev_t(t)) / np.sqrt(self._var_t(t)))  # Std. Gauss pdf
@@ -522,10 +522,10 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
 
         Approach:
 
-              1 - q = int(N(x, mu(t), var(t)), x = -inf .. x_predTo) = PHI ( (x_predTo - mu(t)) / sqrt(var(t))
+              1 - q = int(N(x, mu(t), var(t)), x = -inf ..x_predTo) = PHI ( (x_predTo - mu(t)) / sqrt(var(t))
               PHI^-1(1 -q) = (x_predTo - mu(t)) / sqrt(var(t)) -> solve for t...
 
-        We solve the equation for t = t - t_L to simplify calculations and add t_L at the end of the function.
+        We solve the equation for t = t - _t_L to simplify calculations and add _t_L at the end of the function.
 
         :param q: A float, the confidence parameter of the distribution, 0 <= q <= 1.
 
@@ -534,9 +534,9 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
             candidate_roots: A np.array of shape [batch_size, 5] containing the values of all possible roots.
         """
         # Special case q = 0.5, this corresponds to the median.
-        # 0 =  (x_predTo - mu(t)) / sqrt(var(t) -> x_predTo = mu(t) -> solve for t...
+        # 0 =  (x_predTo - mu(t)) / sqrt(var(t) ->x_predTo = mu(t) -> solve for t...
         if q == 0.5:
-            # solve: self.x_predTo = self.x_L[0] + self.x_L[1] * t + self.x_L[2] / 2 * t**2
+            # solve: self._x_predTo = self.x_L[0] + self.x_L[1] * t + self.x_L[2] / 2 * t**2
             pp = self._x_L[:, 1]/self._x_L[:, 2]
             qq = 2/self._x_L[:, 2]*(self._x_L[:, 0] - self._x_predTo)
             # Sign depends on the sign of x_L[2]
@@ -576,7 +576,7 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
 
             set self._pdf(t) = 0, solve for t.
 
-        We solve the equation for t = t - t_L to simplify calculations and add t_L at the end of the function.
+        We solve the equation for t = t - _t_L to simplify calculations and add _t_L at the end of the function.
 
         :returns:
             roots: A numpy array of shape [batch_size, num_roots], candidates for the maximum value of the CDF.
@@ -655,8 +655,8 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
 
     @AbstractArrivalDistribution.batch_size_one_function
     def trans_dens_ppf(self, theta, q=0.9):
-        """The PPF of 1 - int ( p(x(dt+theta)| x(theta) = x_predTo), x(dt+theta) = - infty .. x_predTo),
-        i.e., the inverse CDF of the event that particles are above x_predTo once they have reached it at time theta.
+        """The PPF of 1 - int ( p(x(dt+theta)| x(theta) =x_predTo), x(dt+theta) = - infty ..x_predTo),
+        i.e., the inverse CDF of the event that particles are abovex_predTo once they have reached it at time theta.
 
         Note that in terms of the used approximation, this can be seen as PPF of the approximate first-passage
         returning time distribution w.r.t. the boundary x_pred_to.
@@ -737,8 +737,8 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
     #
     #     return type(self)._from_private_arguments(x_L=self._x_L[indices],
     #                                               C_L=self._C_L[indices],
-    #                                               x_predTo=self._x_predTo[indices],
-    #                                               t_L=self._t_L,
+    #                                              x_predTo=self._x_predTo[indices],
+    #                                               _t_L=self._t_L,
     #                                               S_w=self._S_w[indices],
     #                                               q_max=q_max,
     #                                               t_max=t_max,
@@ -820,11 +820,11 @@ class UniformCAHittingTimeDistribution(AbstractUniformHittingTimeDistribution, A
             (pos_last, v_last, a_last)  --> dt_pred
 
          where
-            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the t_L.
-            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the t_L.
-            - a_last is a np.array of shape [batch_size, 2] and format [x, y] containing the accelerations at the t_L.
+            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the _t_L.
+            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the _t_L.
+            - a_last is a np.array of shape [batch_size, 2] and format [x, y] containing the accelerations at the _t_L.
             - dt_pred is a np.array of shape [batch_size] with arrival time point estimates as difference times w.r.t.
-                t_L.
+                _t_L.
 
         :param x_L: A np.array of shape [state_length] or [batch_size, state_length] representing the expected value of
             the initial state. We use index L here because it usually corresponds to the last time we see a particle in
@@ -864,16 +864,16 @@ class UniformCAHittingTimeDistribution(AbstractUniformHittingTimeDistribution, A
         # pos_last = x_L[:, [0, 2]]
         # v_last = x_L[:, [1, 3]]
         # a_last = x_L[:, [2, 4]]
-        # t_predicted = point_predictor.predict(pos_last, v_last, a_last)
-        # # t_predicted = t_L + (x_predTo - x_L[:, 0]) / x_L[:, 1]
+        # _t_predicted = point_predictor.predict(pos_last, v_last, a_last)
+        # # _t_predicted = _t_L + (x_predTo - x_L[:, 0]) / x_L[:, 1]
         #
         # super().__init__(x_L=x_L,
         #                  C_L=np.zeros((x_L.shape[0], 4, 4)),
         #                  S_w=0,
-        #                  x_predTo=x_predTo,
-        #                  t_L=t_L,
+        #                 x_predTo=_x_predTo,
+        #                  _t_L=_t_L,
         #                  name=name,
-        #                  point_prediction=t_predicted,  # TODO
+        #                  point_prediction=_t_predicted,  # TODO
         #                  window_length=window_length,
         #                  a=a,
         #                  )

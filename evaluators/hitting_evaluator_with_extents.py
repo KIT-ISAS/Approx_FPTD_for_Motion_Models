@@ -4,6 +4,10 @@
 import os
 from absl import logging
 
+from abc import ABC, abstractmethod
+
+from functools import wraps
+
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
@@ -12,14 +16,17 @@ import matplotlib.colors as mcolors
 import numpy as np
 from scipy.stats import rv_histogram
 
-from evaluators.hitting_model_evaluator import AbstractHittingModelEvaluator
+from evaluators.hitting_evaluator import AbstractHittingEvaluator
 from evaluators.hitting_time_evaluator import HittingTimeEvaluator
 from evaluators.hitting_location_evaluator import HittingLocationEvaluator
+from extent_models import AbstractHittingTimeWithExtentsModel, HittingLocationWithExtentsModel
 
 
-class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
+class AbstractHittingEvaluatorWithExtents(AbstractHittingEvaluator, ABC):
+    """A base class that handles the evaluations for hitting time or location models with extents."""
 
     def __init__(self, **kwargs):
+        """Initializes the evaluator."""
         super().__init__(**kwargs)
 
     def _plot_interval_distributions_on_single_axis(self,
@@ -27,18 +34,31 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
                                                     lower_marginal_samples,
                                                     upper_marginal_samples,
                                                     approaches_ls,
-                                                    plot_points,
                                                     plot_hist_for_all_particles=True,
                                                     plot_cdfs=False,
                                                     prefix_ls=[' (front arrival)', ' (back arrival)'],
                                                     ):
-
+        """Plots the (actually two-dimensional) temporal or spatial deflection window on the same axis (representing
+        either time or y-location).
+        
+        :param ax1: A plt.axis object.
+        :param lower_marginal_samples: A np.array of shape [num_samples] containing samples of the lower marginal 
+            distribution, e.g., the front arrival times oder the particles' lowermost edge locations.
+        :param upper_marginal_samples: A np.array of shape [num_samples] containing samples of the lower marginal 
+            distribution, e.g., the back arrival times oder the particles' uppermost edge locations.
+        :param approaches_ls: A list of child instances of AbstractHittingTimeWithExtentsModel or
+            HittingLocationWithExtentsModel for the same process to be  compared.
+        :param plot_hist_for_all_particles: A Boolean, whether to plot the histogram
+                only for particles that arrive at the boundary (False).
+        :param plot_cdfs: A Boolean, whether to additionally plot the CDF on a new plot axis.
+        :param prefix_ls: A list of length 2 containing strings, a prefix for the lower and upper marginal distribution.
+        """
         if not plot_hist_for_all_particles:
             # check if there are default values (particles that did not arrive) in the array
             lower_marginal_samples = self._remove_not_arriving_samples(lower_marginal_samples)
 
             y_hist, x_hist, _ = ax1.hist(lower_marginal_samples,
-                                         bins=self._distribute_bins_in_plot_range(lower_marginal_samples, plot_points),
+                                         bins=self._distribute_bins_in_plot_range(lower_marginal_samples),
                                          # we want to have 100 samples in the plot window
                                          density=True,
                                          histtype='stepfilled',  # no space between the bars
@@ -49,7 +69,7 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
             # check if there are default values (particles that did not arrive) in the array
             upper_marginal_samples = self._remove_not_arriving_samples(upper_marginal_samples)
             ax1.hist(upper_marginal_samples,
-                     bins=self._distribute_bins_in_plot_range(upper_marginal_samples, plot_points),
+                     bins=self._distribute_bins_in_plot_range(upper_marginal_samples),
                      # we want to have 100 samples in the plot window
                      density=True,
                      histtype='stepfilled',  # no space between the bars
@@ -60,14 +80,13 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
 
         else:
             y_hist, x_hist, _ = ax1.hist(lower_marginal_samples,
-                                         bins=self._distribute_bins_in_plot_range(lower_marginal_samples,
-                                                                                        plot_points),
+                                         bins=self._distribute_bins_in_plot_range(lower_marginal_samples),
                                          # we want to have 100 samples in the plot window
                                          density=True,
                                          histtype='stepfilled',  # no space between the bars
                                          color=[0.8, 0.8, 0.8])
             ax1.hist(upper_marginal_samples,
-                     bins=self._distribute_bins_in_plot_range(upper_marginal_samples, plot_points),
+                     bins=self._distribute_bins_in_plot_range(upper_marginal_samples),
                      # we want to have 100 samples in the plot window
                      density=True,
                      histtype='stepfilled',  # no space between the bars
@@ -82,21 +101,19 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
         if plot_cdfs:
 
             lower_marginal_hist = np.histogram(lower_marginal_samples,
-                                               bins=self._distribute_bins_in_plot_range(lower_marginal_samples,
-                                                                                        plot_points),
+                                               bins=self._distribute_bins_in_plot_range(lower_marginal_samples),
                                                density=False)
             lower_marginal_density = rv_histogram(lower_marginal_hist, density=True)
             upper_marginal_hist = np.histogram(upper_marginal_samples,
-                                               bins=self._distribute_bins_in_plot_range(upper_marginal_samples,
-                                                                                        plot_points),
+                                               bins=self._distribute_bins_in_plot_range(upper_marginal_samples),
                                                density=False)
             upper_marginal_density = rv_histogram(upper_marginal_hist, density=True)
 
             ax2 = ax1.twinx()
-            ax2.plot(plot_points, [lower_marginal_density.cdf(t) for t in plot_points],
+            ax2.plot(self.plot_points, [lower_marginal_density.cdf(t) for t in self.plot_points],
                      color='black',
                      )
-            ax2.plot(plot_points, [upper_marginal_density.cdf(t) for t in plot_points],
+            ax2.plot(self.plot_points, [upper_marginal_density.cdf(t) for t in self.plot_points],
                      color='black',
                      )
             ax2.set_ylim(0, 1.05)
@@ -110,74 +127,74 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
                        label=approach.name,
                        color=self.color_cycle[i])
             if hasattr(approach, 'front_arrival_model'):
-                ax1.plot(plot_points, [approach.front_arrival_model.pdf(t) for t in plot_points],
+                ax1.plot(self.plot_points, [approach.front_arrival_distribution.pdf(t) for t in self.plot_points],
                          label=approach.name,
                          color=self.color_cycle[i])
             if hasattr(approach, 'back_arrival_model'):
-                ax1.plot(plot_points, [approach.back_arrival_model.pdf(t) for t in plot_points],
+                ax1.plot(self.plot_points, [approach.back_arrival_distribution.pdf(t) for t in self.plot_points],
                          label=approach.name,
                          color=self.color_cycle[i])
             if hasattr(approach, 'max_y_model'):
-                ax1.plot(plot_points, [approach.max_y_model.pdf(t) for t in plot_points],
+                ax1.plot(self.plot_points, [approach.max_y_model.pdf(t) for t in self.plot_points],
                          label=approach.name,
                          color=self.color_cycle[i])
-                ax1.plot(plot_points, [approach.max_y_model.back_location_pdf(t) for t in plot_points],
+                ax1.plot(self.plot_points, [approach.max_y_model.back_location_pdf(t) for t in self.plot_points],
                          label=approach.name,
                          linestyle='dashed',
                          color='red')
-                ax1.plot(plot_points, [approach.max_y_model.front_location_pdf(t) for t in plot_points],
+                ax1.plot(self.plot_points, [approach.max_y_model.front_location_pdf(t) for t in self.plot_points],
                          label=approach.name,
                          linestyle='dotted',
                          color=self.color_cycle[i])
-                # ax1.plot(plot_points, [approach._half_location_model.pdf(t - 0.1 / 2) for t in plot_points],
+                # ax1.plot(self.plot_points, [approach._half_location_model.pdf(t - 0.1 / 2) for t in self.plot_points],
                 #          label=approach.name,
                 #          linestyle='dashdot',
                 #          color=self.color_cycle[i])
                 if plot_cdfs:
-                    ax2.plot(plot_points, [approach.max_y_model.cdf(t) for t in plot_points],
+                    ax2.plot(self.plot_points, [approach.max_y_model.cdf(t) for t in self.plot_points],
                              label=approach.name,
                              color=self.color_cycle[i])
-                    ax2.plot(plot_points, [approach.max_y_model.back_location_cdf(t) for t in plot_points],
+                    ax2.plot(self.plot_points, [approach.max_y_model.back_location_cdf(t) for t in self.plot_points],
                              label=approach.name,
                              linestyle='dashed',
                              color='red')
-                    ax2.plot(plot_points, [approach.max_y_model.front_location_cdf(t) for t in plot_points],
+                    ax2.plot(self.plot_points, [approach.max_y_model.front_location_cdf(t) for t in self.plot_points],
                              label=approach.name,
                              linestyle='dotted',
                              color=self.color_cycle[i])
-                    # ax2.plot(plot_points, [approach._half_location_model.cdf(t - 0.1 / 2) for t in plot_points],
+                    # ax2.plot(self.plot_points, [approach._half_location_model.cdf(t - 0.1 / 2) for t in self.plot_points],
                     #          label=approach.name,
                     #          linestyle='dashdot',
                     #          color=self.color_cycle[i])
             if hasattr(approach, 'min_y_model'):
-                ax1.plot(plot_points, [approach.min_y_model.pdf(t) for t in plot_points],
+                ax1.plot(self.plot_points, [approach.min_y_model.pdf(t) for t in self.plot_points],
                          label=approach.name,
                          color=self.color_cycle[i])
-                ax1.plot(plot_points, [approach.min_y_model.back_location_pdf(t) for t in plot_points],
+                ax1.plot(self.plot_points, [approach.min_y_model.back_location_pdf(t) for t in self.plot_points],
                          label=approach.name,
                          linestyle='dashed',
                          color='red')
-                ax1.plot(plot_points, [approach.min_y_model.front_location_pdf(t) for t in plot_points],
+                ax1.plot(self.plot_points, [approach.min_y_model.front_location_pdf(t) for t in self.plot_points],
                          label=approach.name,
                          linestyle='dotted',
                          color=self.color_cycle[i])
-                # ax1.plot(plot_points, [approach._half_location_model.pdf(t + 0.1 / 2) for t in plot_points],
+                # ax1.plot(self.plot_points, [approach._half_location_model.pdf(t + 0.1 / 2) for t in self.plot_points],
                 #          label=approach.name,
                 #          linestyle='dashdot',
                 #          color=self.color_cycle[i])
                 if plot_cdfs:
-                    ax2.plot(plot_points, [approach.min_y_model.cdf(t) for t in plot_points],
+                    ax2.plot(self.plot_points, [approach.min_y_model.cdf(t) for t in self.plot_points],
                              label=approach.name,
                              color=self.color_cycle[i])
-                    ax2.plot(plot_points, [approach.min_y_model.back_location_cdf(t) for t in plot_points],
+                    ax2.plot(self.plot_points, [approach.min_y_model.back_location_cdf(t) for t in self.plot_points],
                              label=approach.name,
                              linestyle='dashed',
                              color='red')
-                    ax2.plot(plot_points, [approach.min_y_model.front_location_cdf(t) for t in plot_points],
+                    ax2.plot(self.plot_points, [approach.min_y_model.front_location_cdf(t) for t in self.plot_points],
                              label=approach.name,
                              linestyle='dotted',
                              color=self.color_cycle[i])
-                    # ax2.plot(plot_points, [approach._half_location_model.cdf(t + 0.1 / 2) for t in plot_points],
+                    # ax2.plot(self.plot_points, [approach._half_location_model.cdf(t + 0.1 / 2) for t in self.plot_points],
                     #          label=approach.name,
                     #          linestyle='dashdot',
                     #          color=self.color_cycle[i])
@@ -190,7 +207,7 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
         ax1.legend(handles=legend_elements)
 
         ax1.set_ylim(0, 1.4 * y_hist_max)  # leave some space for labels
-        ax1.set_xlim(plot_points[0], plot_points[-1])
+        ax1.set_xlim(self.plot_points[0], self.plot_points[-1])
         ax1.set_ylabel("PDF")
 
     def _plot_joint_interval_distribution(self,
@@ -198,12 +215,28 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
                                           lower_marginal_samples,
                                           upper_marginal_samples,
                                           approaches_ls,
-                                          plot_points,
                                           plot_hist_for_all_particles,
                                           use_independent_joint,
                                           marginal_x_axis=None,
                                           marginal_y_axis=None):
+        """Plots the two-dimensional joint distribution of the temporal or spatial deflection windows.
 
+        :param ax1: A plt.axis object.
+        :param lower_marginal_samples: A np.array of shape [num_samples] containing samples of the lower marginal 
+            distribution, e.g., the front arrival times oder the particles' lowermost edge locations.
+        :param upper_marginal_samples: A np.array of shape [num_samples] containing samples of the lower marginal 
+            distribution, e.g., the back arrival times oder the particles' uppermost edge locations.
+        :param approaches_ls: A list of child instances of AbstractHittingTimeWithExtentsModel or
+            HittingLocationWithExtentsModel for the same process to be  compared.
+        :param plot_hist_for_all_particles: A Boolean, whether to plot the histogram
+                only for particles that arrive at the boundary (False).
+        :param use_independent_joint: A Boolean, whether to construct the joint distribution by multiplication of the
+            marginal distributions (with mathematically is a simplification) or use the true two-dimensional histogram.
+        :param marginal_x_axis: None or a plt.axis object. If given, the lower marginal distribution will be 
+            additionally plotted on this axis.
+        :param marginal_y_axis: None or a plt.axis object. If given, the upper marginal distribution will be 
+            additionally plotted on this axis.
+        """
         if not plot_hist_for_all_particles:
             # check if there are default values (particles that did not arrive) in the array
             lower_marginal_samples = self._remove_not_arriving_samples(lower_marginal_samples)
@@ -212,13 +245,11 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
         if marginal_x_axis is not None or marginal_y_axis is not None or use_independent_joint:
             # marginal densities
             lower_marginal_hist = np.histogram(lower_marginal_samples,
-                                               bins=self._distribute_bins_in_plot_range(lower_marginal_samples,
-                                                                                        plot_points),
+                                               bins=self._distribute_bins_in_plot_range(lower_marginal_samples),
                                                density=False)
             lower_marginal_density = rv_histogram(lower_marginal_hist, density=True)
             upper_marginal_hist = np.histogram(upper_marginal_samples,
-                                               bins=self._distribute_bins_in_plot_range(upper_marginal_samples,
-                                                                                        plot_points),
+                                               bins=self._distribute_bins_in_plot_range(upper_marginal_samples),
                                                density=False)
             upper_marginal_density = rv_histogram(upper_marginal_hist, density=True)
 
@@ -226,10 +257,8 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
             # joint distribution
             twod_hist, xedges, yedges, _ = ax1.hist2d(lower_marginal_samples,
                                                       upper_marginal_samples,
-                                                      bins=[self._distribute_bins_in_plot_range(lower_marginal_samples,
-                                                                                                plot_points),
-                                                            self._distribute_bins_in_plot_range(upper_marginal_samples,
-                                                                                                plot_points)],
+                                                      bins=[self._distribute_bins_in_plot_range(lower_marginal_samples),
+                                                            self._distribute_bins_in_plot_range(upper_marginal_samples)],
                                                       density=True,
                                                       norm=mcolors.PowerNorm(0.3),
                                                       )
@@ -239,10 +268,8 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
             # first get the edges from joint histogram
             twod_hist, xedges, yedges = np.histogram2d(lower_marginal_samples,
                                                        upper_marginal_samples,
-                                                       bins=[self._distribute_bins_in_plot_range(lower_marginal_samples,
-                                                                                                 plot_points),
-                                                             self._distribute_bins_in_plot_range(upper_marginal_samples,
-                                                                                                 plot_points)],
+                                                       bins=[self._distribute_bins_in_plot_range(lower_marginal_samples),
+                                                             self._distribute_bins_in_plot_range(upper_marginal_samples)],
                                                        density=True,
                                                        )
             # calulate the joint
@@ -253,9 +280,9 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
 
         # marginal distributions
         if marginal_x_axis is not None:
-            marginal_x_axis.plot(plot_points, [lower_marginal_density.pdf(t) for t in plot_points])
+            marginal_x_axis.plot(self.plot_points, [lower_marginal_density.pdf(t) for t in self.plot_points])
         if marginal_y_axis is not None:
-            marginal_y_axis.plot([upper_marginal_density.pdf(t) for t in plot_points], plot_points)
+            marginal_y_axis.plot([upper_marginal_density.pdf(t) for t in self.plot_points], self.plot_points)
 
         ax1.plot([min(lower_marginal_samples), max(lower_marginal_samples)],
                  [min(lower_marginal_samples), max(lower_marginal_samples)],
@@ -274,8 +301,8 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
                        color=self.color_cycle[i])
             if hasattr(approach, 'front_arrival_model'):
                 if marginal_x_axis is not None:
-                    pdf_values = [approach.front_arrival_model.pdf(t) for t in plot_points]
-                    marginal_x_axis.plot(plot_points, pdf_values,
+                    pdf_values = [approach.front_arrival_distribution.pdf(t) for t in self.plot_points]
+                    marginal_x_axis.plot(self.plot_points, pdf_values,
                                          label=approach.name,
                                          color=self.color_cycle[i])
                     marginal_x_axis.vlines(approach.calculate_confidence_bounds(0.95)[0],
@@ -285,8 +312,8 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
                                            color=self.color_cycle[i])
             if hasattr(approach, 'back_arrival_model'):
                 if marginal_y_axis is not None:
-                    pdf_values = [approach.back_arrival_model.pdf(t) for t in plot_points]
-                    marginal_y_axis.plot(pdf_values, plot_points,
+                    pdf_values = [approach.back_arrival_distribution.pdf(t) for t in self.plot_points]
+                    marginal_y_axis.plot(pdf_values, self.plot_points,
                                          label=approach.name,
                                          color=self.color_cycle[i])
                     marginal_y_axis.hlines(approach.calculate_confidence_bounds(0.95)[1],
@@ -302,8 +329,8 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
             Line2D([0], [0], color='black', linewidth=3, label='Bisector'))
         y_legend_pos = 1.05 if marginal_y_axis is None else 1.35
         ax1.legend(handles=legend_elements, bbox_to_anchor=(y_legend_pos, 1.0), loc='upper left')
-        ax1.set_xlim(max(min(xedges), plot_points[0]), min(max(xedges), plot_points[-1]))
-        ax1.set_ylim(max(min(yedges), plot_points[0]), min(max(yedges), plot_points[-1]))
+        ax1.set_xlim(max(min(xedges), self.plot_points[0]), min(max(xedges), self.plot_points[-1]))
+        ax1.set_ylim(max(min(yedges), self.plot_points[0]), min(max(yedges), self.plot_points[-1]))
         ax1.set_aspect('equal')
         
     def _plot_calibration(self,
@@ -311,18 +338,27 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
                           lower_marginal_samples,
                           upper_marginal_samples,
                           approaches_ls,
-                          plot_points,
                           ):
-
-        # TODO: Da muss man die samples auch auf jeden Fall filtern!
+        """Plots the calibration of the deflection windows, i.e., the ratio of expects hits vs. the "true" hits in the
+        corresponding deflection window.
+ 
+        :param axes: A plt.axis object.
+        :param lower_marginal_samples: A np.array of shape [num_samples] containing samples of the lower marginal 
+            distribution, e.g., the front arrival times oder the particles' lowermost edge locations.
+        :param upper_marginal_samples: A np.array of shape [num_samples] containing samples of the lower marginal 
+            distribution, e.g., the back arrival times oder the particles' uppermost edge locations.
+        :param approaches_ls: A list of child instances of AbstractHittingTimeWithExtentsModel or
+            HittingLocationWithExtentsModel for the same process to be  compared.
+        """
+        # check if there are default values (particles that did not arrive) in the array and remove them
+        lower_marginal_samples = self._remove_not_arriving_samples(lower_marginal_samples)
+        upper_marginal_samples = self._remove_not_arriving_samples(upper_marginal_samples)
 
         # joint densities
         twod_hist, xedges, yedges, = np.histogram2d(lower_marginal_samples,
                                                     upper_marginal_samples,
-                                                    bins=[self._distribute_bins_in_plot_range(lower_marginal_samples,
-                                                                                              plot_points),
-                                                          self._distribute_bins_in_plot_range(upper_marginal_samples,
-                                                                                              plot_points)],
+                                                    bins=[self._distribute_bins_in_plot_range(lower_marginal_samples),
+                                                          self._distribute_bins_in_plot_range(upper_marginal_samples)],
                                                     density=True,
                                                     )
 
@@ -334,11 +370,11 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
 
         # marginal densities
         front_hist = np.histogram(lower_marginal_samples,
-                                  bins=self._distribute_bins_in_plot_range(lower_marginal_samples, plot_points),
+                                  bins=self._distribute_bins_in_plot_range(lower_marginal_samples),
                                   density=False)
         front_arrival_time_density = rv_histogram(front_hist, density=True)
         back_hist = np.histogram(upper_marginal_samples,
-                                 bins=self._distribute_bins_in_plot_range(upper_marginal_samples, plot_points),
+                                 bins=self._distribute_bins_in_plot_range(upper_marginal_samples),
                                  density=False)
         back_arrival_time_density = rv_histogram(back_hist, density=True)
 
@@ -385,7 +421,7 @@ class AbstractHittingModelEvaluatorWithExtents(AbstractHittingModelEvaluator):
             ax.set_xlabel('Confidence range')
 
 
-class HittingTimeEvaluatorWithExtents(HittingTimeEvaluator, AbstractHittingModelEvaluatorWithExtents):
+class HittingTimeEvaluatorWithExtents(HittingTimeEvaluator, AbstractHittingEvaluatorWithExtents):
     """A class that handles the evaluations for hitting time models with a particle extent."""
 
     def __init__(self,
@@ -402,21 +438,30 @@ class HittingTimeEvaluatorWithExtents(HittingTimeEvaluator, AbstractHittingModel
                  font_size=6,
                  paper_scaling_factor=2,
                  no_show=False):
-        """Initialize the evaluator.
+        """Initializes the evaluator.
 
-        :param process_name: String, name of the process, appears in headers.
-        :param x_predTo: A float, position of the boundary.
+         Format get_example_tracks_fn:
+
+             plot_t --> y_tracks
+
+          where
+
+            - x_tracks is a np.array of shape [num_time_steps, num_tracks] containing the x-positions of the tracks.
+
+        :param process_name: A string, the name of the process, appears in headers.
+        :param x_predTo: A float, the position of the boundary.
         :param plot_t: A np.array of shape [n_plot_points], point in time, when a point in the plot should be displayed.
         :param t_predicted: A float, the deterministic time of arrival.
         :param t_L: A float, the time of the last state/measurement (initial time).
         :param get_example_tracks_fn: A function that draws example paths from the model.
-        :param save_results: Boolean, whether to save the plots.
-        :param result_dir: String, directory where to save the plots.
-        :param for_paper: Boolean, whether to use a publication (omit headers, etc.).
-        :param fig_width: A float, width of the figures in inches.
+        :param save_results: A Boolean, whether to save the plots.
+        :param result_dir: A string, the directory where to save the plots.
+        :param for_paper: A Boolean, whether to use a publication (omit headers, etc.).
+        :param fig_width: A float, the width of the figures in inches.
         :param font_size: An integer, the font size in point.
-        :param paper_scaling_factor: A scaling factor to be applied to the figure and fonts if for_paper is true.
-        :param no_show: Boolean, whether to show the plots (False).
+        :param paper_scaling_factor: A float, a scaling factor to be applied to the figure and fonts if _for_paper is
+            true.
+        :param no_show: A Boolean, whether to show the plots (False).
         """
         super().__init__(process_name=process_name,
                          x_predTo=x_predTo,
@@ -433,34 +478,64 @@ class HittingTimeEvaluatorWithExtents(HittingTimeEvaluator, AbstractHittingModel
                          no_show=no_show,
                          )
 
+    @staticmethod
+    def check_approaches_ls(func):
+        """A decorator for functions that process a list of hitting time with extents models.
+
+        Assure that only distributions of the same type are in the list.
+
+        :param func: A callable, the funtion to be decorated.
+
+        :returns: A callable, the decorator.
+        """
+        @wraps(func)
+        def check_approaches_in_approaches_ls_of_same_type(self, approaches_ls, *args, **kwargs):
+            if not all([isinstance(a, AbstractHittingTimeWithExtentsModel) for a in approaches_ls]):
+                raise ValueError(
+                    'The distributions in approaches_ls must be all child instances of AbstractHittingTimeWithExtentsModel.')
+
+            return func(self, approaches_ls, *args, **kwargs)
+
+        return check_approaches_in_approaches_ls_of_same_type
+
+    @check_approaches_ls
     def plot_first_arrival_interval_distribution_on_time_axis(self,
                                                               front_arrival_time_samples,
                                                               back_arrival_time_samples,
                                                               approaches_ls,
                                                               plot_hist_for_all_particles=True,
                                                               ):
+        """Plots the (actually two-dimensional) temporal deflection window on the time axis.
 
+        :param front_arrival_time_samples: A np.array of shape [num_samples] containing samples of the front arrival
+            times.
+        :param back_arrival_time_samples: A np.array of shape [num_samples] containing samples of the back arrival
+            times.
+        :param approaches_ls: A list of child instances of AbstractHittingTimeWithExtentsModel.
+        :param plot_hist_for_all_particles: A Boolean, whether to plot the histogram only for particles that arrive at
+            the boundary (False).
+        """
         fig, ax1 = plt.subplots()
         self._plot_interval_distributions_on_single_axis(ax1,
                                                          front_arrival_time_samples,
                                                          back_arrival_time_samples,
                                                          approaches_ls,
-                                                         plot_points=self.plot_t,
                                                          plot_hist_for_all_particles=plot_hist_for_all_particles)
         ax1.set_xlabel("Time in s")
 
-        if not self.for_paper:
+        if not self._for_paper:
             plt.title(
-                "Distribution of First Arrival Interval (Particle Front & Back Arrival Time) for " + self.process_name)
+                "Distribution of First Arrival Interval (Particle Front & Back Arrival Time) for " + self._process_name)
         # plt.legend()
         if self.save_results:
-            plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_first_arrival_interval_distr.pdf'))
-            plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_first_arrival_interval_distr.png'))
-            plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_first_arrival_interval_distr.pgf'))
+            plt.savefig(os.path.join(self._result_dir, self._process_name_save + '_first_arrival_interval_distr.pdf'))
+            plt.savefig(os.path.join(self._result_dir, self._process_name_save + '_first_arrival_interval_distr.png'))
+            plt.savefig(os.path.join(self._result_dir, self._process_name_save + '_first_arrival_interval_distr.pgf'))
         if not self.no_show:
             plt.show()
         plt.close()
 
+    @check_approaches_ls
     def plot_joint_first_arrival_interval_distribution(self,
                                                        front_arrival_time_samples,
                                                        back_arrival_time_samples,
@@ -469,14 +544,26 @@ class HittingTimeEvaluatorWithExtents(HittingTimeEvaluator, AbstractHittingModel
                                                        plot_hist_for_all_particles=True,
                                                        use_independent_joint=False,
                                                        ):
+        """Plots the two-dimensional joint distribution of the temporal deflection windows.
 
+        :param front_arrival_time_samples: A np.array of shape [num_samples] containing samples of the front arrival
+            times.
+        :param back_arrival_time_samples: A np.array of shape [num_samples] containing samples of the back arrival
+            times.
+        :param approaches_ls: A list of child instances of AbstractHittingTimeWithExtentsModel.
+        :param plot_marginals: A Boolean, whether to plot the marginal distributions on separate x- and y-axis along
+            with the joint distribution.
+        :param plot_hist_for_all_particles: A Boolean, whether to plot the histogram only for particles that arrive at
+            the boundary (False).
+        :param use_independent_joint: A Boolean, whether to construct the joint distribution by multiplication of the
+            marginal distributions (with mathematically is a simplification) or use the true two-dimensional histogram.
+        """
         if not plot_marginals:
             fig, ax1 = plt.subplots()
             self._plot_joint_interval_distribution(ax1,
                                                    front_arrival_time_samples,
                                                    back_arrival_time_samples,
                                                    approaches_ls,
-                                                   plot_points=self.plot_t,
                                                    plot_hist_for_all_particles=plot_hist_for_all_particles,
                                                    use_independent_joint=use_independent_joint)
 
@@ -504,7 +591,6 @@ class HittingTimeEvaluatorWithExtents(HittingTimeEvaluator, AbstractHittingModel
                                                    front_arrival_time_samples,
                                                    back_arrival_time_samples,
                                                    approaches_ls,
-                                                   plot_points=self.plot_t,
                                                    plot_hist_for_all_particles=plot_hist_for_all_particles,
                                                    use_independent_joint=use_independent_joint,
                                                    marginal_x_axis=ax_histx,
@@ -513,42 +599,49 @@ class HittingTimeEvaluatorWithExtents(HittingTimeEvaluator, AbstractHittingModel
         ax1.set_xlabel('front arrival time in s')
         ax1.set_ylabel('back arrival time in s')
 
-        if not self.for_paper:
+        if not self._for_paper:
             if not use_independent_joint:
                 plt.title(
-                    "Joint Distribution of First Arrival Interval (Particle Front & Back Arrival Time) for " + self.process_name)
+                    "Joint Distribution of First Arrival Interval (Particle Front & Back Arrival Time) for " + self._process_name)
             else:
                 plt.title(
-                    "Joint Distribution (by Independence Assumption) of First Arrival Interval (Particle Front & Back Arrival Time) for " + self.process_name)
-        # plt.legend()
+                    "Joint Distribution (by Independence Assumption) of First Arrival Interval (Particle Front & Back Arrival Time) for " + self._process_name)
         if self.save_results:
             plt.savefig(
-                os.path.join(self.result_dir, self.process_name_save + '_joint_first_arrival_interval_distr.pdf'))
+                os.path.join(self._result_dir, self._process_name_save + '_joint_first_arrival_interval_distr.pdf'))
             plt.savefig(
-                os.path.join(self.result_dir, self.process_name_save + '_joint_first_arrival_interval_distr.png'))
+                os.path.join(self._result_dir, self._process_name_save + '_joint_first_arrival_interval_distr.png'))
             plt.savefig(
-                os.path.join(self.result_dir, self.process_name_save + '_joint_first_arrival_interval_distr.pgf'))
+                os.path.join(self._result_dir, self._process_name_save + '_joint_first_arrival_interval_distr.pgf'))
         if not self.no_show:
             plt.show()
 
+    @check_approaches_ls
     def plot_calibration(self,
                          front_arrival_time_samples,
                          back_arrival_time_samples,
                          approaches_ls,
-                         ):  # TODO: Plot hist for all particles notwendig, was passiert wenn nicht alle ankommen??
+                         ):
+        """Plots the calibration of the deflection windows, i.e., the ratio of expects hits vs. the "true" hits in the
+        corresponding deflection window.
 
+        :param front_arrival_time_samples: A np.array of shape [num_samples] containing samples of the front arrival
+            times.
+        :param back_arrival_time_samples: A np.array of shape [num_samples] containing samples of the back arrival
+            times.
+        :param approaches_ls: A list of child instances of AbstractHittingTimeWithExtentsModel.
+        """
         fig, axes = plt.subplots(nrows=1, ncols=2)
 
         self._plot_calibration(axes,
                                front_arrival_time_samples,
                                back_arrival_time_samples,
                                approaches_ls,
-                               plot_points=self.plot_t,
                                )
 
-        if not self.for_paper:
+        if not self._for_paper:
             fig.suptitle(
-                "Calibration including Particle Extents for " + self.process_name)
+                "Calibration including Particle Extents for " + self._process_name)
             ax1, ax2 = axes
             ax1.set_title('Calibration w.r.t. Joint Distribution')
             ax2.set_title('Calibration w.r.t. Marginal Distributions')
@@ -556,16 +649,16 @@ class HittingTimeEvaluatorWithExtents(HittingTimeEvaluator, AbstractHittingModel
         # plt.legend()
         if self.save_results:
             plt.savefig(
-                os.path.join(self.result_dir, self.process_name_save + '_calibration_with_extents.pdf'))
+                os.path.join(self._result_dir, self._process_name_save + '_calibration_with_extents.pdf'))
             plt.savefig(
-                os.path.join(self.result_dir, self.process_name_save + '_calibration_with_extents.png'))
+                os.path.join(self._result_dir, self._process_name_save + '_calibration_with_extents.png'))
             plt.savefig(
-                os.path.join(self.result_dir, self.process_name_save + '_calibration_with_extents.pgf'))
+                os.path.join(self._result_dir, self._process_name_save + '_calibration_with_extents.pgf'))
         if not self.no_show:
             plt.show()
 
 
-class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHittingModelEvaluatorWithExtents):
+class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHittingEvaluatorWithExtents):
     """A class that handles the evaluations for hitting location models with a particle extent."""
 
     def __init__(self,
@@ -583,21 +676,33 @@ class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHitt
                  font_size=6,
                  paper_scaling_factor=2,
                  no_show=False):
-        """Initialize the evaluator.
+        """Initializes the evaluator.
 
-        :param process_name: String, name of the process, appears in headers.
-        :param x_predTo: A float, position of the boundary.
-        :param plot_t: A np.array of shape [n_plot_points], point in time, when a point in the plot should be displayed.
-        :param t_predicted: A float, the deterministic time of arrival.
-        :param t_L: A float, the time of the last state/measurement (initial time).
-        :param get_example_tracks_fn: A function that draws example paths from the model.
-        :param save_results: Boolean, whether to save the plots.
-        :param result_dir: String, directory where to save the plots.
-        :param for_paper: Boolean, whether to use a publication (omit headers, etc.).
-        :param fig_width: A float, width of the figures in inches.
-        :param font_size: An integer, the font size in point.
-        :param paper_scaling_factor: A scaling factor to be applied to the figure and fonts if for_paper is true.
-        :param no_show: Boolean, whether to show the plots (False).
+          Format get_example_tracks_fn:
+
+             plot_t --> y_tracks
+
+          where
+
+             - plot_t is anp.array of shape [n_plot_points], point in time, when a point in the plot should be displayed,
+             - y_tracks is a np.array of shape [num_time_steps, num_tracks] containing the y-positions of the tracks.
+
+         :param process_name: A string, the name of the process, appears in headers.
+         :param x_predTo: A float, the position of the boundary.
+         :param plot_y: A np.array of shape [n_plot_points_y], y-positions where a point in the plot should be displayed.
+         :param t_predicted: A float, the deterministic time of arrival.
+         :param y_predicted: A float, the deterministic location of arrival at the actuator array, i.e., the predicted
+            y-position at the first-passage time.
+         :param t_L: A float, the time of the last state/measurement (initial time).
+         :param get_example_tracks_fn: A function that draws example paths from the model.
+         :param save_results: A Boolean, whether to save the plots.
+         :param result_dir: A string, the directory where to save the plots.
+         :param for_paper: A Boolean, whether to use a publication (omit headers, etc.).
+         :param fig_width: A float, the width of the figures in inches.
+         :param font_size: An integer, the font size in point.
+         :param paper_scaling_factor: A float, a scaling factor to be applied to the figure and fonts if _for_paper is
+             true.
+        :param no_show: A Boolean, whether to show the plots (False).
         """
         super().__init__(process_name=process_name,
                          x_predTo=x_predTo,
@@ -615,56 +720,92 @@ class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHitt
                          no_show=no_show,
                          )
 
+    @staticmethod
+    def check_approaches_ls(func):
+        """A decorator for functions that process a list of hitting location with extents models.
+
+        Assure that only distributions of the same type are in the list.
+
+        :param func: A callable, the funtion to be decorated.
+
+        :returns: A callable, the decorator.
+        """
+        @wraps(func)
+        def check_approaches_in_approaches_ls_of_same_type(self, approaches_ls, *args, **kwargs):
+            if not all([isinstance(a, HittingLocationWithExtentsModel) for a in approaches_ls]):
+                raise ValueError(
+                    'The distributions in approaches_ls must be all instances of HittingLocationWithExtentsModel.')
+
+            return func(self, approaches_ls, *args, **kwargs)
+
+        return check_approaches_in_approaches_ls_of_same_type
+
+    @check_approaches_ls
     def plot_y_at_first_arrival_interval_distribution_on_y_axis(self,
                                                                 min_y_samples,
                                                                 max_y_samples,
                                                                 approaches_ls,
-                                                                plot_hist_for_all_particles=True,
                                                                 ):
+        """Plots the (actually two-dimensional) temporal deflection window on the time axis.
 
+        :param min_y_samples: A np.array of shape [num_samples] containing samples of the particles' lowermost edge
+            locations.
+        :param max_y_samples: A np.array of shape [num_samples] containing samples of the particles' uppermost edge
+            locations.
+        :param approaches_ls: A list of instances of HittingLocationWithExtentsModel.
+        """
         fig, ax1 = plt.subplots()
         self._plot_interval_distributions_on_single_axis(ax1,
                                                          min_y_samples,
                                                          max_y_samples,
                                                          approaches_ls,
-                                                         plot_points=self.plot_y,
-                                                         plot_hist_for_all_particles=plot_hist_for_all_particles,
+                                                         plot_hist_for_all_particles=True,  # always True
                                                          plot_cdfs=True,
                                                          prefix_ls=[' (min of y)', ' (max of y)'])
         ax1.set_xlabel("y in mm")
 
-        if not self.for_paper:
+        if not self._for_paper:
             plt.title(
-                "Distribution of the Maximum and Minimum of Y within the First Arrival Interval for " + self.process_name)
+                "Distribution of the Maximum and Minimum of Y within the First Arrival Interval for " + self._process_name)
         # plt.legend()
         if self.save_results:
             plt.savefig(
-                os.path.join(self.result_dir, self.process_name_save + '_y_at_first_arrival_interval_distr.pdf'))
+                os.path.join(self._result_dir, self._process_name_save + '_y_at_first_arrival_interval_distr.pdf'))
             plt.savefig(
-                os.path.join(self.result_dir, self.process_name_save + '_y_at_first_arrival_interval_distr.png'))
+                os.path.join(self._result_dir, self._process_name_save + '_y_at_first_arrival_interval_distr.png'))
             plt.savefig(
-                os.path.join(self.result_dir, self.process_name_save + '_y_at_first_arrival_interval_distr.pgf'))
+                os.path.join(self._result_dir, self._process_name_save + '_y_at_first_arrival_interval_distr.pgf'))
         if not self.no_show:
             plt.show()
         plt.close()
 
+    @check_approaches_ls
     def plot_joint_y_at_first_arrival_interval_distribution(self,
                                                             min_y_samples,
                                                             max_y_samples,
                                                             approaches_ls,
                                                             plot_marginals=True,
-                                                            plot_hist_for_all_particles=True,
                                                             use_independent_joint=False,
                                                             ):
+        """Plots the two-dimensional joint distribution of the temporal deflection windows.
 
+        :param min_y_samples: A np.array of shape [num_samples] containing samples of the particles' lowermost edge
+            locations.
+        :param max_y_samples: A np.array of shape [num_samples] containing samples of the particles' uppermost edge
+            locations.
+        :param approaches_ls: A list of instances of HittingLocationWithExtentsModel.
+        :param plot_marginals: A Boolean, whether to plot the marginal distributions on separate x- and y-axis along
+            with the joint distribution.
+        :param use_independent_joint: A Boolean, whether to construct the joint distribution by multiplication of the
+            marginal distributions (with mathematically is a simplification) or use the true two-dimensional histogram.
+        """
         if not plot_marginals:
             fig, ax1 = plt.subplots()
             self._plot_joint_interval_distribution(ax1,
                                                    min_y_samples,
                                                    max_y_samples,
                                                    approaches_ls,
-                                                   plot_points=self.plot_y,
-                                                   plot_hist_for_all_particles=plot_hist_for_all_particles,
+                                                   plot_hist_for_all_particles=True,  # always True
                                                    use_independent_joint=use_independent_joint,
                                                    )
 
@@ -692,8 +833,7 @@ class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHitt
                                                    min_y_samples,
                                                    max_y_samples,
                                                    approaches_ls,
-                                                   plot_points=self.plot_y,
-                                                   plot_hist_for_all_particles=plot_hist_for_all_particles,
+                                                   plot_hist_for_all_particles=True,  # always True
                                                    use_independent_joint=use_independent_joint,
                                                    marginal_x_axis=ax_histx,
                                                    marginal_y_axis=ax_histy,
@@ -701,42 +841,53 @@ class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHitt
         ax1.set_xlabel('min of y in mm')
         ax1.set_ylabel('max of y in mm')
 
-        if not self.for_paper:
+        if not self._for_paper:
             if not use_independent_joint:
                 plt.title(
-                    "Joint Distribution of the Minimum and Maximum of Y within the First Arrival Interval for " + self.process_name)
+                    "Joint Distribution of the Minimum and Maximum of Y within the First Arrival Interval for " + self._process_name)
             else:
                 plt.title(
-                    "Joint Distribution (by Independence Assumption) of the Minimum and Maximum of Y within the First Arrival Interval for " + self.process_name)
+                    "Joint Distribution (by Independence Assumption) of the Minimum and Maximum of Y within the First Arrival Interval for " + self._process_name)
         # plt.legend()
         if self.save_results:
             plt.savefig(
-                os.path.join(self.result_dir, self.process_name_save + '_joint_y_at_first_arrival_interval_distr.pdf'))
+                os.path.join(self._result_dir,
+                             self._process_name_save + '_joint_y_at_first_arrival_interval_distr.pdf'))
             plt.savefig(
-                os.path.join(self.result_dir, self.process_name_save + '_joint_y_at_first_arrival_interval_distr.png'))
+                os.path.join(self._result_dir,
+                             self._process_name_save + '_joint_y_at_first_arrival_interval_distr.png'))
             plt.savefig(
-                os.path.join(self.result_dir, self.process_name_save + '_joint_y_at_first_arrival_interval_distr.pgf'))
+                os.path.join(self._result_dir,
+                             self._process_name_save + '_joint_y_at_first_arrival_interval_distr.pgf'))
         if not self.no_show:
             plt.show()
 
+    @check_approaches_ls
     def plot_calibration(self,
                          min_y_samples,
                          max_y_samples,
                          approaches_ls,
-                         ):  # TODO: Plot hist for all particles notwendig, was passiert wenn nicht alle ankommen??
+                         ):
+        """Plots the calibration of the deflection windows, i.e., the ratio of expects hits vs. the "true" hits in the
+        corresponding deflection window.
 
+        :param min_y_samples: A np.array of shape [num_samples] containing samples of the particles' lowermost edge
+            locations.
+        :param max_y_samples: A np.array of shape [num_samples] containing samples of the particles' uppermost edge
+            locations.
+        :param approaches_ls: A list of instances of HittingLocationWithExtentsModel.
+        """
         fig, axes = plt.subplots(nrows=1, ncols=2)
 
         self._plot_calibration(axes,
                                min_y_samples,
                                max_y_samples,
                                approaches_ls,
-                               plot_points=self.plot_y,
                                )
 
-        if not self.for_paper:
+        if not self._for_paper:
             fig.suptitle(
-                "Calibration including Particle Extents for " + self.process_name)
+                "Calibration including Particle Extents for " + self._process_name)
             ax1, ax2 = axes
             ax1.set_title('Calibration w.r.t. Joint Distribution')
             ax2.set_title('Calibration w.r.t. Marginal Distributions')
@@ -744,10 +895,10 @@ class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHitt
         # plt.legend()
         if self.save_results:
             plt.savefig(
-                os.path.join(self.result_dir, self.process_name_save + '_calibration_with_extents.pdf'))
+                os.path.join(self._result_dir, self._process_name_save + '_calibration_with_extents.pdf'))
             plt.savefig(
-                os.path.join(self.result_dir, self.process_name_save + '_calibration_with_extents.png'))
+                os.path.join(self._result_dir, self._process_name_save + '_calibration_with_extents.png'))
             plt.savefig(
-                os.path.join(self.result_dir, self.process_name_save + '_calibration_with_extents.pgf'))
+                os.path.join(self._result_dir, self._process_name_save + '_calibration_with_extents.pgf'))
         if not self.no_show:
             plt.show()

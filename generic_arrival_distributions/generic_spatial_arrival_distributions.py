@@ -10,7 +10,7 @@ class UniformGenericArrivalLocationDistribution(AbstractUniformArrivalDistributi
     def __init__(self, y_predicted, window_length, a=0.5, name='Uniform generic'):
         """Initializes the distribution.
 
-        :param y_predicted: A float or np.array of shape [batch_size], the predicted time of arrival at the actuator
+        :param y_predicted: A float or np.array of shape [batch_size], the predicted location of arrival at the actuator
             array, i.e., the predicted y-position at the first-passage time.
         :param name: String, the name for the distribution.
         """
@@ -35,7 +35,7 @@ class NormalGenericArrivalLocationDistribution(AbstractNormalArrivalDistribution
     def __init__(self,  y_predicted, var_y_predicted, name='Normal NN Spatial Ejection Model'):
         """Initializes the distribution.
 
-        :param y_predicted: A float or np.array of shape [batch_size], the predicted time of arrival at the actuator
+        :param y_predicted: A float or np.array of shape [batch_size], the predicted location of arrival at the actuator
             array, i.e., the predicted y-position at the first-passage time.
         :param var_y_predicted: A float or a np.array of shape [batch_size], the predicted variance of the time of
             arrival, i.e., the variance of the predicted y-position at the first-passage time.

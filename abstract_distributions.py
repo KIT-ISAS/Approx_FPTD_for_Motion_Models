@@ -222,7 +222,7 @@ class AbstractArrivalDistribution(ABC):
 
             if not isinstance(indices, slice):
                 indices = np.array(indices)  # e.g. if it is a list of integers or Booleans
-            return setitem_func(indices, values)
+            return setitem_func(indices, values)  # TODO: Fehlt hier ein self?
 
         return check_same_type_convert_slices
 

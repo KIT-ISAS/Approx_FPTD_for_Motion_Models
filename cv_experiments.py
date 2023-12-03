@@ -30,7 +30,7 @@ from experiments_runner import get_experiments_by_name, add_defaults, convert_to
 
 # Delete all FLAGS defined by CV process as we here not want them to be overwritten by the following flags.
 for name in list(flags.FLAGS):
-    if name in ['load_samples', 'save_samples', 'save_path', 'save_results', 'result_dir', 'no_show', 'for_paper',
+    if name in ['load_samples', 'save_samples', 'save_path', 'save_results', '_result_dir', 'no_show', '_for_paper',
                 'measure_computational_times', 'verbosity_level']:
         delattr(flags.FLAGS, name)
 
@@ -43,11 +43,11 @@ flags.DEFINE_string('save_dir', default='/mnt/',
                     help='The path to save the .npz  file.')
 flags.DEFINE_bool('save_results', default=False,
                     help='Whether to save the results.')
-flags.DEFINE_string('result_dir', default='/mnt/results/',
+flags.DEFINE_string('_result_dir', default='/mnt/results/',
                     help='The directory where to save the results.')
 flags.DEFINE_bool('no_show', default=False,
                   help='Set this to True if you do not want to show evaluation graphics and only save them.')
-flags.DEFINE_bool('for_paper', default=False,
+flags.DEFINE_bool('_for_paper', default=False,
                   help='Boolean, whether to use the plots for publication (omit headers, etc.)..')
 flags.DEFINE_bool('measure_computational_times', default=False,
                   help='Whether to measure the computational times (using the first defined experiment).')
@@ -72,7 +72,7 @@ FLAGS = flags.FLAGS
     # Process parameters
     "x_L": [0.3, 6.2, 0.5, 0.2],
     "C_L": [[2E-7, 2E-5, 0, 0], [2E-5, 6E-3, 0, 0], [0, 0, 2E-7, 2E-5], [0, 0, 2E-5, 6E-3]],
-    "t_L": 0,
+    "_t_L": 0,
     "S_w": 1,
     # Boundary
     "x_predTo": 0.6458623971412047,
@@ -96,7 +96,7 @@ experiments_config = [
         # Process parameters
         "x_L": [0.3, 6.2, 0.5, 0.2],
         "C_L": [[2E-7, 2E-5, 0, 0], [2E-5, 6E-3, 0, 0], [0, 0, 2E-7, 2E-5], [0, 0, 2E-5, 6E-3]],
-        "t_L": 0,
+        "_t_L": 0,
         "S_w": 1,
         # Boundary
         "x_predTo": 0.6458623971412047,
@@ -114,7 +114,7 @@ experiments_config = [
                 [1.87280916e-01, 5.61842749e+01, 0, 0],
                 [0, 0, 3.37584128e-03, 3.37584128e-01],
                 [0, 0, 3.37584128e-01, 1.01275238e+02]],
-        "t_L": 0,
+        "_t_L": 0,
         "S_w": 9364.045824,
         # Boundary
         "x_predTo": 62.5,
@@ -131,7 +131,7 @@ experiments_config = [
         # Process parameters
         "x_L": [0.3, 6.2, 0.5, 0.2],
         "C_L": [[2E-7, 2E-5, 0, 0], [2E-5, 6E-3, 0, 0], [0, 0, 2E-7, 2E-5], [0, 0, 2E-5, 6E-3]],
-        "t_L": 0,
+        "_t_L": 0,
         "S_w": 10,
         # Boundary
         "x_predTo": 0.6458623971412047,
@@ -146,7 +146,7 @@ experiments_config = [
                 [1.87280916e-01, 5.61842749e+01, 0, 0],
                 [0, 0, 3.37584128e-03, 3.37584128e-01],
                 [0, 0, 3.37584128e-01, 1.01275238e+02]],
-        "t_L": 0,
+        "_t_L": 0,
         "S_w": 93640.45824,
         # Boundary
         "x_predTo": 62.5,
@@ -163,7 +163,7 @@ experiments_config = [
         # Process parameters
         "x_L": [0.3, 6.2, 0.5, 0.2],
         "C_L": [[2E-7, 2E-5, 0, 0], [2E-5, 6E-3, 0, 0], [0, 0, 2E-7, 2E-5], [0, 0, 2E-5, 6E-3]],
-        "t_L": 0,
+        "_t_L": 0,
         "S_w": 100,
         # Boundary
         "x_predTo": 0.6458623971412047,
@@ -181,7 +181,7 @@ experiments_config = [
                 [1.87280916e-01, 5.61842749e+01, 0, 0],
                 [0, 0, 3.37584128e-03, 3.37584128e-01],
                 [0, 0, 3.37584128e-01, 1.01275238e+02]],
-        "t_L": 0,
+        "_t_L": 0,
         "S_w": 9364054.5824,
         # Boundary
         "x_predTo": 62.5,
@@ -198,7 +198,7 @@ experiments_config = [
         # Process parameters
         "x_L": [0.3, 6.2, 0.5, 0.2],
         "C_L": [[2E-7, 2E-5, 0, 0], [2E-5, 6E-3, 0, 0], [0, 0, 2E-7, 2E-5], [0, 0, 2E-5, 6E-3]],
-        "t_L": 0,
+        "_t_L": 0,
         "S_w": 300,
         # Boundary
         "x_predTo": 0.6458623971412047,
@@ -213,7 +213,7 @@ experiments_config = [
         # Process parameters
         "x_L": [0.3, 6.2, 0.5, 0.2],
         "C_L": [[3.2E-3, 5.9E-4, 0, 0], [5.9E-4, 5.3, 0, 0], [0, 0, 3.2E-5, 5.9E-3], [0, 0, 5.9E-3, 5.3]],
-        "t_L": 0,
+        "_t_L": 0,
         "S_w": 10,
         # Boundary
         "x_predTo": 0.6458623971412047,
@@ -225,7 +225,7 @@ experiments_config = [
         # Process parameters
         "x_L": [0.3, 6.2, 0.5, 0.2],
         "C_L": [[2E-7, 2E-5, 0, 0], [2E-5, 6E-3, 0, 0], [0, 0, 2E-7, 2E-5], [0, 0, 2E-5, 6E-3]],
-        "t_L": 5,
+        "_t_L": 5,
         "S_w": 10,
         # Boundary
         "x_predTo": 0.6458623971412047,
@@ -237,7 +237,7 @@ experiments_config = [
         # Process parameters
         "x_L": [0.3, 6.2, 0.5, 0.2],
         "C_L": [[3.2E-7, 5.9E-5, 0, 0], [5.9E-5, 5.3E-2, 0, 0], [0, 0, 3.2E-7, 5.9E-5], [0, 0, 5.9E-5, 5.3E-2]],
-        "t_L": 0,
+        "_t_L": 0,
         "S_w": 18,
         # Boundary
         "x_predTo": 0.6458623971412047,
@@ -249,7 +249,7 @@ experiments_config = [
         # Process parameters
         "x_L": [0.3, 3.2, 0.5, 0.2],
         "C_L": [[2E-7, 2E-5, 0, 0], [2E-5, 6E-3, 0, 0], [0, 0, 2E-7, 2E-5], [0, 0, 2E-5, 6E-3]],
-        "t_L": 0,
+        "_t_L": 0,
         "S_w": 10,
         # Boundary
         "x_predTo": 0.6458623971412047,
@@ -267,7 +267,7 @@ experiments_config = [
                 [1.87280916e-01, 5.61842749e+01, 0, 0],
                 [0, 0, 3.37584128e-03, 3.37584128e-01],
                 [0, 0, 3.37584128e-01, 1.01275238e+02]],
-        "t_L": 0,
+        "_t_L": 0,
         "S_w": 9364.045824,
         # Boundary
         "x_predTo": 62.5,
@@ -309,7 +309,7 @@ def main(args):
         if not FLAGS.with_extents:
             del config['particle_size']  # particle_size cannot be passed to run_experiment
             run_experiment(**config,
-                           for_paper=FLAGS.for_paper,
+                           for_paper=FLAGS._for_paper,
                            measure_computational_times=True if FLAGS.measure_computational_times and i == 0 else False)
             # by default, takes the first defined experiment for measuring the computational times.
         else:
@@ -317,7 +317,7 @@ def main(args):
             del config['y_range']
 
             run_experiments_with_extents(**config,
-                                         for_paper=FLAGS.for_paper)
+                                         for_paper=FLAGS._for_paper)
 
 
 if __name__ == "__main__":

@@ -57,11 +57,11 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
     @abstractmethod
     @AbstractArrivalDistribution.batch_size_one_function
     def trans_density(self, dt, theta):
-        """The transition density p(x(dt+theta)| x(theta) = x_predTo) from going from x_predTo at time theta to
+        """The transition density p(x(dt+theta)| x(theta) =x_predTo) from going fromx_predTo at time theta to
         x(dt+theta) at time dt+theta.
 
-        Note that in terms of the used approximation, this can be seen as the first returning time to x_predTo after
-        a crossing of x_predTo at theta.
+        Note that in terms of the used approximation, this can be seen as the first returning time tox_predTo after
+        a crossing ofx_predTo at theta.
 
         This function does not support batch-wise processing, i.e., a batch dimension of 1 is required.
 
@@ -106,10 +106,10 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
 
         Approach:
 
-         P(t < T_a , x(t) < a) = int_{t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta
+         P(t < T_a , x(t) < a) = int_{_t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta
 
                                ≈ 1 / N sum_{theta_i} P(x(t) < a | x(theta_i) = a) ,  theta_i samples from the
-                                    approximation (N samples in total) in [t_L, t] ,
+                                    approximation (N samples in total) in [_t_L, t] ,
 
           with theta the time, when x(theta) = a.
 
@@ -142,10 +142,10 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
 
         Approach:
 
-         P(t < T_a , x(t) < a) = int_{t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta
+         P(t < T_a , x(t) < a) = int_{_t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta
 
-                               ≈  (t - t_L) / N sum_{theta_i} FPTD(theta_i) * P(x(t) < a | x(theta_i) = a) ,  theta_i
-                                    samples from a uniform distribution (N samples in total) in [t_L, t] ,
+                               ≈  (t - _t_L) / N sum_{theta_i} FPTD(theta_i) * P(x(t) < a | x(theta_i) = a) ,  theta_i
+                                    samples from a uniform distribution (N samples in total) in [_t_L, t] ,
 
           with theta the time, when x(theta) = a.
 
@@ -174,7 +174,7 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
 
         Approach:
 
-         P(t < T_a , x(t) < a) = int_{t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta ,
+         P(t < T_a , x(t) < a) = int_{_t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta ,
 
           with theta the time, when x(theta) = a.
 
@@ -239,12 +239,12 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
         :param values: An object of the same type as self, the object from which to take the elements.
         """
         # sanity checks
-        if self._t_L != values.t_L:
+        if self._t_L != values._t_L:
             raise ValueError(
-                'When assigning values to {}, both instances must have the same parameter t_L'.format(
+                'When assigning values to {}, both instances must have the same parameter _t_L'.format(
                     self.__class__.__name__))
 
-        self._x_predTo[indices] = values.x_predTo  # TODO: Call to super?
+        self._x_predTo[indices] = values._x_predTo  # TODO: Call to super?
 
     def _left_hand_indexing(self, indices, values):
         """Takes elements of values and assigns elements along the batch shape at the given indices. This is a helper
@@ -253,8 +253,8 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
         :param indices: Slices, or list, or np.array of integers or Booleans. The indices of the values to assign.
         :param values: An object of the same type as self, the object from which to take the elements.
         """
-        self._x_predTo = values.x_predTo[indices]
-        self._t_L = values.t_L
+        self._x_predTo = values._x_predTo[indices]
+        self._t_L = values._t_L
         super()._left_hand_indexing(indices, values)
 
     def get_statistics(self):
@@ -464,7 +464,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
         Can be calculated from the standard Gaussian PDF N( ) with an argument (x_predTo - ev(t))/stddev(t) times the
         derivative w.r.t. of these argument (chain rule), i.e.,
 
-           d/dt [ 1 - int( p(x(t), x= -infty .. x_predTo ) ] = d/dt [ PHI( (x_predTo - ev(t))/stddev(t) ) ]
+           d/dt [ 1 - int( p(x(t), x= -infty ..x_predTo ) ] = d/dt [ PHI( (x_predTo - ev(t))/stddev(t) ) ]
 
                                                              = d/dt (x_predTo - ev(t))/stddev(t) )
                                                                         * N(x_predTo; ev(t), stddev(t)^2 )
@@ -485,10 +485,10 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
 
         Approach:
 
-              1 - q = int(N(x, mu(t), var(t)), x = -inf .. x_predTo) = PHI ( (x_predTo - mu(t)) / sqrt(var(t))
+              1 - q = int(N(x, mu(t), var(t)), x = -inf ..x_predTo) = PHI ( (x_predTo - mu(t)) / sqrt(var(t))
               PHI^-1(1 -q) = (x_predTo - mu(t)) / sqrt(var(t)) -> solve for t...
 
-        We solve the equation for t = t - t_L to simplify calculations and add t_L at the end of the function.
+        We solve the equation for t = t - _t_L to simplify calculations and add _t_L at the end of the function.
 
         :param q: A float, the confidence parameter of the distribution, 0 <= q <= 1.
 
@@ -508,7 +508,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
 
             set self._pdf(t) = 0, solve for t.
 
-        We solve the equation for t = t - t_L to simplify calculations and add t_L at the end of the function.
+        We solve the equation for t = t - _t_L to simplify calculations and add _t_L at the end of the function.
 
         :returns:
             roots: A numpy array of shape [batch_size, num_roots], candidates for the maximum value of the CDF.
@@ -519,8 +519,8 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
     @abstractmethod
     @AbstractArrivalDistribution.batch_size_one_function
     def trans_dens_ppf(self, theta, q=0.95):
-        """The PPF of 1 - int ( p(x(dt+theta)| x(theta) = x_predTo), x(dt+theta) = - infty .. x_predTo),
-        i.e., the inverse CDF of the event that particles are above x_predTo once they have reached it at time theta.
+        """The PPF of 1 - int ( p(x(dt+theta)| x(theta) =x_predTo), x(dt+theta) = - infty ..x_predTo),
+        i.e., the inverse CDF of the event that particles are abovex_predTo once they have reached it at time theta.
 
         Note that in terms of the used approximation, this can be seen as PPF of the approximate first-passage
         returning time distribution w.r.t. the boundary x_pred_to.
@@ -540,7 +540,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
 
         Approach: Under some additional assumptions (see self.cdf), it holds
 
-            P( T_a > t) ≈ P( x(t) > a) = 1 - int( p(x(t), x= -infty .. x_predTo ) .
+            P( T_a > t) ≈ P( x(t) > a) = 1 - int( p(x(t), x= -infty ..x_predTo ) .
 
         :param t: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
             [batch_size, sample_size], the time parameter of the distribution.
@@ -661,7 +661,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
 
             set self._pdf(t) = 0, solve for t.
 
-        We solve the equation for t = t - t_L to simplify calculations and add t_L at the end of the function.
+        We solve the equation for t = t - _t_L to simplify calculations and add _t_L at the end of the function.
 
         :returns:
             q_max: A numpy array of shape [batch_size], the maximum value of the CDF.
@@ -854,11 +854,11 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
                            result_dir=None,
                            for_paper=True,
                            no_show=False):
-        """Plot the (approximate) probabilities that the track doesn't intersect with x_predTo once it has reached
+        """Plot the (approximate) probabilities that the track doesn't intersect withx_predTo once it has reached
         it at time theta in dependency on the time difference dt (t = dt + theta) and theta.
 
         Note that, there are intervals in time for which is it very unlikely (with confidence q) that the track falls
-        below x_predTo again. These are the desired regions of validity.
+        belowx_predTo again. These are the desired regions of validity.
 
         This function does not support batch-wise processing, i.e., a batch dimension of 1 is required.
 
@@ -945,7 +945,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
         :param indices: Slices, or list, or np.array of integers or Booleans. The indices of the values to assign.
         :param values: An object of the same type as self, the object from which to take the elements.
         """
-        self._x_predTo[indices] = values.x_predTo   # TODO: hier sollte man nicht nochmal xpretdo überschreiben
+        self._x_predTo[indices] = values._x_predTo   # TODO: hier sollte man nicht nochmal xpretdo überschreiben
         self._q_max[indices] = values.q_max  # TODO: Call to super?
         self._t_max[indices] = values.t_max
         if self.ev_available and values.ev_available:

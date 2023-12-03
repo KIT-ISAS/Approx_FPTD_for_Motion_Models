@@ -310,7 +310,7 @@ class AbstractBayesMixtureHittingLocationDistribution(AbstractHittingLocationDis
 
         cdf_tk = self._htd.cdf(t_k)  # shape [n + 1] or [batch_size, n + 1]
         cdf_tk_plus_one = cdf_tk[1:]
-        weights = cdf_tk_plus_one - cdf_tk[:-1]  # shape [n] or [batch_size, n]
+        weights = cdf_tk_plus_one - cdf_tk[:-1]  # shape [num_samples] or [batch_size, n]
 
         locations = self._ev_t(t_k[:-1])  # shape [batch_size, n]
         scales = np.sqrt(self._var_t(t_k[:-1]))  # shape [batch_size, n]

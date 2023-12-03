@@ -61,8 +61,8 @@ class AbstractCAHittingLocationDistribution(AbstractHittingLocationDistribution,
         """
         # We have a polynomial in the form:
         # A + B*Ev(t) + C*Ev(t**2)
-        A = self._htd.x_L[..., -3] - self._htd.x_L[..., -2] * self._htd.t_L + 1 / 2 * self._htd.x_L[..., -1] * self._htd.t_L ** 2
-        B = self._htd.x_L[..., -2] - self._htd.x_L[..., -1] * self._htd.t_L
+        A = self._htd.x_L[..., -3] - self._htd.x_L[..., -2] * self._htd._t_L + 1 / 2 * self._htd.x_L[..., -1] * self._htd._t_L ** 2
+        B = self._htd.x_L[..., -2] - self._htd.x_L[..., -1] * self._htd._t_L
         C = 1/2*self._htd.x_L[..., -1]
         return A + B * self._htd.ev + C * self._htd.second_moment
 
@@ -85,15 +85,15 @@ class AbstractCAHittingLocationDistribution(AbstractHittingLocationDistribution,
         """
         # We have a polynomial in the form:
         # A + B*Ev(t) + C*Ev(t**2) + D*Ev(t**3) + E*Ev(t**4) + F*Ev(t**-1)
-        A = htd.C_L[..., -3, -3] - 2 * htd.C_L[..., -3, -2] * htd.t_L + htd.C_L[..., -2, -2] * htd.t_L ** 2 \
-            + htd.C_L[..., -3, -1] * htd.t_L ** 2 - htd.C_L[..., -2, -1] * htd.t_L ** 3 + 1 / 4 * htd.C_L[
-                ..., -1, -1] * htd.t_L ** 4 - 1 / 20 * S_w * htd.t_L ** -1
-        B = 2 * htd.C_L[..., -3, -2] - 2 * htd.C_L[..., -2, -2] * htd.t_L - 2 * htd.C_L[..., -3, -1] * htd.t_L \
-            + 3 * htd.C_L[..., -2, -1] * htd.t_L ** 2 - htd.C_L[..., -1, -1] * htd.t_L ** 3 + 1 / 4 * S_w * htd.t_L ** 4
-        C = htd.C_L[..., -2, -2] + htd.C_L[..., -3, -1] - 3 * htd.C_L[..., -2, -1] * htd.t_L + 3 / 2 * htd.C_L[
-            ..., -1, -1] * htd.t_L ** 2 - 1 / 2 * S_w * htd.t_L ** 3
-        D = htd.C_L[..., -2, -1] - htd.C_L[..., -1, -1] * htd.t_L + 1 / 2 * S_w * htd.t_L ** 2
-        E = 1 / 4 * htd.C_L[..., -1, -1] - 1 / 4 * S_w * htd.t_L
+        A = htd.C_L[..., -3, -3] - 2 * htd.C_L[..., -3, -2] * htd._t_L + htd.C_L[..., -2, -2] * htd._t_L ** 2 \
+            + htd.C_L[..., -3, -1] * htd._t_L ** 2 - htd.C_L[..., -2, -1] * htd._t_L ** 3 + 1 / 4 * htd.C_L[
+                ..., -1, -1] * htd._t_L ** 4 - 1 / 20 * S_w * htd._t_L ** -1
+        B = 2 * htd.C_L[..., -3, -2] - 2 * htd.C_L[..., -2, -2] * htd._t_L - 2 * htd.C_L[..., -3, -1] * htd._t_L \
+            + 3 * htd.C_L[..., -2, -1] * htd._t_L ** 2 - htd.C_L[..., -1, -1] * htd._t_L ** 3 + 1 / 4 * S_w * htd._t_L ** 4
+        C = htd.C_L[..., -2, -2] + htd.C_L[..., -3, -1] - 3 * htd.C_L[..., -2, -1] * htd._t_L + 3 / 2 * htd.C_L[
+            ..., -1, -1] * htd._t_L ** 2 - 1 / 2 * S_w * htd._t_L ** 3
+        D = htd.C_L[..., -2, -1] - htd.C_L[..., -1, -1] * htd._t_L + 1 / 2 * S_w * htd._t_L ** 2
+        E = 1 / 4 * htd.C_L[..., -1, -1] - 1 / 4 * S_w * htd._t_L
         F = 1 / 20 * S_w
 
         return A + B * htd.ev + C * htd.second_moment + D * htd.third_moment + E * htd.fourth_moment + \
@@ -107,8 +107,8 @@ class AbstractCAHittingLocationDistribution(AbstractHittingLocationDistribution,
 
         :returns: A np.array of shape [batch_size, sample_size], the mean in y at time t.
         """
-        return self._htd.x_L[..., -3] + self._htd.x_L[..., -2] * (t - self._htd.t_L) + self._htd.x_L[..., -1] / 2 * (
-                    t - self._htd.t_L) ** 2
+        return self._htd.x_L[..., -3] + self._htd.x_L[..., -2] * (t - self._htd._t_L) + self._htd.x_L[..., -1] / 2 * (
+                    t - self._htd._t_L) ** 2
 
     def _var_t(self, t):
         """The variance function of the motion model in y.
@@ -118,14 +118,14 @@ class AbstractCAHittingLocationDistribution(AbstractHittingLocationDistribution,
 
         :returns: A np.array of shape [batch_size, sample_size], the variance in y at time t.
         """
-        return self._htd.C_L[..., -3, -3] + (t - self._htd.t_L) * self._htd.C_L[..., -3, -2] + (1 / 2) * (
-                    t - self._htd.t_L) ** 2 * self._htd.C_L[..., -3, -1] + \
-               (self._htd.C_L[..., -3, -2] + (t - self._htd.t_L) * self._htd.C_L[..., -2, -2] + (1 / 2) * (
-                           t - self._htd.t_L) ** 2 *
-                self._htd.C_L[..., -2, -1]) * (t - self._htd.t_L) \
-               + (1 / 2) * (self._htd.C_L[..., -3, -1] + (t - self._htd.t_L) * self._htd.C_L[..., -2, -1] + (1 / 2) * (
-                t - self._htd.t_L) ** 2 * self._htd.C_L[..., -1, -1]) * (t - self._htd.t_L) ** 2 \
-               + self._S_w * pow(t - self._htd.t_L, 5) / 20
+        return self._htd.C_L[..., -3, -3] + (t - self._htd._t_L) * self._htd.C_L[..., -3, -2] + (1 / 2) * (
+                    t - self._htd._t_L) ** 2 * self._htd.C_L[..., -3, -1] + \
+               (self._htd.C_L[..., -3, -2] + (t - self._htd._t_L) * self._htd.C_L[..., -2, -2] + (1 / 2) * (
+                           t - self._htd._t_L) ** 2 *
+                self._htd.C_L[..., -2, -1]) * (t - self._htd._t_L) \
+               + (1 / 2) * (self._htd.C_L[..., -3, -1] + (t - self._htd._t_L) * self._htd.C_L[..., -2, -1] + (1 / 2) * (
+                t - self._htd._t_L) ** 2 * self._htd.C_L[..., -1, -1]) * (t - self._htd._t_L) ** 2 \
+               + self._S_w * pow(t - self._htd._t_L, 5) / 20
 
     def scale_params(self, length_scaling_factor, time_scaling_factor):
         """Scales the parameters of the distribution according to the scaling factor.
@@ -186,11 +186,11 @@ class GaussTaylorCAHittingLocationDistribution(AbstractGaussTaylorHittingLocatio
             (pos_last, v_last, a_last, dt_pred)  --> dy_pred
 
          where
-            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the t_L.
-            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the t_L.
-            - a_last is a np.array of shape [batch_size, 2] and format [x, y] containing the accelerations at the t_L.
+            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the _t_L.
+            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the _t_L.
+            - a_last is a np.array of shape [batch_size, 2] and format [x, y] containing the accelerations at the _t_L.
             - dt_pred is a np.array of shape [batch_size] with arrival time point estimates as difference times w.r.t.
-                t_L.
+                _t_L.
             - dy_pred is a np.array of shape [batch_size] with point estimates for the arrival location along the
                 actuator array as difference w.r.t. x_L.
 
@@ -206,11 +206,11 @@ class GaussTaylorCAHittingLocationDistribution(AbstractGaussTaylorHittingLocatio
         ev = point_predictor(htd.x_L[..., [0, -3]],
                              htd.x_L[..., [1, -2]],
                              htd.x_L[..., [2, -1]],
-                             dt_pred=htd.ev - htd.t_L) + htd.x_L[..., -3]
+                             dt_pred=htd.ev - htd._t_L) + htd.x_L[..., -3]
         var = self._compute_var(htd, S_w)
 
         # # Uncertainty prediction in spatial dimension
-        # dt_p = self._htd.ev - t_L
+        # dt_p = self._htd.ev - _t_L
         # # y-velocity at boundary
         # x_p = mu_t(dt_p, x_L)
         # vy_L = x_p[4]
@@ -234,7 +234,7 @@ class GaussTaylorCAHittingLocationDistribution(AbstractGaussTaylorHittingLocatio
 
         :returns: A np.array of shape [batch_size], the variance of the approximation.
         """
-        dt_p = htd.ev - htd.t_L
+        dt_p = htd.ev - htd._t_L
         F, _ = get_system_matrices_from_parameters(htd.ev, S_w)
         # x_p = np.dot(F, self._htd.x_L)
         x_p = np.matmul(F, self._htd.x_L[:, :, np.newaxis]).squeeze(-1)
@@ -277,11 +277,11 @@ class SimpleGaussCAHittingLocationDistribution(AbstractSimpleGaussHittingLocatio
             (pos_last, v_last, a_last, dt_pred)  --> dy_pred
 
          where
-            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the t_L.
-            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the t_L.
-            - a_last is a np.array of shape [batch_size, 2] and format [x, y] containing the accelerations at the t_L.
+            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the _t_L.
+            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the _t_L.
+            - a_last is a np.array of shape [batch_size, 2] and format [x, y] containing the accelerations at the _t_L.
             - dt_pred is a np.array of shape [batch_size] with arrival time point estimates as difference times w.r.t.
-                t_L.
+                _t_L.
             - dy_pred is a np.array of shape [batch_size] with point estimates for the arrival location along the
                 actuator array as difference w.r.t. x_L.
 
@@ -297,7 +297,7 @@ class SimpleGaussCAHittingLocationDistribution(AbstractSimpleGaussHittingLocatio
         ev = point_predictor(htd.x_L[..., [0, -3]],
                              htd.x_L[..., [1, -2]],
                              htd.x_L[..., [2, -1]],
-                             dt_pred=htd.ev - htd.t_L) + htd.x_L[..., -3]
+                             dt_pred=htd.ev - htd._t_L) + htd.x_L[..., -3]
         var = self._compute_var(htd, S_w)
 
         super().__init__(hitting_time_model=htd,
@@ -338,11 +338,11 @@ class UniformCAHittingLocationDistribution(AbstractUniformHittingLocationDistrib
             (pos_last, v_last, a_last, dt_pred)  --> dy_pred
 
          where
-            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the t_L.
-            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the t_L.
-            - a_last is a np.array of shape [batch_size, 2] and format [x, y] containing the accelerations at the t_L.
+            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the _t_L.
+            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the _t_L.
+            - a_last is a np.array of shape [batch_size, 2] and format [x, y] containing the accelerations at the _t_L.
             - dt_pred is a np.array of shape [batch_size] with arrival time point estimates as difference times w.r.t.
-                t_L.
+                _t_L.
             - dy_pred is a np.array of shape [batch_size] with point estimates for the arrival location along the
                 actuator array as difference w.r.t. x_L.
 
@@ -360,7 +360,7 @@ class UniformCAHittingLocationDistribution(AbstractUniformHittingLocationDistrib
         y_predicted = point_predictor(htd.x_L[..., [0, -3]],
                                       htd.x_L[..., [1, -2]],
                                       htd.x_L[..., [2, -1]],
-                                      dt_pred=htd.ev - htd.t_L) + htd.x_L[..., -3]
+                                      dt_pred=htd.ev - htd._t_L) + htd.x_L[..., -3]
 
         super().__init__(hitting_time_model=htd,
                          S_w=0,  # always zero
@@ -495,8 +495,8 @@ class MCCAHittingLocationDistribution(AbstractMCHittingLocationDistribution, Abs
             _, y_samples, _ = create_ty_ca_samples_hitting_time(htd.x_L,
                                                                 htd.C_L,
                                                                 S_w,
-                                                                htd.x_predTo,
-                                                                htd.t_L)
+                                                                htd._x_predTo,
+                                                                htd._t_L)
 
         super().__init__(hitting_time_model=htd,
                          S_w=S_w,
@@ -518,7 +518,7 @@ class MCCAHittingLocationDistribution(AbstractMCHittingLocationDistribution, Abs
         t_samples, _, _ = create_ty_ca_samples_hitting_time(self._htd.x_L,
                                                             self._htd.C_L,
                                                             self._S_w,
-                                                            self._htd.x_predTo,
-                                                            self._htd.t_L)
+                                                            self._htd._x_predTo,
+                                                            self._htd._t_L)
         self._density = self._build_distribution_from_samples(self._samples, self._range)
 

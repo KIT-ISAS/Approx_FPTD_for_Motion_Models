@@ -2,16 +2,19 @@ import os
 
 from abc import ABC
 
+
+import numpy as np
+
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
-from evaluators.hitting_model_evaluator import AbstractHittingModelEvaluator
+from evaluators.hitting_evaluator import AbstractHittingEvaluator
+from abstract_hitting_location_distributions import AbstractHittingLocationDistribution
 
 
-class HittingLocationEvaluator(AbstractHittingModelEvaluator, ABC):
-    """A class that handles the evaluations."""
-    # TODO: Die beschränkung auf valide samples überlall hinzufügen und defaultmäßig anstellen!
 
+class HittingLocationEvaluator(AbstractHittingEvaluator, ABC):
+    """A class that handles the evaluations for hitting location models."""
 
     def __init__(self,
                  process_name,
@@ -28,22 +31,33 @@ class HittingLocationEvaluator(AbstractHittingModelEvaluator, ABC):
                  font_size=6,
                  paper_scaling_factor=2,
                  no_show=False):
-        """Initialize the evaluator.
+        """Initializes the evaluator.
 
-        :param process_name: String, name of the process, appears in headers.
-        :param x_predTo: A float, position of the boundary.
-        :param t_predicted: A float, the deterministic time of arrival.
-        :param t_L: A float, the time of the last state/measurement (initial time).
-        :param y_predicted: A float, the deterministic y-position at the deterministic time of arrival.
-        :param plot_y: A np.array of shape [n_plot_points_y], y-positions where a point in the plot should be displayed.
-        :param get_example_tracks_fn: A function that draws example paths from the model.
-        :param save_results: Boolean, whether to save the plots.
-        :param result_dir: String, directory where to save the plots.
-        :param for_paper: Boolean, whether to use a publication (omit headers, etc.).
-        :param fig_width: A float, width of the figures in inches.
-        :param font_size: An integer, the font size in point.
-        :param paper_scaling_factor: A scaling factor to be applied to the figure and fonts if for_paper is true.
-        :param no_show: Boolean, whether to show the plots (False).
+          Format get_example_tracks_fn:
+
+             plot_t --> y_tracks
+
+          where
+
+             - plot_t is anp.array of shape [n_plot_points], point in time, when a point in the plot should be displayed,
+             - y_tracks is a np.array of shape [num_time_steps, num_tracks] containing the y-positions of the tracks.
+
+         :param process_name: A string, the name of the process, appears in headers.
+         :param x_predTo: A float, the position of the boundary.
+         :param plot_y: A np.array of shape [n_plot_points_y], y-positions where a point in the plot should be displayed.
+         :param t_predicted: A float, the deterministic time of arrival.
+         :param y_predicted: A float, the deterministic location of arrival at the actuator array, i.e., the predicted
+            y-position at the first-passage time.
+         :param t_L: A float, the time of the last state/measurement (initial time).
+         :param get_example_tracks_fn: A function that draws example paths from the model.
+         :param save_results: A Boolean, whether to save the plots.
+         :param result_dir: A string, the directory where to save the plots.
+         :param for_paper: A Boolean, whether to use a publication (omit headers, etc.).
+         :param fig_width: A float, the width of the figures in inches.
+         :param font_size: An integer, the font size in point.
+         :param paper_scaling_factor: A float, a scaling factor to be applied to the figure and fonts if _for_paper is
+             true.
+        :param no_show: A Boolean, whether to show the plots (False).
         """
         super().__init__(process_name=process_name,
                          x_predTo=x_predTo,
@@ -59,16 +73,34 @@ class HittingLocationEvaluator(AbstractHittingModelEvaluator, ABC):
                          no_show=no_show,
                          )
 
-        self.y_predicted = y_predicted
-        self.plot_y = plot_y
+        self._y_predicted = y_predicted
+        self._plot_y = plot_y
+
+    @staticmethod
+    def _remove_not_arriving_samples(y_samples):
+        """Returns a copy of y_samples with removed samples that stem from particles that did not arrive at the
+        boundary.
+
+        The method relies on fallback value of max(t_samples) + 1 in the t_samples and np.nan in the y_samples and all
+        other samples for those particles that did not arrive.
+
+        :param y_samples: A np.array of shape [num_samples] containing samples.
+
+        :returns: A np.array of shape [num_reduced_samples] containing samples.
+        """
+        y_samples = y_samples.copy()
+        y_samples = y_samples[np.isfinite(y_samples)]  # there are default values, remove them from array
+        return y_samples
 
     def compare_moments(self, approaches_ls, prefix='spatial'):
         # change the defaults
         super().compare_moments(approaches_ls, prefix='spatial')
 
-    def plot_sample_histogram(self, samples, x_label='Location y in mm'):  # TODO: Das sind eher in pixel -> umrechnen?
+    def plot_sample_histogram(self, y_samples, x_label='Location y in mm'):  # TODO: Das sind eher in pixel -> umrechnen?
+        # check if there are default values (particles that did not arrive) in the array and remove them
+        y_samples = self._remove_not_arriving_samples(y_samples)
         # change the defaults
-        super().plot_sample_histogram(samples, x_label)
+        self._plot_sample_histogram(y_samples, x_label)
 
     def plot_example_tracks(self, N=5, dt=0.0001, plot_x_predTo=False):
         # plot_x_predTo is always false
@@ -86,18 +118,23 @@ class HittingLocationEvaluator(AbstractHittingModelEvaluator, ABC):
         """Plots the distribution of y at the first-passage time.
 
         :param ax1: A plt.axis object.
-        :param y_samples: A np.array of shape [N] containing the y-position at the first-passage times of the particles.
-        :param approaches_ls: A list of model objects for the same process to be compared.
+        :param y_samples: A np.array of shape [num_samples] containing the y-position at the first-passage times of the
+            particles.
+        :param approaches_ls: A list of child instances of AbstractHittingLocationDistribution for the same process to
+            be compared.
         """
+        # check if there are default values (particles that did not arrive) in the array and remove them
+        y_samples = self._remove_not_arriving_samples(y_samples)
+
         y_hist, x_hist, _ = ax1.hist(y_samples,
-                                     bins=self._distribute_bins_in_plot_range(y_samples, self.plot_y),
+                                     bins=self._distribute_bins_in_plot_range(y_samples),
                                      # we want to have 100 samples in the plot window
                                      density=True,
                                      histtype='stepfilled',  # no space between the bars
                                      color=[0.8, 0.8, 0.8],
                                      )
 
-        ax1.vlines(self.y_predicted, 0, 350, color='black', label="Deterministic Prediction")
+        ax1.vlines(self._y_predicted, 0, 350, color='black', label="Deterministic Prediction")
 
         ax2 = ax1.twinx()
         for i, approach in enumerate(approaches_ls):
@@ -108,11 +145,11 @@ class HittingLocationEvaluator(AbstractHittingModelEvaluator, ABC):
                     ax2.vlines([hit_stats['EV'] - hit_stats['STDDEV'], hit_stats['EV'] + hit_stats['STDDEV']], 0, 1,
                                color=self.color_cycle[i], linestyle='dashdot', label=approach.name)
             if 'CDF' in hit_stats.keys():
-                plot_f = [hit_stats['CDF'](y) for y in self.plot_y]
-                ax2.plot(self.plot_y, plot_f, color=self.color_cycle[i], label=approach.name)
+                plot_f = [hit_stats['CDF'](y) for y in self._plot_y]
+                ax2.plot(self._plot_y, plot_f, color=self.color_cycle[i], label=approach.name)
             if 'PDF' in hit_stats.keys():
-                plot_f = [hit_stats['PDF'](y) for y in self.plot_y]
-                ax1.plot(self.plot_y, plot_f, color=self.color_cycle[i], label=approach.name)
+                plot_f = [hit_stats['PDF'](y) for y in self._plot_y]
+                ax1.plot(self._plot_y, plot_f, color=self.color_cycle[i], label=approach.name)
             if 'PDFVALUES' in hit_stats.keys():
                 ax1.plot(hit_stats['PDFVALUES'][0], hit_stats['PDFVALUES'][1], color=self.color_cycle[i],
                          label=approach.name)
@@ -124,27 +161,29 @@ class HittingLocationEvaluator(AbstractHittingModelEvaluator, ABC):
 
         ax1.set_ylim(0, 1.4 * y_hist.max())  # leave some space for labels
         ax2.set_ylim(0, 1.05)
-        ax1.set_xlim(self.plot_y[0], self.plot_y[-1])
+        ax1.set_xlim(self._plot_y[0], self._plot_y[-1])
         ax1.set_xlabel("Location in mm")
         ax1.set_ylabel("PDF")
         ax2.set_ylabel("CDF")
 
+    @AbstractHittingEvaluator.check_approaches_ls
     def plot_y_at_first_hitting_time_distributions(self, y_samples, approaches_ls):
         """Plots the distribution of y at the first-passage time.
 
-        :param y_samples: A np.array of shape [N] containing the y-position at the first-passage times of the particles.
-        :param approaches_ls: A list of model objects for the same process to be compared.
+        :param y_samples: A np.array of shape [num_samples] containing the y-position at the first-passage times of the
+            particles.
+        :param approaches_ls: A list of child instances of AbstractHittingLocationDistribution for the same process to
+            be compared.
         """
         fig, ax1 = plt.subplots()
 
         self._plot_y_at_first_hitting_time_distributions(ax1, y_samples, approaches_ls)
 
-        if not self.for_paper:
-            plt.title("Distribution of Y at First Passage Time for " + self.process_name)
-        #plt.legend()
+        if not self._for_paper:
+            plt.title("Distribution of Y at First Passage Time for " + self._process_name)
         if self.save_results:
-            plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_y_at_ftp.pdf'))
-            plt.savefig(os.path.join(self.result_dir, self.process_name_save + '_y_at_ftp.png'))
+            plt.savefig(os.path.join(self._result_dir, self._process_name_save + '_y_at_ftp.pdf'))
+            plt.savefig(os.path.join(self._result_dir, self._process_name_save + '_y_at_ftp.png'))
         if not self.no_show:
             plt.show()
         plt.close()
