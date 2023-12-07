@@ -24,7 +24,9 @@ def get_system_matrices_from_parameters(dt, S_w):
         F: A np.array of shape [2, 2] or a np.array of shape [batch_size, 2, 2], the transition matrix.
         Q: A np.array of shape [2, 2] or a np.array of shape [batch_size, 2, 2], the transition noise covariance matrix.
     """
-    F = np.identity(np.atleast_1d(dt).shape[0], 2, 2)
+    F = np.zeros((np.atleast_1d(dt).shape[0], 2, 2))
+    idx = np.arange(2)
+    F[:, idx, idx] = 1
     F[:, 0, 1] = dt
 
     Q = np.empty((np.atleast_1d(dt).shape[0], 2, 2))
@@ -34,7 +36,7 @@ def get_system_matrices_from_parameters(dt, S_w):
     Q[:, 1, 1] = dt
     Q *= np.atleast_1d(S_w)[:, np.newaxis, np.newaxis]
 
-    return np.squeeze(F, axis=0), np.squeeze(Q, axis=0)
+    return np.squeeze(F), np.squeeze(Q)
 
 
 def create_ty_cv_samples_hitting_time(x_L,
@@ -48,7 +50,7 @@ def create_ty_cv_samples_hitting_time(x_L,
                                       break_after_n_time_steps=1000,
                                       break_min_time=None):
     """Monte Carlo approach to solve the first-passage time problem. Propagates particles through the 2D discrete-time
-    CV motion model and determines their first-passage atx_predTo as well as the location in y at the first-passage by
+    CV motion model and determines their first-passage at x_predTo as well as the location in y at the first-passage by
     interpolating the positions between the last time before and the first time after the boundary.
 
     Assumed CV state format:
@@ -96,7 +98,7 @@ def create_ty_cv_samples_hitting_time(x_L,
                 first-passage times of the particle backs.
     """
     def calculate_intersection_delta_time_fn(x_before_arrival, x_after_arrival, x_predTo, x_term):
-        """Calculate the time of intersection withx_predTo as delta w.r.t. the time of the last time step.
+        """Calculate the time of intersection with x_predTo as delta w.r.t. the time of the last time step.
 
         :param x_before_arrival: A np.array of shape [num_samples] containing the state of the last time step before
                 the first-passage.
@@ -106,7 +108,7 @@ def create_ty_cv_samples_hitting_time(x_L,
         :param x_term: A Boolean np.array of shape [num_samples] indicating whether the particle has crossed the
             boundary or not.
 
-        :returns: A float, the time of intersection withx_predTo as delta w.r.t. the time of the last time step.
+        :returns: A float, the time of intersection with x_predTo as delta w.r.t. the time of the last time step.
         """
         # Linear interpolation to get time
         v_interpolated = (x_after_arrival[x_term, 1] - x_before_arrival[x_term, 1]) / (
@@ -121,13 +123,15 @@ def create_ty_cv_samples_hitting_time(x_L,
                 the first-passage.
         :param x_term: A Boolean np.array of shape [num_samples] indicating whether the particle has crossed the
             boundary or not.
-        :param delta_t: A float, the time of intersection withx_predTo as delta w.r.t. the time of the last time step.
+        :param delta_t: A float, the time of intersection with x_predTo as delta w.r.t. the time of the last time step.
 
         :returns: A float, the position in y as delta w.r.t. the position of x_before_arrival.
         """
-        return x_before_arrival[x_term, 2] + delta_t * x_before_arrival[x_term, 3]
+        return delta_t * x_before_arrival[x_term, 3]
 
     F, Q = get_system_matrices_from_parameters(dt, S_w)
+    F = np.block([[F, np.zeros_like(F)], [np.zeros_like(F), F]])
+    Q = np.block([[Q, np.zeros_like(Q)], [np.zeros_like(Q), Q]])
 
     return create_lgssm_hitting_time_samples(
         F,

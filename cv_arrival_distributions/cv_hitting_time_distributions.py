@@ -36,13 +36,13 @@ class AbstractCVHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
         # sanity checks
         if x_L.shape[-1] < 2:
             raise ValueError('The state length must be at least 2.')
-        if not np.array_equal(np.atleast_2d(x_L).shape, np.atleast_3d(C_L).shape[:2]):
-            raise ValueError('Shapes of x_L and C_L do not match.')
         if C_L.shape[-2] != C_L.shape[-1]:
             raise ValueError('C_L must be a symmetric matrix.')
+        if not np.array_equal(np.atleast_2d(x_L).shape, self.batch_atleast_3d(C_L).shape[:2]):
+            raise ValueError('Shapes of x_L and C_L do not match.')
 
         self._x_L = np.atleast_2d(x_L)
-        self._C_L = np.atleast_3d(C_L)
+        self._C_L = self.batch_atleast_3d(C_L)
         self._S_w = np.broadcast_to(S_w, shape=self.batch_size)  # this itself raises an error if not compatible
 
         super().__init__(x_predTo=x_predTo,
@@ -57,7 +57,7 @@ class AbstractCVHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
         :returns: A np.array of shape [state_length] or [batch_size, state_length], the expected value of the initial
             state.
         """
-        return np.squeeze(self._x_L, axis=0)
+        return np.squeeze(self._x_L)
 
     @property
     def C_L(self):
@@ -66,7 +66,7 @@ class AbstractCVHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
         :returns: A np.array of shape [state_length, state_length] or [batch_size, state_length, state_length]
             representing the covariance matrix of the initial state.
         """
-        return np.squeeze(self._C_L, axis=0)
+        return np.squeeze(self._C_L)
 
     @property
     def S_w(self):
@@ -74,7 +74,7 @@ class AbstractCVHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
 
         :returns A float or np.array of shape [batch_size], the power spectral density in x-direction.
         """
-        return np.squeeze(self._S_w, axis=0)
+        return np.squeeze(self._S_w)
 
     @S_w.setter
     @abstractmethod
@@ -122,11 +122,11 @@ class AbstractCVHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
 
     @AbstractArrivalDistribution.batch_size_one_function
     def trans_density(self, dt, theta):
-        """The transition density p(x(dt+theta)| x(theta) =x_predTo) from going fromx_predTo at time theta to
+        """The transition density p(x(dt+theta)| x(theta) =x_predTo) from going from x_predTo at time theta to
         x(dt+theta) at time dt+theta.
 
-        Note that in terms of the used approximation, this can be seen as the first returning time tox_predTo after
-        a crossing ofx_predTo at theta.
+        Note that in terms of the used approximation, this can be seen as the first returning time to x_predTo after
+        a crossing of x_predTo at theta.
 
         This function does not support batch-wise processing, i.e., a batch dimension of 1 is required.
 
@@ -143,7 +143,7 @@ class AbstractCVHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
                                                                                                       2) / 2,
                                self.C_L[1, 1] + self.S_w * (theta - self._t_L)]])
         trans_mu = self.x_predTo + dt * (self.x_L[1] + cov_theta[1, 0] / cov_theta[0, 0] * (
-                    self.x_predTo - np.squeeze(self._ev_t(theta), axis=0)))
+                    self.x_predTo - np.squeeze(self._ev_t(theta))))
         trans_var = dt ** 2 * (
                 cov_theta[1, 1] - cov_theta[1, 0] / cov_theta[0, 0] * cov_theta[0, 1]) + self.S_w * 1 / 3 * dt ** 3
 
@@ -151,7 +151,7 @@ class AbstractCVHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
 
     @AbstractArrivalDistribution.batch_size_one_function
     def trans_prob_with_positive_velocity(self, dt, theta):
-        """The transition probability P(x(dt+theta) > a | x(theta) =x_predTo, v(theta)= > 0) from going fromx_predTo
+        """The transition probability P(x(dt+theta) > a | x(theta) =x_predTo, v(theta)= > 0) from going from x_predTo
         at time theta and positive velocity to x(dt+theta) < a at time dt+theta.
 
         P(x(t) < a | x(theta) = a, v(theta) > 0) is calculated according to
@@ -213,7 +213,7 @@ class AbstractCVHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
 
         Approach:
 
-         P(t < T_a , x(t) < a) = int_{_t_L}^t fptd(theta) P(x(t) < a | x(theta) = a, v(theta) > 0) d theta ,
+         P(t < T_a , x(t) < a) = int_{t_L}^t fptd(theta) P(x(t) < a | x(theta) = a, v(theta) > 0) d theta ,
 
           with theta the time, when x(theta) = a.
 
@@ -237,10 +237,10 @@ class AbstractCVHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
 
         Approach:
 
-         P(t < T_a , x(t) < a) = int_{_t_L}^t fptd(theta) P(x(t) < a | x(theta) = a, v(theta) > 0) d theta
+         P(t < T_a , x(t) < a) = int_{t_L}^t fptd(theta) P(x(t) < a | x(theta) = a, v(theta) > 0) d theta
 
-                          ≈  (t - _t_L) / N sum_{theta_i} FPTD(theta_i) * P(x(t) < a | x(theta_i) = a, v(theta_i) > 0) ,
-                               theta_i samples from a uniform distribution (N samples in total) in [_t_L, t] ,
+                          ≈  (t - t_L) / N sum_{theta_i} FPTD(theta_i) * P(x(t) < a | x(theta_i) = a, v(theta_i) > 0) ,
+                               theta_i samples from a uniform distribution (N samples in total) in [t_L, t] ,
 
           with theta the time, when x(theta) = a.
 
@@ -333,13 +333,13 @@ class GaussTaylorCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Ab
 
          Format point_predictor:
 
-            (pos_last, v_last)  --> dt_pred
+            (pos_last, v_last, x_predTo)  --> dt_pred
 
          where
-            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the _t_L.
-            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the _t_L.
+            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the t_L.
+            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the t_L.
             - dt_pred is a np.array of shape [batch_size] with arrival time point estimates as difference times w.r.t.
-                _t_L.
+                t_L.
 
         :param x_L: A np.array of shape [state_length] or [batch_size, state_length] representing the expected value of
             the initial state. We use index L here because it usually corresponds to the last time we see a particle in
@@ -356,42 +356,50 @@ class GaussTaylorCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Ab
         if not callable(point_predictor):
             raise ValueError('point_predictor must be a callable.')
 
-        AbstractCVHittingTimeDistribution.__init__(self,
-                                                   x_L=x_L,
-                                                   C_L=C_L,
-                                                   S_w=S_w,
-                                                   x_predTo=x_predTo,
-                                                   t_L=t_L,
-                                                   name=name,
-                                                   )
+        ev = point_predictor(x_L[..., [0, 2]], x_L[..., [1, 3]], x_predTo)
 
-        ev = point_predictor(self._x_L[:, [0, 2]], self._x_L[:, [1, 3]])
-        var = self._compute_var(ev, self._x_L, self._C_L, self._t_L, self._S_w)
-        AbstractGaussTaylorHittingTimeDistribution.__init__(self,
-                                                            ev=ev,
-                                                            var=var,
-                                                            name=name,
-                                                            )
+        # ev must be resizeable to shape [batch_size]
+        if not np.atleast_1d(ev).ndim == 1 or np.atleast_1d(ev).shape[0] != np.atleast_2d(x_L).shape[0]:
+            raise ValueError('point predictor must output a float or a np.array of shape [batch_size].')
+
+        var = self._compute_var(ev, x_L, C_L, t_L, S_w)
+
+        # AbstractCVHittingTimeDistribution.__init__(self,
+        #                                            x_L=x_L,
+        #                                            C_L=C_L,
+        #                                            S_w=S_w,
+        #                                            x_predTo=x_predTo,
+        #                                            t_L=t_L,
+        #                                            name=name,
+        #                                            )
+        #
+        # ev = point_predictor(self._x_L[:, [0, 2]], self._x_L[:, [1, 3]])
+        # var = self._compute_var(ev, self._x_L, self._C_L, self._t_L, self._S_w)
+        # AbstractGaussTaylorHittingTimeDistribution.__init__(self,
+        #                                                     ev=ev,
+        #                                                     var=var,
+        #                                                     name=name,
+        #                                                     )
 
         # pos_last = np.atleast_2d(x_L)[:, [0, 2]]  # TODO: Könnte man sich das alles mit der richtigen Vererbungsreihenfolge sparen?
         # v_last = np.atleast_2d(x_L)[:, [1, 3]]
         # ev = point_predictor(pos_last, v_last)
         #
         # # Evaluate the equation at the time at the boundary
-        # var = self._compute_var(ev, np.atleast_2d(x_L), np.atleast_3d(C_L), _t_L, np.broadcast_to(S_w, shape=np.atleast_2d(x_L).shape[0]))
-        # super().__init__(x_L=x_L,
-        #                  C_L=C_L,
-        #                  S_w=S_w,
-        #                 x_predTo=_x_predTo,
-        #                  _t_L=_t_L,
-        #                  name=name,
-        #                  ev=ev,
-        #                  var=var)
+        # var = self._compute_var(ev, np.atleast_2d(x_L), np.atleast_3d(C_L), t_L, np.broadcast_to(S_w, shape=np.atleast_2d(x_L).shape[0]))
+        super().__init__(x_L=x_L,
+                         C_L=C_L,
+                         S_w=S_w,
+                         x_predTo=x_predTo,
+                         t_L=t_L,
+                         name=name,
+                         ev=ev,
+                         var=var)
 
-        # self._ev = _t_L + (x_predTo - x_L[0]) / x_L[1]
+        # self._ev = t_L + (x_predTo - x_L[0]) / x_L[1]
         # # Evaluate the equation at the time at the boundary
         # v_L = x_L[1]
-        # dt_p = self.ev - _t_L
+        # dt_p = self.ev - t_L
         # sigma_x = np.sqrt(C_L[0, 0] + 2 * C_L[1, 0] * dt_p + C_L[1, 1] * dt_p**2 + S_w * pow(dt_p, 3)/3)
         # sigma_xv = C_L[1, 0] + C_L[1, 1] * dt_p + S_w * pow(dt_p, 2)/2
         # sigma_v = np.sqrt(C_L[1, 1] + S_w * dt_p)
@@ -413,10 +421,11 @@ class GaussTaylorCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Ab
         :returns: A np.array of shape [batch_size], the variance of the approximation.
         """
         # TODO: Das kann man vereinfachen
+        # TODO: Das geht baer nicht mit den batch size 1 varianten (jetzt geändert, lassen wir das so? kommt es so raus (shape), wie wwir wollen
         dt_p = point_prediction - t_L
         sigma_x = np.sqrt(
-            C_L[:, 0, 0] + 2 * C_L[:, 1, 0] * dt_p + C_L[:, 1, 1] * dt_p ** 2 + S_w * pow(dt_p, 3) / 3)
-        var = (1 / x_L[:, 1]) ** 2 * sigma_x ** 2
+            C_L[..., 0, 0] + 2 * C_L[..., 1, 0] * dt_p + C_L[..., 1, 1] * dt_p ** 2 + S_w * pow(dt_p, 3) / 3)
+        var = (1 / x_L[..., 1]) ** 2 * sigma_x ** 2
         return var
 
     @AbstractCVHittingTimeDistribution.S_w.setter
@@ -467,7 +476,7 @@ class NoReturnCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstr
                                                                                          np.round(q_max_too_small, 2)))
 
     # @classmethod
-    # def _from_private_arguments(cls, x_L, C_L, S_w,x_predTo, _t_L, q_max, t_max,
+    # def _from_private_arguments(cls, x_L, C_L, S_w,x_predTo, t_L, q_max, t_max,
     #                             ev=None,
     #                             var=None,
     #                             third_central_moment=None,
@@ -484,7 +493,7 @@ class NoReturnCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstr
     #         representing the covariance matrix of the initial state.
     #     :param S_w: A float or np.array of shape [batch_size], the power spectral density (PSD).
     #     :paramx_predTo: A float or np.array of shape [batch_size], the position of the boundary.
-    #     :param _t_L: A float, the time of the last state/measurement (initial time).
+    #     :param t_L: A float, the time of the last state/measurement (initial time).
     #     :param q_max: A float or np.array of shape [batch_size], the maximum value of the CDF.
     #     :param t_max: A float or np.array of shape [batch_size], the time, when the CDF visits its maximum.
     #     :param ev: A float or a np.array of shape [batch_size], the expected value of the first-passage time
@@ -498,7 +507,7 @@ class NoReturnCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstr
     #     :returns: A NoReturnCVHittingTimeDistribution object, a (potentially modified) copy of the distribution.
     #     """
     #     obj = cls.__new__(cls)  # create a new object
-    #     super(cls, obj).__init__(x_L, C_L, S_w,x_predTo, _t_L, name)
+    #     super(cls, obj).__init__(x_L, C_L, S_w,x_predTo, t_L, name)
     #
     #     # overwrite all privates
     #     obj._q_max = q_max
@@ -556,21 +565,22 @@ class NoReturnCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstr
               1 - q = int(N(x, mu(t), var(t)), x = -inf ..x_predTo) = PHI ( (x_predTo - mu(t)) / sqrt(var(t))
               PHI^-1(1 -q) = (x_predTo - mu(t)) / sqrt(var(t)) -> solve for t...
 
-        We solve the equation for t = t - _t_L to simplify calculations and add _t_L at the end of the function.
+        We solve the equation for t = t - t_L to simplify calculations and add t_L at the end of the function.
 
         :param q: A float, the confidence parameter of the distribution, 0 <= q <= 1.
 
         :returns:
             t: A np.array of shape [batch_size], the value of the PPF for q.
-            candidate_roots: A np.array of shape [batch_size, 3] containing the values of all possible roots.
+            candidate_roots: A np.array of shape [batch_size, num_possible_solutions] containing the values of all
+                possible roots.
         """
-        # We compute the ppf for t = t - _t_L to simplify calculations.
+        # We compute the ppf for t = t - t_L to simplify calculations.
 
         # Special case q = 0.5, this corresponds to the median.
         # 0 = (x_predTo - mu(t)) / sqrt(var(t) ->x_predTo = mu(t) -> solve for t...
         if q == 0.5:
-            t = (self._x_predTo - self._x_L[:, 0]) / self._x_L[:, 1]
-            return np.squeeze(t + self._t_L)
+            t = (self._x_predTo - self._x_L[:, 0]) / self._x_L[:, 1] + self._t_L
+            return t, t
 
         # cubic function
         # At**3 + B*t**2 + C*t + D = 0
@@ -656,7 +666,7 @@ class NoReturnCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstr
 
             set self._pdf(t) = 0, solve for t.
 
-        We solve the equation for t = t - _t_L to simplify calculations and add _t_L at the end of the function.
+        We solve the equation for t = t - t_L to simplify calculations and add t_L at the end of the function.
 
         :returns:
             roots: A numpy array of shape [batch_size, num_roots], candidates for the maximum value of the CDF.
@@ -694,7 +704,7 @@ class NoReturnCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstr
                                                                                                      2) / 2,
                               self.C_L[1, 1] + self.S_w * (theta - self._t_L)]])
         b = cov_theta[1, 1] - cov_theta[1, 0] / cov_theta[0, 0] * cov_theta[0, 1]
-        c = cov_theta[1, 0] / cov_theta[0, 0] * (self.x_predTo - np.squeeze(self._ev_t(theta), axis=0))
+        c = cov_theta[1, 0] / cov_theta[0, 0] * (self.x_predTo - np.squeeze(self._ev_t(theta)))
 
         qf = norm.ppf(1 - q)
 
@@ -732,7 +742,7 @@ class NoReturnCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstr
         # return type(self)._from_private_arguments(x_L=self._x_L[indices],
         #                                           C_L=self._C_L[indices],
         #                                          x_predTo=self._x_predTo[indices],
-        #                                           _t_L=self._t_L,
+        #                                           t_L=self._t_L,
         #                                           S_w=self._S_w[indices],
         #                                           q_max=q_max,
         #                                           t_max=t_max,
@@ -766,7 +776,7 @@ class NoReturnCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstr
     def get_statistics(self):  # TODO: Property? Docstrings?
         """Get some statistics from the model as a dict."""
         hit_stats = super().get_statistics()
-        hit_stats.update({'RAW_CDF': self._cdf,
+        hit_stats.update({'RAW_CDF': lambda t: np.squeeze(self._cdf(t)),
                           })
         return hit_stats
 
@@ -774,7 +784,7 @@ class NoReturnCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstr
 class UniformCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, AbstractUniformHittingTimeDistribution):
     """Uses point predictors for the CV arrival time prediction and a uniform distribution.
 
-    This distribution corresponds to the "usual" case where we define a fixed ejection window.
+    This distribution corresponds to the "usual" case where we define a fixed deflection window.
     """
     def __init__(self, x_L, x_predTo, t_L, point_predictor, window_length, a=0.5, name='Uniform model'):
         """Initializes the distribution.
@@ -785,13 +795,13 @@ class UniformCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstra
 
          Format point_predictor:
 
-            (pos_last, v_last)  --> dt_pred
+            (pos_last, v_last, x_predTo)  --> dt_pred
 
          where
-            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the _t_L.
-            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the _t_L.
+            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the t_L.
+            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the t_L.
             - dt_pred is a np.array of shape [batch_size] with arrival time point estimates as difference times w.r.t.
-                _t_L.
+                t_L.
 
         :param x_L: A np.array of shape [state_length] or [batch_size, state_length] representing the expected value of
             the initial state. We use index L here because it usually corresponds to the last time we see a particle in
@@ -809,24 +819,31 @@ class UniformCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstra
         if not callable(point_predictor):
             raise ValueError('point_predictor must be a callable.')
 
-        AbstractCVHittingTimeDistribution.__init__(self,
-                                                   x_L=x_L,
-                                                   C_L=np.zeros(
-                                                       (np.atleast_2d(x_L).shape[0], x_L.shape[-1], x_L.shape[-1])),
-                                                   # always zero
-                                                   S_w=0,  # always zero
-                                                   x_predTo=x_predTo,
-                                                   t_L=t_L,
-                                                   name=name,
-                                                   )
+        t_predicted = point_predictor(x_L[..., [0, 2]], x_L[..., [1, 3]], x_predTo)
 
-        t_predicted = point_predictor(self._x_L[:, [0, 2]], self._x_L[:, [1, 3]])
-        AbstractUniformHittingTimeDistribution.__init__(self,
-                                                        point_prediction=t_predicted,
-                                                        window_length=window_length,
-                                                        a=a,
-                                                        name=name,
-                                                        )
+        # t_predicted must be resizeable to shape [batch_size]
+        if not np.atleast_1d(t_predicted).ndim == 1 or np.atleast_1d(t_predicted).shape[0] != np.atleast_2d(x_L).shape[
+            0]:
+            raise ValueError('point predictor must output a float or a np.array of shape [batch_size].')
+
+        # AbstractCVHittingTimeDistribution.__init__(self,
+        #                                            x_L=x_L,
+        #                                            C_L=np.zeros(
+        #                                                (np.atleast_2d(x_L).shape[0], x_L.shape[-1], x_L.shape[-1])),
+        #                                            # always zero
+        #                                            S_w=0,  # always zero
+        #                                            x_predTo=x_predTo,
+        #                                            t_L=t_L,
+        #                                            name=name,
+        #                                            )
+        #
+        # t_predicted = point_predictor(self._x_L[:, [0, 2]], self._x_L[:, [1, 3]])
+        # AbstractUniformHittingTimeDistribution.__init__(self,
+        #                                                 point_prediction=t_predicted,
+        #                                                 window_length=window_length,
+        #                                                 a=a,
+        #                                                 name=name,
+        #                                                 )
 
         #
         # pos_last = np.atleast_2d(x_L)[:, [0, 2]]  # TODO: Könnte man sich das alles mit der richtigen Vererbungsreihenfolge sparen?
@@ -834,18 +851,18 @@ class UniformCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstra
         # pos_last = x_L[:, [0, 2]]
         # v_last = x_L[:, [1, 3]]
         # _t_predicted = point_predictor(pos_last, v_last)
-        # # _t_predicted = _t_L + (x_predTo - x_L[:, 0]) / x_L[:, 1]
+        # # _t_predicted = t_L + (x_predTo - x_L[:, 0]) / x_L[:, 1]
         #
-        # super().__init__(x_L=x_L,
-        #                  C_L=np.zero((np.atleast_2d(x_L).shape[0], x_L.shape[-1], x_L.shape[-1])),  # always zero
-        #                  S_w=0,
-        #                 x_predTo=_x_predTo,
-        #                  _t_L=_t_L,
-        #                  name=name,
-        #                  point_prediction=_t_predicted,
-        #                  window_length=window_length,
-        #                  a=a,
-        #                  )
+        super().__init__(x_L=x_L,
+                         C_L=np.zeros((np.atleast_2d(x_L).shape[0], x_L.shape[-1], x_L.shape[-1])),  # always zero
+                         S_w=0,  # always zero
+                         x_predTo=x_predTo,
+                         t_L=t_L,
+                         name=name,
+                         point_prediction=t_predicted,
+                         window_length=window_length,
+                         a=a,
+                         )
 
     @AbstractCVHittingTimeDistribution.S_w.setter
     def S_w(self, value):
@@ -892,7 +909,7 @@ class MCCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, AbstractMCH
                     self.__class__.__name__))
 
         if t_samples is None:
-            t_samples, _, _ = create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L)
+            (t_samples, _, _), _ = create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L)
 
         super().__init__(x_L=x_L,
                          C_L=C_L,
@@ -913,6 +930,6 @@ class MCCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, AbstractMCH
         """
         self._S_w = np.broadcast_to(value, shape=self.batch_size)
         # Resample und recalculate the distribution
-        t_samples, _, _ = create_ty_cv_samples_hitting_time(self.x_L, self.C_L, self.S_w, self.x_predTo, self._t_L)
-        self._density = self._build_distribution_from_samples(self._samples, self._range)
+        self._samples, _, _ = create_ty_cv_samples_hitting_time(self.x_L, self.C_L, self.S_w, self.x_predTo, self._t_L)
+        self._density = self._build_distribution_from_samples(self._samples, self._range)  # TODO: Self.range dann auch anpassen?
 

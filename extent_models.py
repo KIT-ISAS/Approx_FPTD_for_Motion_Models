@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 
 from abstract_distributions import AbstractArrivalDistribution
-from abstract_hitting_time_distributions import AbstractHittingTimeDistribution
+from abstract_hitting_time_distributions import AbstractHittingTimeDistribution, AbstractMCHittingTimeDistribution
 from abstract_hitting_location_distributions import AbstractHittingLocationDistribution
 from cv_arrival_distributions.cv_hitting_time_distributions import AbstractCVHittingTimeDistribution
 from ca_arrival_distributions.ca_hitting_time_distributions import AbstractCAHittingTimeDistribution
@@ -61,6 +61,9 @@ class HittingTimeWithExtentsModel(AbstractHittingTimeWithExtentsModel):
         htd_kwargs = htd_kwargs.copy()
         x_predTo = htd_kwargs.pop('x_predTo')
 
+        if issubclass(htd_class, AbstractMCHittingTimeDistribution) and "t_samples" in htd_kwargs.keys():
+            # for an MC distribution, we always need to resample since x_predTo is moved
+            del htd_kwargs["t_samples"]
         self._front_arrival_distribution = htd_class(x_predTo=x_predTo - self._length / 2,
                                                      **htd_kwargs)
         self._back_arrival_distribution = htd_class(x_predTo=x_predTo + self._length / 2,
@@ -177,50 +180,54 @@ class HittingLocationWithExtentsModel:
             hld_kwargs = hld_kwargs.copy()
             del hld_kwargs['htd']
 
-        self._front_location_model = hld_class(htd=htwe_model.front_arrival_distribution,
+        self._front_location_distr = hld_class(htd=htwe_model.front_arrival_distribution,
                                                **hld_kwargs)
-        self._back_location_model = hld_class(htd=htwe_model.back_arrival_distribution,
+        self._back_location_distr = hld_class(htd=htwe_model.back_arrival_distribution,
                                               **hld_kwargs)
 
-        self._min_y_model = MinYMonotonouslyMotionDDistribution(self._front_location_model, self._back_location_model, self._width)
+        self._min_y_distr = MinYMonotonouslyMotionDistribution(self._front_location_distr, self._back_location_distr,
+                                                               self._width)
 
-        self._max_y_model = MaxYMonotonouslyMotionDistribution(self._front_location_model, self._back_location_model, self._width)
+        self._max_y_distr = MaxYMonotonouslyMotionDistribution(self._front_location_distr, self._back_location_distr,
+                                                               self._width)
 
     @property
-    def front_location_model(self):
+    def front_location_distribution(self):
         """The particle front arrival location distribution at the actuator array.
 
         :returns: A child instance of AbstractHittingLocationDistribution, the particle front arrival location
             distribution.
         """
-        return self._front_location_model
+        return self._front_location_distr
 
     @property
-    def back_location_model(self):
+    def back_location_distribution(self):
         """The particle back arrival location distribution at the actuator array.
 
         :returns: A child instance of AbstractHittingLocationDistribution, the particle back arrival location
             distribution.
         """
-        return self._back_location_model
+        return self._back_location_distr
 
     @property
-    def max_y_model(self):
+    def max_y_distribution(self):
         """The location distribution of the particles' uppermost edge at the actuator array.
 
-        :returns: A MaxYMonotonouslyMotionDistribution object, the distribution of the particles' uppermost edge at the actuator array.
+        :returns: A MaxYMonotonouslyMotionDistribution object, the distribution of the particles' uppermost edge at the
+            actuator array.
         """
-        return self._max_y_model
+        return self._max_y_distr
 
     @property
-    def min_y_model(self):
+    def min_y_distribution(self):
         """The location distribution of the particles' lowermost edge at the actuator array.
 
-        :returns: A MaxYMonotonouslyMotionDistribution object, the distribution of the particles' lowermost edge at the actuator array.
+        :returns: A MaxYMonotonouslyMotionDistribution object, the distribution of the particles' lowermost edge at the
+            actuator array.
         """
-        return self._min_y_model
+        return self._min_y_distr
 
-    def calculate_ejection_windows(self, q):
+    def calculate_confidence_bounds(self, q):
         """Calculates confidence bounds used as spatial deflection windows.
 
          :param q: A float or np.array of shape [batch_size] in [0, 1], the confidence parameter of the marginal
@@ -233,8 +240,8 @@ class HittingLocationWithExtentsModel:
         q_low = (1 - q) / 2
         q_up = (1 + q) / 2
 
-        y_start = self._min_y_model.ppf(q_low)
-        y_end = self._max_y_model.ppf(q_up)
+        y_start = self._min_y_distr.ppf(q_low)
+        y_end = self._max_y_distr.ppf(q_up)
         return y_start, y_end
 
 
@@ -261,14 +268,14 @@ class AbstractMinMaxYDistribution(AbstractArrivalDistribution):
         if not isinstance(back_location_distribution, AbstractHittingLocationDistribution):
             raise ValueError('back_location_distribution must be a child of AbstractHittingLocationDistribution.')
 
-        self._front_location_model = front_location_distribution
-        self._back_location_model = back_location_distribution
+        self._front_location_distr = front_location_distribution
+        self._back_location_distr = back_location_distribution
         self._width = np.atleast_1d(width)
 
         super().__init__(name=name)
 
     def batch_size(self):
-        return self._front_location_model.batch_size
+        return self._front_location_distr.batch_size
 
     @property
     def ev(self):
@@ -300,7 +307,7 @@ class AbstractMinMaxYDistribution(AbstractArrivalDistribution):
             - If the distribution is scalar (batch_size = 1)
                 - and y is scalar, then returns a float,
                 - and y is np.array of shape [sample_size], then returns a np.array of shape [sample_size].
-            - If the distribution's batch_size is > 1 )
+            - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
                 - and y is a np.array of [batch_size, sample_size], then returns a np.array of shape
                     [batch_size, sample_size].
@@ -319,7 +326,7 @@ class AbstractMinMaxYDistribution(AbstractArrivalDistribution):
             - If the distribution is scalar (batch_size = 1)
                 - and y is scalar, then returns a float,
                 - and y is np.array of shape [sample_size], then returns a np.array of shape [sample_size].
-            - If the distribution's batch_size is > 1 )
+            - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
                 - and y is a np.array of [batch_size, sample_size], then returns a np.array of shape
                     [batch_size, sample_size].
@@ -336,7 +343,7 @@ class AbstractMinMaxYDistribution(AbstractArrivalDistribution):
             - If the distribution is scalar (batch_size = 1)
                 - and y is scalar, then returns a float,
                 - and y is np.array of shape [sample_size], then returns a np.array of shape [sample_size].
-            - If the distribution's batch_size is > 1 )
+            - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
                 - and y is a np.array of [batch_size, sample_size], then returns a np.array of shape
                     [batch_size, sample_size].
@@ -352,7 +359,7 @@ class AbstractMinMaxYDistribution(AbstractArrivalDistribution):
             - If the distribution is scalar (batch_size = 1)
                 - and y is scalar, then returns a float,
                 - and y is np.array of shape [sample_size], then returns a np.array of shape [sample_size].
-            - If the distribution's batch_size is > 1 )
+            - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
                 - and y is a np.array of [batch_size, sample_size], then returns a np.array of shape
                     [batch_size, sample_size].
@@ -394,11 +401,12 @@ class MaxYMonotonouslyMotionDistribution(AbstractMinMaxYDistribution):
         :returns: A float or a np.array, the value of the CDF for y:
             - If the distribution is scalar (batch_size = 1)
                 - and y is scalar, then returns a float,
-                - and y is np.array of shape [sample_size], then returns a np.array of shape [sample_size].
-            - If the distribution's batch_size is > 1 )
+                - and y is np.array of shape [sample_size] (with sample_size > 1), then returns a np.array of shape
+                    [sample_size].
+            - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
-                - and y is a np.array of [batch_size, sample_size], then returns a np.array of shape
-                    [batch_size, sample_size].
+                - and y is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
+                    shape [batch_size, sample_size].
         """
         return np.min(np.stack([self.back_location_cdf(y), self.front_location_cdf(y)]), axis=0)  # np.stack stacks
         # along new axis 0
@@ -406,14 +414,15 @@ class MaxYMonotonouslyMotionDistribution(AbstractMinMaxYDistribution):
     def pdf(self, y):
         """The location distribution of the particles' uppermost edge at the actuator array.
 
-        :returns: A float or a np.array, the value of the DDF for y:
+        :returns: A float or a np.array, the value of the PDF for y:
             - If the distribution is scalar (batch_size = 1)
                 - and y is scalar, then returns a float,
-                - and y is np.array of shape [sample_size], then returns a np.array of shape [sample_size].
-            - If the distribution's batch_size is > 1 )
+                - and y is np.array of shape [sample_size] (with sample_size > 1), then returns a np.array of shape
+                    [sample_size].
+            - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
-                - and y is a np.array of [batch_size, sample_size], then returns a np.array of shape
-                    [batch_size, sample_size].
+                - and y is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
+                    shape [batch_size, sample_size].
         """
         return np.stack([self.back_location_pdf(y), self.front_location_pdf(y)])[
             np.argmin(np.stack([self.back_location_cdf(y), self.front_location_cdf(y)]), axis=0)]  # np.stack stacks
@@ -427,24 +436,28 @@ class MaxYMonotonouslyMotionDistribution(AbstractMinMaxYDistribution):
 
         :returns: A float or a np.array of shape [batch_size], the value of the PPF for q.
         """
-        back_location_value = self._back_location_model.ppf(q) + self._width / 2
-        front_location_value = self._front_location_model.ppf(q) + self._width / 2
+        back_location_value = self._back_location_distr.ppf(q) + self._width / 2
+        front_location_value = self._front_location_distr.ppf(q) + self._width / 2
         return np.max(np.stack([back_location_value, front_location_value]), axis=0)  # np.stack stacks along new axis 0
 
     def back_location_cdf(self, y):
-        return self._back_location_model.cdf(y - self._width / 2)
+        return np.squeeze(self._back_location_distr.cdf(y - self._width / 2))  # squeeze since width is an array and
+        # the model pdf/cdf has no squeeze, we always obtain an array otherwise)
 
     def front_location_cdf(self, y):
-        return self._front_location_model.cdf(y - self._width / 2)
+        return np.squeeze(self._front_location_distr.cdf(y - self._width / 2))  # squeeze since width is an array and
+        # the model pdf/cdf has no squeeze, we always obtain an array otherwise)
 
     def back_location_pdf(self, y):
-        return self._back_location_model.pdf(y - self._width / 2)
+        return np.squeeze(self._back_location_distr.pdf(y - self._width / 2))  # squeeze since width is an array and
+        # the model pdf/cdf has no squeeze, we always obtain an array otherwise)
 
     def front_location_pdf(self, y):
-        return self._front_location_model.pdf(y - self._width / 2)
+        return np.squeeze(self._front_location_distr.pdf(y - self._width / 2))  # squeeze since width is an array and
+        # the model pdf/cdf has so squeeze, we always obtain an array otherwise)
 
 
-class MinYMonotonouslyMotionDDistribution(AbstractMinMaxYDistribution):
+class MinYMonotonouslyMotionDistribution(AbstractMinMaxYDistribution):
     """An approximation for the distributions of the maximum y-value of a particle passing the actuator array using the
     assumption of monotonously motion (either monotonously increasing or decreasing, but which is the case is a priori
     not known).
@@ -452,7 +465,7 @@ class MinYMonotonouslyMotionDDistribution(AbstractMinMaxYDistribution):
     Note that this model only yields an accurate estimation for low and high probability (CDF) values, but not for
     intermediate values.
     """
-    def __init__(self, front_location_distribution, back_location_distribution, width, name="MinYMonotonouslyMotionDDistribution"):
+    def __init__(self, front_location_distribution, back_location_distribution, width, name="MinYMonotonouslyMotionDistribution"):
         """Initializes the distribution
 
         :param front_location_distribution: A child instance of AbstractHittingLocationDistribution, the distribution of
@@ -476,11 +489,12 @@ class MinYMonotonouslyMotionDDistribution(AbstractMinMaxYDistribution):
         :returns: A float or a np.array, the value of the CDF for y:
             - If the distribution is scalar (batch_size = 1)
                 - and y is scalar, then returns a float,
-                - and y is np.array of shape [sample_size], then returns a np.array of shape [sample_size].
-            - If the distribution's batch_size is > 1 )
+                - and y is np.array of shape [sample_size] (with sample_size > 1), then returns a np.array of shape
+                    [sample_size].
+            - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
-                - and y is a np.array of [batch_size, sample_size], then returns a np.array of shape
-                    [batch_size, sample_size].
+                - and y is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
+                    shape [batch_size, sample_size].
         """
         return np.max(np.stack([self.back_location_cdf(y), self.front_location_cdf(y)]), axis=0)  # np.stack stacks
         # along new axis 0
@@ -488,14 +502,15 @@ class MinYMonotonouslyMotionDDistribution(AbstractMinMaxYDistribution):
     def pdf(self, y):
         """The location distribution of the particles' lowermost edge at the actuator array.
 
-        :returns: A float or a np.array, the value of the DDF for y:
+        :returns: A float or a np.array, the value of the PDF for y:
             - If the distribution is scalar (batch_size = 1)
                 - and y is scalar, then returns a float,
-                - and y is np.array of shape [sample_size], then returns a np.array of shape [sample_size].
-            - If the distribution's batch_size is > 1 )
+                - and y is np.array of shape [sample_size] (with sample_size > 1), then returns a np.array of shape
+                    [sample_size].
+            - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
-                - and y is a np.array of [batch_size, sample_size], then returns a np.array of shape
-                    [batch_size, sample_size].
+                - and y is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
+                    shape [batch_size, sample_size].
         """
         return np.stack([self.back_location_pdf(y), self.front_location_pdf(y)])[
             np.argmax(np.stack([self.back_location_cdf(y), self.front_location_cdf(y)]), axis=0)]  # np.stack stacks
@@ -509,18 +524,22 @@ class MinYMonotonouslyMotionDDistribution(AbstractMinMaxYDistribution):
 
         :returns: A float or a np.array of shape [batch_size], the value of the PPF for q.
         """
-        back_location_value = self._back_location_model.ppf(q) - self._width / 2
-        front_location_value = self._front_location_model.ppf(q) - self._width / 2
+        back_location_value = self._back_location_distr.ppf(q) - self._width / 2
+        front_location_value = self._front_location_distr.ppf(q) - self._width / 2
         return np.min(np.stack([back_location_value, front_location_value]), axis=0)  # np.stack stacks along new axis 0
 
     def back_location_cdf(self, y):
-        return self._back_location_model.cdf(y + self._width / 2)
+        return np.squeeze(self._back_location_distr.cdf(y + self._width / 2))  # squeeze since width is an array and
+        # the model pdf/cdf has so squeeze, we always obtain an array otherwise)
 
     def front_location_cdf(self, y):
-        return self._front_location_model.cdf(y + self._width / 2)
+        return np.squeeze(self._front_location_distr.cdf(y + self._width / 2))  # squeeze since width is an array and
+        # the model pdf/cdf has so squeeze, we always obtain an array otherwise)
 
     def back_location_pdf(self, y):
-        return self._back_location_model.pdf(y + self._width / 2)
+        return np.squeeze(self._back_location_distr.pdf(y + self._width / 2))  # squeeze since width is an array and
+        # the model pdf/cdf has so squeeze, we always obtain an array otherwise)
 
     def front_location_pdf(self, y):
-        return self._front_location_model.pdf(y + self._width / 2)
+        return np.squeeze(self._front_location_distr.pdf(y + self._width / 2))  # squeeze since width is an array and
+        # the model pdf/cdf has so squeeze, we always obtain an array otherwise)

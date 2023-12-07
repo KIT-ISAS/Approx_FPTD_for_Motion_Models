@@ -36,22 +36,22 @@ docker run -u $(id -u):$(id -g) --gpus all -it --rm -e DISPLAY=$DISPLAY -v /tmp/
 
 ## Executable scripts 
 
-### `wiener_process.py`
+### `wiener_process_main.py`
 
 - Methods and simulations for a first-passage time problem with a *Wiener process with drift*, for which the analytical solution is known.
-### `cv_process.py`
+### `cv_process_main.py`
 
 - Methods and simulations for a first-passage time problem with a *CV model*.
 
-### `ca_process.py`
+### `ca_process_main.py`
 
 - Methods and simulations for a first-passage time problem with a *CA model*.
 
-### `cv_experiments.py`
+### `cv_experiments_main.py`
 
 - Runs predefined experiments with *CV models*. The experiments are defined via a hard-coded config dictionary in the file.
 
-### `ca_experimets.py`
+### `ca_experimets_main.py`
 
 - Runs predefined experiments with *CA models*. The experiments are defined via a hard-coded config dictionary in the file.
 
@@ -62,38 +62,38 @@ docker run -u $(id -u):$(id -g) --gpus all -it --rm -e DISPLAY=$DISPLAY -v /tmp/
 
 
   ```shell script
-	 python3 /mnt/cv_process.py --help
+	 python3 /mnt/cv_process_main.py --help
   ```
   Similar for all other executables.
   
-- Run a single experiment with a *CV model* with predefined settings (see the main function of `cv_experiments.py`) and save the plots to `/mnt/results/`.
+- Run a single experiment with a *CV model* with predefined settings (see the main function of `cv_experiments_main.py`) and save the plots to `/mnt/results/`.
 
   ```shell script
-	 python3 /mnt/cv_process.py --save_results --_result_dir /mnt/results/
+	 python3 /mnt/cv_process_main.py --save_results --result_dir /mnt/results/
   ```
-  Similar for `ca_process.py` and `wiener_process.py`.
+  Similar for `ca_process_main.py` and `wiener_process_main.py`.
   
 - Run a single experiment with a *CV model* with predefined settings (see the main function of `cv_experiments.py`), save the plots to `/mnt/results/`, and save stdout to `/mnt/results/stdout_cv_model.txt`.
 
   ```shell script
-	 python3 /mnt/cv_process.py --save_results --_result_dir /mnt/results/ > /mnt/results/stdout_cv_model.txt
+	 python3 /mnt/cv_process_main.py --save_results --result_dir /mnt/results/ > /mnt/results/stdout_cv_model.txt
   ```
-  Similar for `ca_process.py` and `wiener_process.py`.
+  Similar for `ca_process_main.py` and `wiener_process_main.py`.
   
 - Run predefined experiments with *CV models*, save the plots to `/mnt/results/cv_experiments/`, and save stdout to `/mnt/results/cv_experiments/stdout_cv_models.txt`, but do not show the plots.
 
   ```shell script
-	 python3 /mnt/cv_experiments.py --save_results --_result_dir /mnt/results/cv_experimenents/ --no_show > /mnt/results/cv_experimenents/stdout_cv_model.txt
+	 python3 /mnt/cv_experiments_main.py --save_results --result_dir /mnt/results/cv_experimenents/ --no_show > /mnt/results/cv_experimenents/stdout_cv_model.txt
   ```
   
-  Similar for `ca_experiments.py`. Experiment configs and chosen experiments can be adjusted in `cv_experiments.py` and `ca_experiments.py`, respectively.
+  Similar for `ca_experiments_main.py`. Experiment configs and chosen experiments can be adjusted in `cv_experiments_main.py` and `ca_experiments_main.py`, respectively.
 
 - Run a single experiment with a *CV model* with predefined settings, measure the computational times (averaged over ten runs) and do not save or show the plots (measured times will be printed to stdout).
 
   ```shell script
-	 python3 /mnt/cv_process.py --measure_computational_times --no_show
+	 python3 /mnt/cv_process_main.py --measure_computational_times --no_show
   ```
-  Similar for `ca_process.py` and `wiener_process.py`.
+  Similar for `ca_process_main.py` and `wiener_process_main.py`.
 
 ## Example Results
 
@@ -115,7 +115,7 @@ Some example tracks for the *CV model* with a power spectral density of 93 640 m
 
 ## Additional Notes
 
-Additional plot options can be set in `hitting_time_uncertainty_utils.py`, e.g., the size of the figures or whether to omit the headers of the plot (`--for_paper`-mode). 
+Additional plot options can be set in `evaluators.hitting_evaluator.py`, e.g., the size of the figures or whether to omit the headers of the plot (`--for_paper`-mode). 
 
 ## Cite as
 

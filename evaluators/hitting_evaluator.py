@@ -141,8 +141,8 @@ class AbstractHittingEvaluator(ABC):
             plt.rcParams["savefig.pad_inches"] = 0.0  # remove space outside the labels
             mpl.rcParams['figure.dpi'] = 20  # takes a long time to show the figures otherwise
 
-    @abstractmethod
     @property
+    @abstractmethod
     def plot_points(self):
         """The x-coordinates of the plot for which a y-value should be displayed.
 
@@ -154,7 +154,7 @@ class AbstractHittingEvaluator(ABC):
 
     @staticmethod
     @abstractmethod
-    def _remove_not_arriving_samples(samples):
+    def remove_not_arriving_samples(samples, return_indices=False):
         """Returns a copy of samples with removed samples that stem from particles that did not arrive at the
         boundary.
 
@@ -162,8 +162,10 @@ class AbstractHittingEvaluator(ABC):
         other samples for those particles that did not arrive.
 
         :param samples: A np.array of shape [num_samples] containing sampled values.
+        :param return_indices: A Boolean, whether to return only the indices of the samples to be removed
 
-        :returns: A np.array of shape [num_reduced_samples] containing samples.
+        :returns: A np.array of shape [num_reduced_samples] containing samples (if return_indices is False) or a Boolean
+            np.array of shape[num_samples] representing a mask for the arriving samples (if return_indices is True).
         """
         # To be overwritten by subclass
         raise NotImplementedError('Call to abstract method.')
@@ -179,13 +181,12 @@ class AbstractHittingEvaluator(ABC):
         """
         return int(no_of_bins * (max(samples) - min(samples)) / (max(self.plot_points) - min(self.plot_points)))
 
-    @staticmethod
     def check_approaches_ls(func):
         """A decorator for functions that process a list of hitting time or location distributions.
 
         Assure that only distributions of the same type are in the list.
 
-        :param func: A callable, the funtion to be decorated.
+        :param func: A callable, the function to be decorated.
 
         :returns: A callable, the decorator.
         """
@@ -205,9 +206,8 @@ class AbstractHittingEvaluator(ABC):
 
         return check_approaches_in_approaches_ls_of_same_type
 
-    @staticmethod
     @check_approaches_ls
-    def compare_moments(approaches_ls, prefix='temporal'):
+    def compare_moments(self, approaches_ls, prefix='temporal'):
         """Compares the means and standard deviations of different hitting time or location distributions and print them
         to stdout.
 
@@ -221,8 +221,8 @@ class AbstractHittingEvaluator(ABC):
             hit_stats = approach.get_statistics()
             mu = hit_stats['EV']
             stddev = hit_stats['STDDEV']
-            logging.info("{0} of {1}: {2}".format(prefix.capitalize(), approach.name, round(mu, 6)))
-            logging.info("{0} stddev of {1}: {2}".format(prefix.capitalize(), approach.name, round(stddev, 6)))
+            logging.info("{0} of {1}: {2}".format(prefix.capitalize(), approach.name, np.round(mu, 6)))
+            logging.info("{0} stddev of {1}: {2}".format(prefix.capitalize(), approach.name, np.round(stddev, 6)))
             mu_ls.append(mu)
             stddev_ls.append(stddev)
 
@@ -234,9 +234,8 @@ class AbstractHittingEvaluator(ABC):
         logging.info(
             'Pairwise relative deviations of {} stddevs in percent: \n{}'.format(prefix, np.round(rel_devs, 2)))
 
-    @staticmethod
     @check_approaches_ls
-    def compare_skewness(approaches_ls):
+    def compare_skewness(self, approaches_ls):
         """Compares the skewness of different hitting time or location distributions and print them to stdout.
 
         :param approaches_ls: A list of child instances of AbstractHittingTimeDistribution or
@@ -246,7 +245,7 @@ class AbstractHittingEvaluator(ABC):
         for approach in approaches_ls:
             hit_stats = approach.get_statistics()
             skew_t = hit_stats['SKEW']
-            logging.info("Temporal skewness of {0}: {1}".format(approach.name, round(skew_t, 6)))
+            logging.info("Temporal skewness of {0}: {1}".format(approach.name, np.round(skew_t, 6)))
             skew_t_ls.append(skew_t)
 
         rel_devs = np.zeros((len(approaches_ls), len(approaches_ls)))
@@ -257,16 +256,16 @@ class AbstractHittingEvaluator(ABC):
         logging.info('Pairwise relative deviations of temporal skewness in percent: \n{}'.format(np.round(rel_devs, 2)))
 
     @check_approaches_ls
-    def compare_wasserstein_distances(self, samples, approaches_ls, bins=500):
+    def compare_wasserstein_distances(self, approaches_ls, samples, bins=500):
         """Compares the Wasserstein distance (using the euclidean distance on the feature axis) of different hitting
         time or location distributions with the MC-solution.
 
         Note that the Wasserstein distance in not suitable to compare normalized and non-normalized densities since it
         requires that the total moved mass stays constant (conservation of mass).
 
-        :param samples: A np.array of shape [num_samples] containing sampled values.
         :param approaches_ls: A list of child instances of AbstractHittingTimeDistribution or
             AbstractHittingLocationDistribution for the same process to be  compared.
+        :param samples: A np.array of shape [num_samples] containing sampled values.
         :param bins: An integer, the number of bins to use to represent the histogram.
         """
         bins = self._distribute_bins_in_plot_range(samples, no_of_bins=bins)
@@ -290,12 +289,12 @@ class AbstractHittingEvaluator(ABC):
             'Wasserstein distances compared against MC histogram (in plot range!): \n{}'.format(wasserstein_distances))
 
     @check_approaches_ls
-    def compare_hellinger_distances(self, samples, approaches_ls, bins=500):
+    def compare_hellinger_distances(self, approaches_ls, samples,bins=500):
         """Compares the Hellinger distance of different hitting time or location distributions with the MC-solution.
 
-        :param samples: A np.array of shape [num_samples] containing sampled values.
         :param approaches_ls: A list of child instances of AbstractHittingTimeDistribution or
             AbstractHittingLocationDistribution for the same process to be  compared.
+        :param samples: A np.array of shape [num_samples] containing sampled values.
         :param bins: An integer, the number of bins to use to represent the histogram.
         """
         bins = self._distribute_bins_in_plot_range(samples, no_of_bins=bins)
@@ -314,16 +313,16 @@ class AbstractHittingEvaluator(ABC):
             'Hellinger distances compared against MC histogram (in plot range!): \n{}'.format(hellinger_distances))
 
     @check_approaches_ls
-    def compare_first_wasserstein_distances(self, samples, approaches_ls, bins=500):
+    def compare_first_wasserstein_distances(self, approaches_ls, samples, bins=500):
         """Compares the first Wasserstein distance of different hitting time or location distributions with the
         MC-solution.
 
         Note that the Wasserstein distance in not suitable to compare normalized and non-normalized densities since it
         requires that the total moved mass stays constant (conservation of mass).
 
-        :param samples: A np.array of shape [num_samples] containing sampled values.
         :param approaches_ls: A list of child instances of AbstractHittingTimeDistribution or
             AbstractHittingLocationDistribution for the same process to be  compared.
+        :param samples: A np.array of shape [num_samples] containing sampled values.
         :param bins: An integer, the number of bins to use to represent the histogram.
         """
         bins = self._distribute_bins_in_plot_range(samples, no_of_bins=bins)
@@ -339,14 +338,14 @@ class AbstractHittingEvaluator(ABC):
             wasserstein_distances))
 
     @check_approaches_ls
-    def compare_kolmogorov_distances(self, samples, approaches_ls, bins=500):
+    def compare_kolmogorov_distances(self, approaches_ls, samples, bins=500):
         """Compares the Kolmogorov distance of different hitting time or location distributions with the MC-solution.
 
         The Kolmogorov distance is defined as the maximum deviation in CDF.
 
-        :param samples: A np.array of shape [num_samples] containing the first-passage times of the particles.
         :param approaches_ls: A list of child instances of AbstractHittingTimeDistribution or
             AbstractHittingLocationDistribution for the same process to be  compared.
+        :param samples: A np.array of shape [num_samples] containing the first-passage times of the particles.
         :param bins: An integer, the number of bins to use to represent the histogram.
         """
         bins = self._distribute_bins_in_plot_range(samples, no_of_bins=bins)
@@ -537,3 +536,6 @@ class AbstractHittingEvaluator(ABC):
         if not self.no_show:
             plt.show()
         plt.close()
+
+    # to make them accessible from outside (and suppress ugly IDE warnings), needs to be done at the end of the class
+    check_approaches_ls = staticmethod(check_approaches_ls)

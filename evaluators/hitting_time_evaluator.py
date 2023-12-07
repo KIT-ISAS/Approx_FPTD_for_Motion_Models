@@ -87,7 +87,7 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
         return self._plot_t
 
     @staticmethod
-    def _remove_not_arriving_samples(t_samples):
+    def remove_not_arriving_samples(t_samples, return_indices=False):
         """Returns a copy of t_samples with removed samples that stem from particles that did not arrive at the
         boundary.
 
@@ -95,9 +95,13 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
         other samples for those particles that did not arrive.
 
         :param t_samples: A np.array of shape [num_samples] containing samples.
+        :param return_indices: A Boolean, whether to return only the indices of the samples to be removed
 
-        :returns: A np.array of shape [num_reduced_samples] containing samples.
+        :returns: A np.array of shape [num_reduced_samples] containing samples (if return_indices is False) or a Boolean
+            np.array of shape[num_samples] representing a mask for the arriving samples (if return_indices is True).
         """
+        if return_indices:
+            return t_samples != max(t_samples)
         t_samples = t_samples.copy()
         if max(t_samples) - int(max(t_samples)) == 0.0:
             #  there are default values, remove them from array
@@ -114,7 +118,7 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
         """
         if not plot_hist_for_all_particles:
             # check if there are default values (particles that did not arrive) in the array
-            t_samples = self._remove_not_arriving_samples(t_samples)
+            t_samples = self.remove_not_arriving_samples(t_samples)
         self._plot_sample_histogram(t_samples, x_label)
 
     def _plot_first_hitting_time_distributions(self, ax1, t_samples, approaches_ls, plot_hist_for_all_particles=True):
@@ -129,7 +133,7 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
         """
         if not plot_hist_for_all_particles:
             # check if there are default values (particles that did not arrive) in the array
-            t_samples = self._remove_not_arriving_samples(t_samples)
+            t_samples = self.remove_not_arriving_samples(t_samples)
             y_hist, x_hist, _ = ax1.hist(t_samples,
                                          bins=self._distribute_bins_in_plot_range(t_samples),
                                          # we want to have 100 samples in the plot window
@@ -197,12 +201,12 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
         ax2.set_ylabel("CDF")
 
     @AbstractHittingEvaluator.check_approaches_ls
-    def plot_first_hitting_time_distributions(self, t_samples, approaches_ls, plot_hist_for_all_particles=True):
+    def plot_first_hitting_time_distributions(self, approaches_ls, t_samples, plot_hist_for_all_particles=True):
         """Plots the first-passage time distribution.
 
-        :param t_samples: A np.array of shape [num_samples] containing the first-passage times of the particles.
         :param approaches_ls: A list of child instances of AbstractHittingTimeDistribution for the same process to be
             compared.
+        :param t_samples: A np.array of shape [num_samples] containing the first-passage times of the particles.
         :param plot_hist_for_all_particles: A Boolean, whether to plot the histogram
                 only for particles that arrive at the boundary (False).
         """
@@ -222,7 +226,7 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
         plt.close()
 
     @AbstractHittingEvaluator.check_approaches_ls
-    def plot_fptd_and_paths_in_one(self, ev_fn, var_fn, t_samples, approaches_ls, plot_hist_for_all_particles=True):
+    def plot_fptd_and_paths_in_one(self, approaches_ls, ev_fn, var_fn, t_samples, plot_hist_for_all_particles=True):
         """Creates a stacked plot of two subplots. The upper one is the first-passage time distribution and the lower
         one is the plot of paths over time.
 
@@ -234,11 +238,11 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
             - t is a float representing the time,
             - ev respectively var is a float representing the process expectation respectively variance at t.
 
+        :param approaches_ls: A list of child instances of AbstractHittingTimeDistribution for the same process to be
+            compared.
         :param ev_fn: A callable, the mean function of the process.
         :param var_fn: A callable, the variance function of the process.
         :param t_samples: A np.array of shape [num_samples] containing the first-passage times of the particles.
-        :param approaches_ls: A list of child instances of AbstractHittingTimeDistribution for the same process to be
-            compared.
         :param plot_hist_for_all_particles: A Boolean, whether to plot the histogram
                 only for particles that arrive at the boundary (False).
         """
@@ -340,10 +344,10 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
 
     @AbstractHittingEvaluator.check_approaches_ls
     def plot_returning_probs_from_fptd_histogram(self,
+                                                 approaches_ls,
                                                  ev_fn,
                                                  var_fn,
                                                  t_samples,
-                                                 approaches_ls,
                                                  bins=1000,
                                                  t_range=None,
                                                  plot_hist_for_all_particles=True,
@@ -361,11 +365,11 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
             - t is a float representing the time,
             - ev respectively var is a float representing the process expectation respectively variance at t.
 
+        :param approaches_ls: A list of child instances of AbstractHittingTimeDistribution for the same process to be
+            compared.
         :param ev_fn: A callable, the mean function of the process.
         :param var_fn: A callable, the variance function of the process.
         :param t_samples: A np.array of shape [num_samples] containing the first-passage times of the particles.
-        :param approaches_ls: A list of child instances of AbstractHittingTimeDistribution for the same process to be
-            compared.
         :param bins: An integer, the number of bins to use to represent the histogram.
         :param t_range: None or a list of length 2, the (min, max) time for the plots.
         :param plot_hist_for_all_particles: A Boolean, whether to plot the histogram
@@ -379,7 +383,7 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
 
         if not plot_hist_for_all_particles:
             # check if there are default values (particles that did not arrive) in the array
-            t_samples = self._remove_not_arriving_samples(t_samples)
+            t_samples = self.remove_not_arriving_samples(t_samples)
 
         def mc_hist_func(plot_t):
             hist = np.histogram(t_samples, bins=bins, density=True)
@@ -391,16 +395,16 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
         self._plot_returning_probs(mc_hist_func, approaches_ls, t_range)
 
     @AbstractHittingEvaluator.check_approaches_ls
-    def plot_returning_probs_from_sample_paths(self, fraction_of_returns, dt, approaches_ls, t_range=None):
+    def plot_returning_probs_from_sample_paths(self, approaches_ls, fraction_of_returns, dt, t_range=None):
         """Plots the estimated returning probabilities and compares it with the MC solution. The MC solution is based
         on counting example tracks.
 
+        :param approaches_ls: A list of child instances of AbstractHittingTimeDistribution for the same process to be
+            compared.
         :param fraction_of_returns: A np.array of shape[num_simulated_time_steps], the fraction in each time steps of
             tracks that have previously reached the boundary, but then fall below the boundary until the respective
             time step.
         :param dt: A float, the time increment.
-        :param approaches_ls: A list of child instances of AbstractHittingTimeDistribution for the same process to be
-            compared.
         :param t_range: None or a list of length 2, the (min, max) time for the plots.
         """
         def mc_hist_func(plot_t):

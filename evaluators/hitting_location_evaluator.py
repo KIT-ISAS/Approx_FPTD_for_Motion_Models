@@ -12,8 +12,7 @@ from evaluators.hitting_evaluator import AbstractHittingEvaluator
 from abstract_hitting_location_distributions import AbstractHittingLocationDistribution
 
 
-
-class HittingLocationEvaluator(AbstractHittingEvaluator, ABC):
+class HittingLocationEvaluator(AbstractHittingEvaluator):
     """A class that handles the evaluations for hitting location models."""
 
     def __init__(self,
@@ -76,8 +75,17 @@ class HittingLocationEvaluator(AbstractHittingEvaluator, ABC):
         self._y_predicted = y_predicted
         self._plot_y = plot_y
 
+    @property
+    def plot_points(self):
+        """The x-coordinates of the plot for which a y-value should be displayed.
+
+        :returns: A np.array of shape [n_plot_points], the x-coordinates of the plot for which a y-value should be
+            displayed.
+        """
+        return self._plot_y
+
     @staticmethod
-    def _remove_not_arriving_samples(y_samples):
+    def remove_not_arriving_samples(y_samples, return_indices=False):
         """Returns a copy of y_samples with removed samples that stem from particles that did not arrive at the
         boundary.
 
@@ -85,9 +93,13 @@ class HittingLocationEvaluator(AbstractHittingEvaluator, ABC):
         other samples for those particles that did not arrive.
 
         :param y_samples: A np.array of shape [num_samples] containing samples.
+        :param return_indices: A Boolean, whether to return only the indices of the samples to be removed
 
-        :returns: A np.array of shape [num_reduced_samples] containing samples.
+        :returns: A np.array of shape [num_reduced_samples] containing samples (if return_indices is False) or a Boolean
+            np.array of shape[num_samples] representing a mask for the arriving samples (if return_indices is True).
         """
+        if return_indices:
+            return np.isfinite(y_samples)
         y_samples = y_samples.copy()
         y_samples = y_samples[np.isfinite(y_samples)]  # there are default values, remove them from array
         return y_samples
@@ -98,7 +110,7 @@ class HittingLocationEvaluator(AbstractHittingEvaluator, ABC):
 
     def plot_sample_histogram(self, y_samples, x_label='Location y in mm'):  # TODO: Das sind eher in pixel -> umrechnen?
         # check if there are default values (particles that did not arrive) in the array and remove them
-        y_samples = self._remove_not_arriving_samples(y_samples)
+        y_samples = self.remove_not_arriving_samples(y_samples)
         # change the defaults
         self._plot_sample_histogram(y_samples, x_label)
 
@@ -124,7 +136,7 @@ class HittingLocationEvaluator(AbstractHittingEvaluator, ABC):
             be compared.
         """
         # check if there are default values (particles that did not arrive) in the array and remove them
-        y_samples = self._remove_not_arriving_samples(y_samples)
+        y_samples = self.remove_not_arriving_samples(y_samples)
 
         y_hist, x_hist, _ = ax1.hist(y_samples,
                                      bins=self._distribute_bins_in_plot_range(y_samples),
@@ -167,13 +179,13 @@ class HittingLocationEvaluator(AbstractHittingEvaluator, ABC):
         ax2.set_ylabel("CDF")
 
     @AbstractHittingEvaluator.check_approaches_ls
-    def plot_y_at_first_hitting_time_distributions(self, y_samples, approaches_ls):
+    def plot_y_at_first_hitting_time_distributions(self, approaches_ls, y_samples):
         """Plots the distribution of y at the first-passage time.
 
-        :param y_samples: A np.array of shape [num_samples] containing the y-position at the first-passage times of the
-            particles.
         :param approaches_ls: A list of child instances of AbstractHittingLocationDistribution for the same process to
             be compared.
+        :param y_samples: A np.array of shape [num_samples] containing the y-position at the first-passage times of the
+            particles.
         """
         fig, ax1 = plt.subplots()
 

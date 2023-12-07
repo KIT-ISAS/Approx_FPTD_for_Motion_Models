@@ -10,7 +10,7 @@ from abstract_distributions import AbstractArrivalDistribution
 from abstract_hitting_time_distributions import AbstractHittingTimeDistribution, \
     AbstractGaussTaylorHittingTimeDistribution, AbstractNoReturnHittingTimeDistribution, \
     AbstractUniformHittingTimeDistribution, AbstractMCHittingTimeDistribution
-from ca_process import create_ty_ca_samples_hitting_time, get_system_matrices_from_parameters
+from ca_arrival_distributions.ca_utils import create_ty_ca_samples_hitting_time, get_system_matrices_from_parameters
 
 
 # Approaches to solve problem
@@ -35,15 +35,15 @@ class AbstractCAHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
         :param name: String, the (default) name for the distribution.
         """
         # sanity checks
-        if x_L.shape[-1] < 3:
-            raise ValueError('The state length must be at least 3.')
-        if not np.array_equal(np.atleast_2d(x_L).shape, np.atleast_3d(C_L).shape[:2]):
-            raise ValueError('Shapes of x_L and C_L do not match.')
+        if x_L.shape[-1] < 2:
+            raise ValueError('The state length must be at least 2.')
         if C_L.shape[-2] != C_L.shape[-1]:
             raise ValueError('C_L must be a symmetric matrix.')
+        if not np.array_equal(np.atleast_2d(x_L).shape, self.batch_atleast_3d(C_L).shape[:2]):
+            raise ValueError('Shapes of x_L and C_L do not match.')
 
         self._x_L = np.atleast_2d(x_L)
-        self._C_L = np.atleast_3d(C_L)
+        self._C_L = self.batch_atleast_3d(C_L)
         self._S_w = np.broadcast_to(S_w, shape=self.batch_size)  # this itself raises an error if not compatible
 
         super().__init__(x_predTo=x_predTo,
@@ -58,7 +58,7 @@ class AbstractCAHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
         :returns: A np.array of shape [state_length] or [batch_size, state_length], the expected value of the initial
             state.
         """
-        return np.squeeze(self._x_L, axis=0)
+        return np.squeeze(self._x_L)
 
     @property
     def C_L(self):
@@ -67,7 +67,7 @@ class AbstractCAHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
         :returns: A np.array of shape [state_length, state_length] or [batch_size, state_length, state_length]
             representing the covariance matrix of the initial state.
         """
-        return np.squeeze(self._C_L, axis=0)
+        return np.squeeze(self._C_L)
 
     @property
     def S_w(self):
@@ -75,7 +75,7 @@ class AbstractCAHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
 
         :returns A float or np.array of shape [batch_size], the power spectral density in x-direction.
         """
-        return np.squeeze(self._S_w, axis=0)
+        return np.squeeze(self._S_w)
 
     @S_w.setter
     @abstractmethod
@@ -144,8 +144,8 @@ class AbstractCAHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
         :returns: A np.array of shape [batch_size, sample_size], the mean in x at time t.
         """
         # return self.x_L[0] + self.x_L[1] * (t - self._t_L) + self.x_L[2] / 2 * (t - self._t_L) ** 2
-        return self.x_L[:, np.newaxis, 0] + self.x_L[:, np.newaxis, 1] * (t - self.t_L) + self.x_L[:, np.newaxis,
-                                                                                          2] / 2 * (t - self.t_L) ** 2
+        return self._x_L[:, np.newaxis, 0] + self._x_L[:, np.newaxis, 1] * (t - self._t_L) + self._x_L[:, np.newaxis,
+                                                                                          2] / 2 * (t - self._t_L) ** 2
 
     def _var_t(self, t):
         """The variance function of the CA motion model in x.
@@ -160,19 +160,19 @@ class AbstractCAHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
         #                + self.C_L[1, 2] * (t - self._t_L) ** 3 \
         #                + 1 / 4 * self.C_L[2, 2] * (t - self._t_L) ** 4 \
         #                + 1 / 20 * self.S_w * (t - self._t_L) ** 5
-        return self.C_L[:, np.newaxis, 0, 0] + 2 * self.C_L[:, np.newaxis, 0, 1] * (t - self.t_L) \
-               + (self.C_L[:, np.newaxis, 0, 2] + self.C_L[:, np.newaxis, 1, 1]) * (t - self.t_L) ** 2 \
-               + self.C_L[:, np.newaxis, 1, 2] * (t - self.t_L) ** 3 \
-               + 1 / 4 * self.C_L[:, np.newaxis, 2, 2] * (t - self.t_L) ** 4 \
-               + 1 / 20 * self.S_w * (t - self.t_L) ** 5
+        return self._C_L[:, np.newaxis, 0, 0] + 2 * self._C_L[:, np.newaxis, 0, 1] * (t - self._t_L) \
+               + (self._C_L[:, np.newaxis, 0, 2] + self._C_L[:, np.newaxis, 1, 1]) * (t - self._t_L) ** 2 \
+               + self._C_L[:, np.newaxis, 1, 2] * (t - self._t_L) ** 3 \
+               + 1 / 4 * self._C_L[:, np.newaxis, 2, 2] * (t - self._t_L) ** 4 \
+               + 1 / 20 * self._S_w * (t - self._t_L) ** 5
 
     @AbstractArrivalDistribution.batch_size_one_function
     def trans_density(self, dt, theta):
-        """The transition density p(x(dt+theta)| x(theta) =x_predTo) from going fromx_predTo at time theta to
+        """The transition density p(x(dt+theta)| x(theta) =x_predTo) from going from x_predTo at time theta to
         x(dt+theta) at time dt+theta.
 
-        Note that in terms of the used approximation, this can be seen as the first returning time tox_predTo after
-        a crossing ofx_predTo at theta.
+        Note that in terms of the used approximation, this can be seen as the first returning time to x_predTo after
+        a crossing of x_predTo at theta.
 
         This function does not support batch-wise processing, i.e., a batch dimension of 1 is required.
 
@@ -195,7 +195,7 @@ class AbstractCAHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
         sel_ma = np.array([[0, 0], [1, 0], [0, 1]])
         phi_sel = np.matmul(Phi(dt), sel_ma)
         p_theta_mu = np.array([self.x_L[1] + self.x_L[2] * (theta - self.t_L), self.x_L[2]]) \
-                     + cov_theta[1:, 0] / cov_theta[0, 0] * (self.x_predTo - np.squeeze(self._ev_t(theta), axis=0))
+                     + cov_theta[1:, 0] / cov_theta[0, 0] * (self.x_predTo - np.squeeze(self._ev_t(theta)))
         p_theta_var = cov_theta[1:, 1:] - np.outer(cov_theta[1:, 0], cov_theta[0, 1:]) / cov_theta[0, 0]
         trans_mu = np.array([1, 0, 0]) * self.x_predTo + np.matmul(phi_sel, p_theta_mu)
         trans_var = np.matmul(np.matmul(phi_sel, p_theta_var), np.transpose(phi_sel)) + Q(dt)
@@ -268,14 +268,14 @@ class GaussTaylorCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Ab
 
          Format point_predictor:
 
-            (pos_last, v_last, a_last)  --> dt_pred
+            (pos_last, v_last, a_last, x_predTo)  --> dt_pred
 
          where
-            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the _t_L.
-            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the _t_L.
-            - a_last is a np.array of shape [batch_size, 2] and format [x, y] containing the accelerations at the _t_L.
+            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the t_L.
+            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the t_L.
+            - a_last is a np.array of shape [batch_size, 2] and format [x, y] containing the accelerations at the t_L.
             - dt_pred is a np.array of shape [batch_size] with arrival time point estimates as difference times w.r.t.
-                _t_L.
+                t_L.
 
         :param x_L: A np.array of shape [state_length] or [batch_size, state_length] representing the expected value of
             the initial state. We use index L here because it usually corresponds to the last time we see a particle in
@@ -292,22 +292,31 @@ class GaussTaylorCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Ab
         if not callable(point_predictor):
             raise ValueError('point_predictor must be a callable.')
 
-        AbstractCAHittingTimeDistribution.__init__(self,
-                                                   x_L=x_L,
-                                                   C_L=C_L,
-                                                   S_w=S_w,
-                                                   x_predTo=x_predTo,
-                                                   t_L=t_L,
-                                                   name=name,
-                                                   )
+        ev = point_predictor(x_L[..., [0, 2]], x_L[..., [1, 3]], x_L[..., [2, 4]], x_predTo)
 
-        ev = point_predictor(self._x_L[:, [0, 2]], self._x_L[:, [1, 3]], x_L[:, [2, 4]])
-        var = self._compute_var(ev, self._x_L, self._C_L, self._t_L, self._S_w)
-        AbstractGaussTaylorHittingTimeDistribution.__init__(self,
-                                                            ev=ev,
-                                                            var=var,
-                                                            name=name,
-                                                            )
+        # ev must be resizeable to shape [batch_size]
+        if not np.atleast_1d(ev).ndim == 1 or np.atleast_1d(ev).shape[0] != np.atleast_2d(x_L).shape[0]:
+            raise ValueError('point predictor must output a float or a np.array of shape [batch_size].')
+
+        var = self._compute_var(ev, x_L, C_L, t_L, S_w)
+
+        # AbstractCAHittingTimeDistribution.__init__(self,
+        #                                            x_L=x_L,
+        #                                            C_L=C_L,
+        #                                            S_w=S_w,
+        #                                            x_predTo=x_predTo,
+        #                                            t_L=t_L,
+        #                                            name=name,
+        #                                            )
+        #
+        # ev = point_predictor(self._x_L[:, [0, 2]], self._x_L[:, [1, 3]], self.x_L[:, [2, 4]])
+        # var = self._compute_var(ev, self._x_L, self._C_L, self._t_L, self._S_w)
+        #
+        # AbstractGaussTaylorHittingTimeDistribution.__init__(self,
+        #                                                     ev=ev,
+        #                                                     var=var,
+        #                                                     name=name,
+        #                                                     )
 
 
         # pos_last = x_L[:, [0, 2]]
@@ -316,24 +325,23 @@ class GaussTaylorCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Ab
         # ev = point_predictor.predict(pos_last, v_last, a_last)
 
         # # Evaluate the equation at the time at the boundary
-        # var = self._compute_var(ev, x_L, C_L, _t_L, S_w)
-        # super().__init__(x_L=x_L,
-        #                  C_L=C_L,
-        #                  S_w=S_w,
-        #                 x_predTo=_x_predTo,
-        #                  _t_L=_t_L,
-        #                  point_predictor=point_predictor,
-        #                  name=name,
-        #                  ev=ev,
-        #                  var=var)
+        # var = self._compute_var(ev, x_L, C_L, t_L, S_w)
+        super().__init__(x_L=x_L,
+                         C_L=C_L,
+                         S_w=S_w,
+                         x_predTo=x_predTo,
+                         t_L=t_L,
+                         name=name,
+                         ev=ev,
+                         var=var)
 
-        # self._ev = _t_L - x_L[1] / x_L[2] + np.sign(x_L[2]) * \
+        # self._ev = t_L - x_L[1] / x_L[2] + np.sign(x_L[2]) * \
         #            np.sqrt((x_L[1] / x_L[2]) ** 2 + 2 / x_L[2] * (x_predTo - x_L[0]))
         # F, _ = _get_system_matrices_from_parameters(self._ev, self.S_w)
         # x_p = np.dot(F, self.x_L)
         # self._var = (1 / x_p[1]) ** 2 * self._var_t(self._ev)
 
-    def _compute_var(self, point_prediction, x_L, C_L, t_L, S_w):  # TODO: Das kann man vereinfachen, abstract wäre dann nicht mehr static
+    def _compute_var(self, point_prediction, x_L, C_L, t_L, S_w):  # TODO: Das kann man vereinfachen, abstract wäre dann nicht mehr static, generell wie sieht es aus mit den input und output shapes, passen die wie beschrieben?
         """Computes the variance of the first-passage time problem based on error propagation.
 
         :param point_prediction: A np.array of shape [batch_size], a point_prediction used as the distribution's
@@ -347,10 +355,23 @@ class GaussTaylorCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Ab
 
         :returns: A np.array of shape [batch_size], the variance of the approximation.
         """
-        F, _ = get_system_matrices_from_parameters(point_prediction, S_w)
-        # x_p = np.dot(F, x_L)
-        x_p = np.matmul(F, x_L[:, :, np.newaxis]).squeeze(-1) 
-        return (1 / x_p[:, 1]) ** 2 * self._var_t(self._ev)
+        # F, _ = get_system_matrices_from_parameters(point_prediction, S_w)
+        # # x_p = np.dot(F, x_L)
+        # x_p = np.matmul(self.batch_atleast_3d(F), np.atleast_2d(x_L)[:, :, np.newaxis]).squeeze(-1)   # TODO: unschön, nächste zeile auch
+        # return (1 / np.atleast_2d(x_p)[:, 1]) ** 2 * self._var_t(self._ev)
+
+        dt_p = point_prediction - t_L  # TODO: Alles unschön, dann besser machen, oder it CV besser integrieren
+
+        def var_t(t, x_L, C_L, t_L, S_w):
+            return C_L[..., 0, 0] + 2 * C_L[..., 0, 1] * (t - t_L) \
+                + (C_L[..., 0, 2] + C_L[..., 1, 1]) * (t - t_L) ** 2 \
+                + C_L[..., 1, 2] * (t - t_L) ** 3 \
+                + 1 / 4 * C_L[..., 2, 2] * (t - t_L) ** 4 \
+                + 1 / 20 * S_w * (t - t_L) ** 5
+
+        ev_v_t = x_L[..., 1] + x_L[..., 2] * dt_p
+        return var_t(point_prediction, x_L, C_L, t_L, S_w) / ev_v_t ** 2
+
 
     @property
     def fourth_central_moment(self):
@@ -358,7 +379,7 @@ class GaussTaylorCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Ab
 
         :returns: A float or a np.array of shape [batch_size], the fourth central moment.
         """
-        return np.squeeze(3 * self._var ** 2, axis=0)  # Gaussian fourth central moment
+        return 3 * self.var ** 2  # Gaussian fourth central moment
 
     @property
     def fifth_central_moment(self):
@@ -366,7 +387,7 @@ class GaussTaylorCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Ab
 
         :returns: A float or a np.array of shape [batch_size], the fifth central moment.
         """
-        return np.zeros(self.batch_size)  # Gaussian fifth central moment
+        return np.squeeze(np.zeros(self.batch_size))  # Gaussian fifth central moment
 
     @AbstractCAHittingTimeDistribution.S_w.setter
     def S_w(self, value):
@@ -427,7 +448,7 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
         self._fifth_central_moment = None
             
     # @classmethod
-    # def _from_private_arguments(cls, x_L, C_L, S_w,x_predTo, _t_L, q_max, t_max,
+    # def _from_private_arguments(cls, x_L, C_L, S_w,x_predTo, t_L, q_max, t_max,
     #                             ev=None,
     #                             var=None,
     #                             third_central_moment=None,
@@ -446,7 +467,7 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
     #         representing the covariance matrix of the initial state.
     #     :param S_w: A float or np.array of shape [batch_size], the power spectral density (PSD).
     #     :paramx_predTo: A float or np.array of shape [batch_size], the position of the boundary.
-    #     :param _t_L: A float, the time of the last state/measurement (initial time).
+    #     :param t_L: A float, the time of the last state/measurement (initial time).
     #     :param q_max: A float or np.array of shape [batch_size], the maximum value of the CDF.
     #     :param t_max: A float or np.array of shape [batch_size], the time, when the CDF visits its maximum.
     #     :param ev: A float or a np.array of shape [batch_size], the expected value of the first-passage time
@@ -464,7 +485,7 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
     #     :returns: A NoReturnCAHittingTimeDistribution object, a (potentially modified) copy of the distribution.
     #     """
     #     obj = cls.__new__(cls)  # create a new object
-    #     super(cls, obj).__init__(x_L, C_L, S_w,x_predTo, _t_L, name)
+    #     super(cls, obj).__init__(x_L, C_L, S_w,x_predTo, t_L, name)
     #
     #     # overwrite all privates
     #     obj._q_max = q_max
@@ -525,13 +546,14 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
               1 - q = int(N(x, mu(t), var(t)), x = -inf ..x_predTo) = PHI ( (x_predTo - mu(t)) / sqrt(var(t))
               PHI^-1(1 -q) = (x_predTo - mu(t)) / sqrt(var(t)) -> solve for t...
 
-        We solve the equation for t = t - _t_L to simplify calculations and add _t_L at the end of the function.
+        We solve the equation for t = t - t_L to simplify calculations and add t_L at the end of the function.
 
         :param q: A float, the confidence parameter of the distribution, 0 <= q <= 1.
 
         :returns:
             t: A np.array of shape [batch_size], the value of the PPF for q.
-            candidate_roots: A np.array of shape [batch_size, 5] containing the values of all possible roots.
+            candidate_roots: A np.array of shape [batch_size, num_possible_solutions] containing the values of all
+                possible roots.
         """
         # Special case q = 0.5, this corresponds to the median.
         # 0 =  (x_predTo - mu(t)) / sqrt(var(t) ->x_predTo = mu(t) -> solve for t...
@@ -540,13 +562,13 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
             pp = self._x_L[:, 1]/self._x_L[:, 2]
             qq = 2/self._x_L[:, 2]*(self._x_L[:, 0] - self._x_predTo)
             # Sign depends on the sign of x_L[2]
-            t = - pp + np.sign(self._x_L[:, 2]) * np.sqrt(pp**2 - qq)
-            return t + self._t_L
+            t = - pp + np.sign(self._x_L[:, 2]) * np.sqrt(pp**2 - qq) + self._t_L
+            return t, t
 
         # Polynomial of degree 5
         # At**5 + B*t**4 + C*t**3 + D*t**2 + E*t + F = 0
         qf = norm.ppf(1 - q)  # Standard-Gaussian quantile function
-        A = 1/20*self.S_w   # TODO: Stimmt das hier mit ohne qf?
+        A = 1/20*self._S_w   # TODO: Stimmt das hier mit ohne qf?
         B = 1/4*(self._C_L[:, 2, 2] - self._x_L[:, 2]**2/qf**2)
         C = self._C_L[:, 1, 2] - self._x_L[:, 1]*self._x_L[:, 2]/qf**2
         D = self._C_L[:, 0, 2] + self._C_L[:, 1, 1] + (-self._x_L[:, 1]**2 + self._x_L[:, 2]*(self._x_predTo - self._x_L[:, 0]))/qf**2
@@ -554,18 +576,26 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
         F = self._C_L[:, 0, 0] - (self._x_predTo - self._x_L[:, 0])**2/qf**2
 
         # Use numerical methods as there is no analytical solution for polynomials of degree 5.
-        roots = np.roots([A, B, C, D, E, F])
+        real_roots = np.empty((self.batch_size, 5))  # TODO: Passt das?
+        real_roots[:] = np.nan
+        t = np.empty(self.batch_size)
+        t[:] = np.nan
+        for i in range(self.batch_size):
+            # unfortunately, there exists no vectorized implementation
+            roots_i = np.roots([A[i], B[i], C[i], D[i], E[i], F[i]])
 
-        # roots are in descending order, the first root is always too large.
-        real_roots = roots.real[np.logical_not(np.iscomplex(roots))] + self.t_L  # TODO: Stimmt das so wie es hier steht?, allgemeine Regel?
-        if real_roots.shape[0] == 5:
-            t = float(real_roots[4] if q < 0.5 else real_roots[3])
-        elif real_roots.shape[0] >= 2:
-            t = float(real_roots[2] if q < 0.5 else real_roots[1])
-        elif real_roots.shape[0] == 1:
-            t = float(real_roots)
-        else:
-            raise ValueError('Unsupported number of roots.')
+            # TODO: Vectorize this
+            # roots are in descending order, the first root is always too large.
+            real_roots_i = roots_i.real[np.logical_not(np.iscomplex(roots_i))] + self.t_L  # TODO: Stimmt das so wie es hier steht?, allgemeine Regel?
+            if real_roots_i.shape[0] == 5:
+                t[i] = float(real_roots_i[4] if q < 0.5 else real_roots_i[3])
+            elif real_roots_i.shape[0] >= 2:
+                t[i] = float(real_roots_i[2] if q < 0.5 else real_roots_i[1])
+            elif real_roots_i.shape[0] == 1:
+                t[i] = float(real_roots_i)
+            else:
+                raise ValueError('Unsupported number of roots.')
+            real_roots[i, :real_roots_i.shape[0]] = real_roots_i
 
         return t, real_roots
 
@@ -576,7 +606,7 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
 
             set self._pdf(t) = 0, solve for t.
 
-        We solve the equation for t = t - _t_L to simplify calculations and add _t_L at the end of the function.
+        We solve the equation for t = t - t_L to simplify calculations and add t_L at the end of the function.
 
         :returns:
             roots: A numpy array of shape [batch_size, num_roots], candidates for the maximum value of the CDF.
@@ -597,8 +627,13 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
         G = 2 * self._x_predTo * self._C_L[:, 0, 1] + 2 * self._C_L[:, 0, 0] * self._x_L[:, 1] \
             - 2 * self._C_L[:, 0, 1] * self._x_L[:, 0]
 
-        roots = np.roots([A, B, C, D, E, F, G])
-        roots = roots[np.isreal(roots)].real + self._t_L
+        roots = np.empty((self.batch_size, 6))  # TODO: Passt das?
+        roots[:] = np.nan
+        for i in range(self.batch_size):
+            # unfortunately, there exists no vectorized implementation
+            roots_i = np.roots([A[i], B[i], C[i], D[i], E[i], F[i], G[i]])
+            roots_i = roots_i[np.isreal(roots_i)].real + self._t_L
+            roots[i, :roots_i.shape[0]] = roots_i
         return roots
 
     @property
@@ -617,7 +652,7 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
                 lambda t: (t - self.ev) ** 3)  # this yields much better results
             logging.info('E4 integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(
                 round(1000 * (time.time() - start_time), 4), abs_dev, rel_dev))
-        return np.squeeze(self._fourth_central_moment, axis=0)
+        return np.squeeze(self._fourth_central_moment)
 
     @property
     def fourth_central_moment_available(self):
@@ -643,7 +678,7 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
                 lambda t: (t - self.ev) ** 5)  # this yields much better results
             logging.info('E5 integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(
                 round(1000 * (time.time() - start_time), 4), abs_dev, rel_dev))
-        return np.squeeze(self._fifth_central_moment, axis=0)
+        return np.squeeze(self._fifth_central_moment)
 
     @property
     def fifth_central_moment_available(self):
@@ -670,15 +705,13 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
         """
         # TODO: One could alternatively use scipy.norm's ppf function on self.trans_dens
         F, Q = get_system_matrices_from_parameters(theta - self.t_L, self.S_w)
-        F = F[:3, :3]
-        Q = Q[:3, :3]
 
         cov_theta = np.matmul(np.matmul(F, self.C_L[0:3, 0:3]),
                               np.transpose(F)) + Q
 
         p_theta_var = cov_theta[1:, 1:] - np.outer(cov_theta[1:, 0], cov_theta[0, 1:]) / cov_theta[0, 0]
         p_theta_mu = np.array([self.x_L[1] + self.x_L[2]*(theta - self.t_L), self.x_L[2]]) \
-                     + cov_theta[1:, 0]/cov_theta[0, 0]*(self.x_predTo - self._ev_t(theta))
+                     + cov_theta[1:, 0]/cov_theta[0, 0]*(self.x_predTo - np.squeeze(self._ev_t(theta)))
 
         qf = norm.ppf(1 - q)
         A = 1 / 20 * self.S_w * qf ** 2
@@ -738,7 +771,7 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
     #     return type(self)._from_private_arguments(x_L=self._x_L[indices],
     #                                               C_L=self._C_L[indices],
     #                                              x_predTo=self._x_predTo[indices],
-    #                                               _t_L=self._t_L,
+    #                                               t_L=self._t_L,
     #                                               S_w=self._S_w[indices],
     #                                               q_max=q_max,
     #                                               t_max=t_max,
@@ -798,7 +831,7 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
     def get_statistics(self):
         """Get some statistics from the model as a dict."""
         hit_stats = super().get_statistics()
-        hit_stats.update({'RAW_CDF': self._cdf,
+        hit_stats.update({'RAW_CDF': lambda t: np.squeeze(self._cdf(t)),
                           })
         return hit_stats
 
@@ -806,7 +839,7 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
 class UniformCAHittingTimeDistribution(AbstractUniformHittingTimeDistribution, AbstractCAHittingTimeDistribution):
     """Uses point predictors for the CA arrival time prediction and a uniform distribution.
 
-    This distribution corresponds to the "usual" case where we define a fixed ejection window.
+    This distribution corresponds to the "usual" case where we define a fixed deflection window.
     """
     def __init__(self, x_L, x_predTo, t_L, point_predictor, window_length, a=0.5, name='Uniform model'):
         """Initializes the distribution.
@@ -817,14 +850,14 @@ class UniformCAHittingTimeDistribution(AbstractUniformHittingTimeDistribution, A
 
          Format point_predictor:
 
-            (pos_last, v_last, a_last)  --> dt_pred
+            (pos_last, v_last, a_last, x_predTo)  --> dt_pred
 
          where
-            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the _t_L.
-            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the _t_L.
-            - a_last is a np.array of shape [batch_size, 2] and format [x, y] containing the accelerations at the _t_L.
+            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the t_L.
+            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the t_L.
+            - a_last is a np.array of shape [batch_size, 2] and format [x, y] containing the accelerations at the t_L.
             - dt_pred is a np.array of shape [batch_size] with arrival time point estimates as difference times w.r.t.
-                _t_L.
+                t_L.
 
         :param x_L: A np.array of shape [state_length] or [batch_size, state_length] representing the expected value of
             the initial state. We use index L here because it usually corresponds to the last time we see a particle in
@@ -842,22 +875,29 @@ class UniformCAHittingTimeDistribution(AbstractUniformHittingTimeDistribution, A
         if not callable(point_predictor):
             raise ValueError('point_predictor must be a callable.')
 
-        AbstractCAHittingTimeDistribution.__init__(self,
-                                                   x_L=x_L,
-                                                   C_L=np.zeros((np.atleast_2d(x_L).shape[0], 4, 4)),  # always zero
-                                                   S_w=0,  # always zero
-                                                   x_predTo=x_predTo,
-                                                   t_L=t_L,
-                                                   name=name,
-                                                   )
+        t_predicted = point_predictor(x_L[..., [0, 3]], x_L[..., [1, 4]], x_L[..., [2, 5]], x_predTo)
 
-        t_predicted = point_predictor(self._x_L[:, [0, 2]], self._x_L[:, [1, 3]], self._x_L[:, [2, 4]])
-        AbstractUniformHittingTimeDistribution.__init__(self,
-                                                        point_prediction=t_predicted,
-                                                        window_length=window_length,
-                                                        a=a,
-                                                        name=name,
-                                                        )
+        # t_predicted must be resizeable to shape [batch_size]
+        if not np.atleast_1d(t_predicted).ndim == 1 or np.atleast_1d(t_predicted).shape[0] != np.atleast_2d(x_L).shape[
+            0]:
+            raise ValueError('point predictor must output a float or a np.array of shape [batch_size].')
+
+        # AbstractCAHittingTimeDistribution.__init__(self,
+        #                                            x_L=x_L,
+        #                                            C_L=np.zeros((np.atleast_2d(x_L).shape[0], 4, 4)),  # always zero
+        #                                            S_w=0,  # always zero
+        #                                            x_predTo=x_predTo,
+        #                                            t_L=t_L,
+        #                                            name=name,
+        #                                            )
+        #
+        # t_predicted = point_predictor(self._x_L[:, [0, 2]], self._x_L[:, [1, 3]], self._x_L[:, [2, 4]])
+        # AbstractUniformHittingTimeDistribution.__init__(self,
+        #                                                 point_prediction=t_predicted,
+        #                                                 window_length=window_length,
+        #                                                 a=a,
+        #                                                 name=name,
+        #                                                 )
 
 
 
@@ -865,18 +905,18 @@ class UniformCAHittingTimeDistribution(AbstractUniformHittingTimeDistribution, A
         # v_last = x_L[:, [1, 3]]
         # a_last = x_L[:, [2, 4]]
         # _t_predicted = point_predictor.predict(pos_last, v_last, a_last)
-        # # _t_predicted = _t_L + (x_predTo - x_L[:, 0]) / x_L[:, 1]
+        # # _t_predicted = t_L + (x_predTo - x_L[:, 0]) / x_L[:, 1]
         #
-        # super().__init__(x_L=x_L,
-        #                  C_L=np.zeros((x_L.shape[0], 4, 4)),
-        #                  S_w=0,
-        #                 x_predTo=_x_predTo,
-        #                  _t_L=_t_L,
-        #                  name=name,
-        #                  point_prediction=_t_predicted,  # TODO
-        #                  window_length=window_length,
-        #                  a=a,
-        #                  )
+        super().__init__(x_L=x_L,
+                         C_L=np.zeros((np.atleast_2d(x_L).shape[0], x_L.shape[-1], x_L.shape[-1])),  # always zero
+                         S_w=0,  # always zero
+                         x_predTo=x_predTo,
+                         t_L=t_L,
+                         name=name,
+                         point_prediction=t_predicted,
+                         window_length=window_length,
+                         a=a,
+                         )
 
     @property
     def fourth_central_moment(self):
@@ -884,7 +924,7 @@ class UniformCAHittingTimeDistribution(AbstractUniformHittingTimeDistribution, A
 
         :returns: A float or a np.array of shape [batch_size], the fourth central moment.
         """
-        return np.squeeze(1 / 80 * (self.x_max - self.x_min) ** 4, axis=0)  # Uniform fourth central moment
+        return np.squeeze(1 / 80 * (self.x_max - self.x_min) ** 4)  # Uniform fourth central moment
 
     @property
     def fifth_central_moment(self):
@@ -892,7 +932,7 @@ class UniformCAHittingTimeDistribution(AbstractUniformHittingTimeDistribution, A
 
         :returns: A float or a np.array of shape [batch_size], the fifth central moment.
         """
-        return np.zeros(self.batch_size)  # Uniform fifth central moment
+        return np.squeeze(np.zeros(self.batch_size))  # Uniform fifth central moment
 
     @AbstractCAHittingTimeDistribution.S_w.setter
     def S_w(self, value):
@@ -939,7 +979,7 @@ class MCCAHittingTimeDistribution(AbstractMCHittingTimeDistribution, AbstractCAH
                     self.__class__.__name__))
 
         if t_samples is None:
-            t_samples, _, _ = create_ty_ca_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L)
+            (t_samples, _, _), _ = create_ty_ca_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L)
 
         super().__init__(x_L=x_L,
                          C_L=C_L,
@@ -955,7 +995,7 @@ class MCCAHittingTimeDistribution(AbstractMCHittingTimeDistribution, AbstractCAH
     def fourth_central_moment(self):
         """The fourth central moment of the first-passage time distribution.
 
-        :returns: A float or a np.array of shape [batch_size], the fourth central moment.
+        :returns: A float, the fourth central moment.
         """
         return self.fourth_moment - 4 * self.ev * self.third_moment + 6 * self.ev ** 2 * self.second_moment - 3 * self.ev ** 4
 
@@ -963,7 +1003,7 @@ class MCCAHittingTimeDistribution(AbstractMCHittingTimeDistribution, AbstractCAH
     def fourth_moment(self):
         """The fourth moment of the first-passage time distribution.
 
-        :returns: A float or a np.array of shape [batch_size], the fourth moment.
+        :returns: A float, the fourth moment.
         """
         return self._density.moment(4)
 
@@ -971,7 +1011,7 @@ class MCCAHittingTimeDistribution(AbstractMCHittingTimeDistribution, AbstractCAH
     def fifth_central_moment(self):
         """The fifth central moment of the first-passage time distribution.
 
-        :returns: A float or a np.array of shape [batch_size], the fifth central moment.
+        :returns: A float, the fifth central moment.
         """
         return self.fifth_moment - 5 * self.ev * self.fourth_moment + 10 * self.ev ** 2 * self.third_moment - 10 * self.ev ** 3 * self.second_moment + 4 * self.ev ** 5
 
@@ -979,7 +1019,7 @@ class MCCAHittingTimeDistribution(AbstractMCHittingTimeDistribution, AbstractCAH
     def fifth_moment(self):
         """The fifth moment of the first-passage time distribution.
 
-        :returns: A float or a np.array of shape [batch_size], the fifth moment.
+        :returns: A float, the fifth moment.
         """
         return self._density.moment(5)
 
@@ -992,5 +1032,7 @@ class MCCAHittingTimeDistribution(AbstractMCHittingTimeDistribution, AbstractCAH
         """
         self._S_w = np.broadcast_to(value, shape=self.batch_size)
         # Resample und recalculate the distribution
-        t_samples, _, _ = create_ty_ca_samples_hitting_time(self.x_L, self.C_L, self.S_w, self.x_predTo, self._t_L)
-        self._density = self._build_distribution_from_samples(self._samples, self._range)
+        (self._samples, _, _), _ = create_ty_ca_samples_hitting_time(self.x_L, self.C_L, self.S_w, self.x_predTo,
+                                                                     self._t_L)
+        self._density = self._build_distribution_from_samples(self._samples,
+                                                              self._range)  # TODO: Self.range dann auch anpassen?

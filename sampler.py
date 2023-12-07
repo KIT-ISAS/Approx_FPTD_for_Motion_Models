@@ -29,7 +29,7 @@ def create_hitting_time_samples(initial_samples,
         [x_pos, ..., y_pos at index y_pos_ind, ... ]
 
     :param initial_samples: A np.array of shape [num_samples, state_size], the initial particles samples at time step
-        _t_L.
+        t_L.
     :param compute_x_next_func: A function propagating the samples to the next time step, i.e., the one time step
         transition function.
     :param x_predTo: A float, the position of the boundary.
@@ -154,11 +154,10 @@ def create_hitting_time_samples(initial_samples,
             y_max[np.logical_and(particle_passes_mask, x_next[:, y_pos_ind] > y_max)] = x_next[
                 np.logical_and(particle_passes_mask, x_next[:, y_pos_ind] > y_max), y_pos_ind]
 
-        if break_min_time is None:
-            if np.all(x_term_first_front_arrival) and np.all(x_term_first_back_not_in):
+        if (length is None and np.all(x_term)) or (length is not None and np.all(x_term_first_back_not_in)):
+            if break_min_time is None:
                 break
-        else:
-            if t >= break_min_time and np.all(x_term_first_front_arrival) and np.all(x_term_first_back_not_in):
+            elif t >= break_min_time:
                 break
         if break_after_n_time_steps is not None and ind >= break_after_n_time_steps:
             logging.info(
@@ -201,14 +200,14 @@ def create_lgssm_hitting_time_samples(F,
                                       x_predTo,
                                       calculate_intersection_delta_time_fn,
                                       calculate_delta_y,
+                                      y_pos_ind,
                                       length=None,
-                                      y_pos_ind=None,
                                       N=100000,
                                       dt=1 / 1000,
                                       break_after_n_time_steps=1000,
                                       break_min_time=None):
     """Monte Carlo approach to solve the first-passage time problem. Propagates particles through the discrete-time
-    LGSSM motion model and determines their first-passage atx_predTo as well as the location in y at the first-passage
+    LGSSM motion model and determines their first-passage at x_predTo as well as the location in y at the first-passage
     by interpolating the positions between the last time before and the first time after the boundary.
 
      Format calculate_intersection_delta_time_fn:
@@ -245,12 +244,12 @@ def create_lgssm_hitting_time_samples(F,
         as delta w.r.t. the time of the last time step.
     :param calculate_delta_y: A callable, a function that returns the position in y as delta w.r.t. the position of
         the last state.
+    :param y_pos_ind: An integer, the index where the position component in y-direction is located in the state-vector.
     :param length: None or a float, the length (in transport direction) of the particle. If None, no
         extent_passage_statistics will be calculated.
-    :param y_pos_ind: An integer, the index where the position component in y-direction is located in the state-vector.
-        Must be provided if length is not None.
     :param N: Integer, number of samples to use.
     :param dt: A float, the time increment.
+    :param break_after_n_time_steps: Integer, maximum number of time steps for the simulation.
     :param break_min_time: A float, the time (not the time step) up to which is simulated at least.
         (break_after_n_time_steps dominates break_min_time).
 
@@ -277,8 +276,6 @@ def create_lgssm_hitting_time_samples(F,
                 first-passage times of the particle backs.
     """
     # sanity check
-    if length is not None and y_pos_ind is None:
-        raise ValueError("If length is given, also y_pos_ind must be provided.")
     if not callable(calculate_intersection_delta_time_fn):
         raise ValueError("calculate_intersection_delta_time_fn must be callable.")
     if not callable(calculate_delta_y):
@@ -310,21 +307,22 @@ def create_lgssm_hitting_time_samples(F,
     # first for the first-passage statistics
     time_before_arrival, x_before_arrival, x_after_arrival, x_term, fraction_of_returns = first_passage_statistics
 
+    # first arrival time
     t_samples = time_before_arrival
     delta_t_first_arrival = calculate_intersection_delta_time_fn(x_before_arrival=x_before_arrival,
                                                                  x_after_arrival=x_after_arrival,
                                                                  x_predTo=x_predTo,
                                                                  x_term=x_term)
-    t_samples[x_term] = time_before_arrival[x_term] + delta_t_first_arrival
+    t_samples[x_term] += delta_t_first_arrival
     t_samples[np.logical_not(x_term)] = int(
         max(t_samples)) + 1  # default value for particles that do not arrive
 
-    # default value for particles that do not arrive
-    y_samples = x_before_arrival[:, 2]
-    y_samples[x_term] = calculate_delta_y(x_before_arrival=x_before_arrival,
-                                          x_term=x_term,
-                                          delta_t=delta_t_first_arrival)
-    y_samples[np.logical_not(x_term)] = np.nan
+    # first arrival location
+    y_samples = x_before_arrival[:, y_pos_ind]
+    y_samples[x_term] += calculate_delta_y(x_before_arrival=x_before_arrival,
+                                           x_term=x_term,
+                                           delta_t=delta_t_first_arrival)
+    y_samples[np.logical_not(x_term)] = np.nan  # default value for particles that do not arrive
 
     first_passage_statistics = t_samples, y_samples, fraction_of_returns
 
@@ -339,9 +337,7 @@ def create_lgssm_hitting_time_samples(F,
                                                                            x_after_arrival=x_after_front_arrival,
                                                                            x_predTo=x_predTo - length / 2,
                                                                            x_term=x_term_first_front_arrival)
-        t_samples_first_front_arrival[x_term_first_front_arrival] = time_before_first_front_arrival[
-                                                                        x_term_first_front_arrival] + delta_t_first_front_arrival
-
+        t_samples_first_front_arrival[x_term_first_front_arrival] += delta_t_first_front_arrival
         # default value for particles that do not arrive
         t_samples_first_front_arrival[np.logical_not(x_term_first_front_arrival)] = int(
             max(t_samples_first_front_arrival)) + 1
@@ -352,30 +348,26 @@ def create_lgssm_hitting_time_samples(F,
                                                                           x_after_arrival=x_after_first_back_not_in,
                                                                           x_predTo=x_predTo + length / 2,
                                                                           x_term=x_term_first_back_not_in)
-        t_samples_first_back_arrival[x_term_first_back_not_in] = time_before_first_back_not_in[
-                                                                     x_term_first_back_not_in] + delta_t_first_back_arrival
-
+        t_samples_first_back_arrival[x_term_first_back_not_in] += delta_t_first_back_arrival
         # default value for particles that do not arrive
         t_samples_first_back_arrival[np.logical_not(x_term_first_back_not_in)] = int(
             max(t_samples_first_back_arrival)) + 1
 
         # front arrival location
         y_samples_first_front_arrival = x_before_front_arrival[:, y_pos_ind]
-        y_samples_first_front_arrival[x_term_first_front_arrival] = calculate_delta_y(
+        y_samples_first_front_arrival[x_term_first_front_arrival] += calculate_delta_y(
             x_before_arrival=x_before_front_arrival,
             x_term=x_term_first_front_arrival,
             delta_t=delta_t_first_front_arrival)
-
         # default value for particles that do not arrive
         y_samples_first_front_arrival[np.logical_not(x_term_first_front_arrival)] = np.nan
 
         # back arrival location
         y_samples_first_back_arrival = x_before_first_back_not_in[:, y_pos_ind]
-        y_samples_first_back_arrival[x_term_first_back_not_in] = calculate_delta_y(
+        y_samples_first_back_arrival[x_term_first_back_not_in] += calculate_delta_y(
             x_before_arrival=x_before_first_back_not_in,
             x_term=x_term_first_back_not_in,
             delta_t=delta_t_first_back_arrival)
-
         # default value for particles that do not arrive
         y_samples_first_back_arrival[np.logical_not(x_term_first_back_not_in)] = np.nan
 
@@ -404,7 +396,7 @@ def create_lgssm_hitting_time_samples(F,
     return first_passage_statistics, first_arrival_interval_statistics
 
 
-def get_example_tracks_lgssm(x_L, C_L, S_w, get_system_matrices_from_parameters_func):
+def get_example_tracks_lgssm(x_L, C_L, S_w, get_system_matrices_from_parameters_func, return_component_ind=0):
     """Generator that creates a function for simulation of example tracks of LGSSMs. Used for plotting purpose only.
 
     :param x_L: A np.array of shape [4] representing the expected value of the initial state. We use index L here
@@ -414,6 +406,8 @@ def get_example_tracks_lgssm(x_L, C_L, S_w, get_system_matrices_from_parameters_
     :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
     :param get_system_matrices_from_parameters_func: A function that returns the system matrices of the LGSSM.
         Signature: f(dt, S_w), with dt a float being the time increment.
+    :param return_component_ind: An integer, the index where the state component to be returned is located in the
+        state-vector.
 
     :returns:
         _get_example_tracks: A function that can be used for simulation of example tracks.
@@ -427,10 +421,12 @@ def get_example_tracks_lgssm(x_L, C_L, S_w, get_system_matrices_from_parameters_
         :param N: Integer, the number of tracks to create.
 
         :returns:
-            x_tracks: A np.array of shape [num_time_steps, N] containing the x-positions of the tracks.  # TODO: Anpassen, sodass es auch mit den y-Positionen geht!
+            x_tracks: A np.array of shape [num_time_steps, N] containing the x-positions of the tracks.
         """
         dt = plot_t[1] - plot_t[0]
         F, Q = get_system_matrices_from_parameters_func(dt, S_w)
+        F = np.block([[F, np.zeros_like(F)], [np.zeros_like(F), F]])
+        Q = np.block([[Q, np.zeros_like(Q)], [np.zeros_like(Q), Q]])
 
         initial_samples = np.random.multivariate_normal(mean=x_L, cov=C_L, size=N)  # [length_state, N]
         mean_w = np.zeros(initial_samples.shape[1])
@@ -444,8 +440,9 @@ def get_example_tracks_lgssm(x_L, C_L, S_w, get_system_matrices_from_parameters_
             x_next = np.expand_dims(x_next + w_k, axis=-1)
             tracks = np.concatenate((tracks, x_next), axis=-1)
 
-        x_tracks = tracks[:, 0, :].T  # [N, length_state, num_time_steps] -> [num_time_steps, N]
+        component_tracks = tracks[:, return_component_ind,
+                           :].T  # [N, length_state, num_time_steps] -> [num_time_steps, N]
 
-        return x_tracks
+        return component_tracks
 
     return get_example_tracks

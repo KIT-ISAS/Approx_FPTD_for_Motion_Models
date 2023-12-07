@@ -44,7 +44,7 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
 
         :returns A float or np.array of shape [batch_size], the position of the boundary.
         """
-        return np.squeeze(self._x_predTo, axis=0)
+        return np.squeeze(self._x_predTo)
 
     @property
     def t_L(self):
@@ -57,11 +57,11 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
     @abstractmethod
     @AbstractArrivalDistribution.batch_size_one_function
     def trans_density(self, dt, theta):
-        """The transition density p(x(dt+theta)| x(theta) =x_predTo) from going fromx_predTo at time theta to
+        """The transition density p(x(dt+theta)| x(theta) =x_predTo) from going from x_predTo at time theta to
         x(dt+theta) at time dt+theta.
 
-        Note that in terms of the used approximation, this can be seen as the first returning time tox_predTo after
-        a crossing ofx_predTo at theta.
+        Note that in terms of the used approximation, this can be seen as the first returning time to x_predTo after
+        a crossing of x_predTo at theta.
 
         This function does not support batch-wise processing, i.e., a batch dimension of 1 is required.
 
@@ -106,10 +106,10 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
 
         Approach:
 
-         P(t < T_a , x(t) < a) = int_{_t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta
+         P(t < T_a , x(t) < a) = int_{t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta
 
                                ≈ 1 / N sum_{theta_i} P(x(t) < a | x(theta_i) = a) ,  theta_i samples from the
-                                    approximation (N samples in total) in [_t_L, t] ,
+                                    approximation (N samples in total) in [t_L, t] ,
 
           with theta the time, when x(theta) = a.
 
@@ -142,10 +142,10 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
 
         Approach:
 
-         P(t < T_a , x(t) < a) = int_{_t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta
+         P(t < T_a , x(t) < a) = int_{t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta
 
-                               ≈  (t - _t_L) / N sum_{theta_i} FPTD(theta_i) * P(x(t) < a | x(theta_i) = a) ,  theta_i
-                                    samples from a uniform distribution (N samples in total) in [_t_L, t] ,
+                               ≈  (t - t_L) / N sum_{theta_i} FPTD(theta_i) * P(x(t) < a | x(theta_i) = a) ,  theta_i
+                                    samples from a uniform distribution (N samples in total) in [t_L, t] ,
 
           with theta the time, when x(theta) = a.
 
@@ -174,7 +174,7 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
 
         Approach:
 
-         P(t < T_a , x(t) < a) = int_{_t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta ,
+         P(t < T_a , x(t) < a) = int_{t_L}^t fptd(theta) P(x(t) < a | x(theta) = a) d theta ,
 
           with theta the time, when x(theta) = a.
 
@@ -241,7 +241,7 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
         # sanity checks
         if self._t_L != values._t_L:
             raise ValueError(
-                'When assigning values to {}, both instances must have the same parameter _t_L'.format(
+                'When assigning values to {}, both instances must have the same parameter t_L'.format(
                     self.__class__.__name__))
 
         self._x_predTo[indices] = values._x_predTo  # TODO: Call to super?
@@ -346,7 +346,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
         """
         if self._q_max is None:
             self._q_max, self._t_max = self._get_max_cdf_value_and_location()
-        return np.squeeze(self._q_max, axis=0)
+        return np.squeeze(self._q_max)
 
     @property
     def t_max(self):
@@ -356,7 +356,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
         """
         if self._t_max is None:
             self._q_max, self._t_max = self._get_max_cdf_value_and_location()
-        return np.squeeze(self._t_max, axis=0)
+        return np.squeeze(self._t_max)
 
     @property
     def compute_moment(self):
@@ -394,7 +394,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
             self._ev, _, abs_dev, rel_dev = self.compute_moment(lambda t: t)
             logging.info('EV integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(
                 round(1000 * (time.time() - start_time), 4), abs_dev, rel_dev))
-        return np.squeeze(self._ev, axis=0)
+        return np.squeeze(self._ev)
 
     @property
     def ev_available(self):
@@ -421,7 +421,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
                 lambda t: (t - self.ev) ** 2)  # this yields much better results
             logging.info('Var integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(
                 round(1000 * (time.time() - start_time), 4), abs_dev, rel_dev))
-        return np.squeeze(self._var, axis=0)
+        return np.squeeze(self._var)
 
     @property
     def var_available(self):
@@ -447,7 +447,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
                 lambda t: (t - self.ev) ** 3)  # this yields much better results
             logging.info('E3 integration time: {0}ms. Abs dev: {1}, Rel. dev: {2}'.format(
                 round(1000 * (time.time() - start_time), 4), abs_dev, rel_dev))
-        return np.squeeze(self._third_central_moment, axis=0)
+        return np.squeeze(self._third_central_moment)
 
     @property
     def third_central_moment_available(self):
@@ -488,7 +488,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
               1 - q = int(N(x, mu(t), var(t)), x = -inf ..x_predTo) = PHI ( (x_predTo - mu(t)) / sqrt(var(t))
               PHI^-1(1 -q) = (x_predTo - mu(t)) / sqrt(var(t)) -> solve for t...
 
-        We solve the equation for t = t - _t_L to simplify calculations and add _t_L at the end of the function.
+        We solve the equation for t = t - t_L to simplify calculations and add t_L at the end of the function.
 
         :param q: A float, the confidence parameter of the distribution, 0 <= q <= 1.
 
@@ -508,7 +508,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
 
             set self._pdf(t) = 0, solve for t.
 
-        We solve the equation for t = t - _t_L to simplify calculations and add _t_L at the end of the function.
+        We solve the equation for t = t - t_L to simplify calculations and add t_L at the end of the function.
 
         :returns:
             roots: A numpy array of shape [batch_size, num_roots], candidates for the maximum value of the CDF.
@@ -520,7 +520,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
     @AbstractArrivalDistribution.batch_size_one_function
     def trans_dens_ppf(self, theta, q=0.95):
         """The PPF of 1 - int ( p(x(dt+theta)| x(theta) =x_predTo), x(dt+theta) = - infty ..x_predTo),
-        i.e., the inverse CDF of the event that particles are abovex_predTo once they have reached it at time theta.
+        i.e., the inverse CDF of the event that particles are above x_predTo once they have reached it at time theta.
 
         Note that in terms of the used approximation, this can be seen as PPF of the approximate first-passage
         returning time distribution w.r.t. the boundary x_pred_to.
@@ -560,11 +560,12 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
         :returns: A float or a np.array, the value of the CDF for t:
             - If the distribution is scalar (batch_size = 1)
                 - and t is scalar, then returns a float,
-                - and t is np.array of shape [sample_size], then returns a np.array of shape [sample_size].
-            - If the distribution's batch_size is > 1 )
+                - and t is np.array of shape [sample_size] (with sample_size > 1), then returns a np.array of shape
+                    [sample_size].
+            - If the distribution's batch_size is > 1
                 - and t is scalar, then returns a np.array of shape [batch_size],
-                - and t is a np.array of [batch_size, sample_size], then returns a np.array of shape
-                    [batch_size, sample_size].
+                - and t is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
+                    shape [batch_size, sample_size].
         """
         # t = np.asarray([t]) if np.isscalar(t) else np.asarray(t)
         # cdf_value = self._cdf(t)
@@ -588,7 +589,8 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
         # The CDF is defined as a piecewise function that keeps its height once it has reaches q_max
         # q_max_array = np.tile(self.q_max[:, np.newaxis], t.shape[1])  # TODO: kann man das besser machen? np.broadcast?
         # cdf_value[t > self.t_max[:, np.newaxis]] = q_max_array[t > self.t_max[:, np.newaxis]]  # piecewise function
-        cdf_value[t > self.t_max] = np.broadcast_to(self.q_max, shape=cdf_value.shape)[t > self.t_max]  # piecewise function
+        t = np.broadcast_to(t, shape=cdf_value.shape)
+        cdf_value[t > self.t_max] = np.broadcast_to(self.q_max, shape=cdf_value.shape)[t > self.t_max]  # piecewise function  # TODO: Das ist gefährlich für batch_size > 1, testen!
         return np.squeeze(cdf_value)
 
     @AbstractArrivalDistribution.check_density_input_dim
@@ -601,16 +603,18 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
         :returns: A float or a np.array, the value of the FPTD for t:
             - If the distribution is scalar (batch_size = 1)
                 - and t is scalar, then returns a float,
-                - and t is np.array of shape [sample_size], then returns a np.array of shape [sample_size].
-            - If the distribution's batch_size is > 1 )
+                - and t is np.array of shape [sample_size] (with sample_size > 1), then returns a np.array of shape
+                    [sample_size].
+            - If the distribution's batch_size is > 1
                 - and t is scalar, then returns a np.array of shape [batch_size],
-                - and t is a np.array of [batch_size, sample_size], then returns a np.array of shape
-                    [batch_size, sample_size].
+                - and t is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
+                    shape [batch_size, sample_size].
         """
         pdf_value = self._pdf(t)
 
         # The PDF is defined as a piecewise function that remains at 0 once it has reached it
         # pdf_value[t > self.t_max[:, np.newaxis]] = 0  # piecewise function
+        t = np.broadcast_to(t, shape=pdf_value.shape)  # TODO: testen
         pdf_value[t > self.t_max] = 0  # piecewise function
         return np.squeeze(pdf_value)
 
@@ -652,7 +656,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
                                                                                                                   self.cdf(
                                                                                                                       candidate_roots)[
                                                                                                                       non_valids]))
-        return np.squeeze(t, axis=0)
+        return np.squeeze(t)
 
     def _get_max_cdf_value_and_location(self):
         """Method that finds the maximum of the CDF of the approximation and its location.
@@ -661,7 +665,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
 
             set self._pdf(t) = 0, solve for t.
 
-        We solve the equation for t = t - _t_L to simplify calculations and add _t_L at the end of the function.
+        We solve the equation for t = t - t_L to simplify calculations and add t_L at the end of the function.
 
         :returns:
             q_max: A numpy array of shape [batch_size], the maximum value of the CDF.
@@ -854,7 +858,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
                            result_dir=None,
                            for_paper=True,
                            no_show=False):
-        """Plot the (approximate) probabilities that the track doesn't intersect withx_predTo once it has reached
+        """Plot the (approximate) probabilities that the track doesn't intersect with x_predTo once it has reached
         it at time theta in dependency on the time difference dt (t = dt + theta) and theta.
 
         Note that, there are intervals in time for which is it very unlikely (with confidence q) that the track falls
@@ -904,7 +908,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
             if len(plot_theta) == 1:
                 label = None
             else:
-                label = r"$\theta$: {} $\cdot$ det. pred.".format(round(multipliers[i], 1))
+                label = r"$\theta$: {} $\cdot$ det. pred.".format(np.round(multipliers[i], 1))  # TODO: Multipliers nicht definiert!
 
             if np.isclose(theta, t_pred):
                 # Mark the valid regions
@@ -929,7 +933,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
 
         if save_results:
             plot_name = "_valid_regions" if len(plot_theta) != 1 else "_valid_region_for_" + str(round(theta, 4))
-            basename = os.path.basename(os.path.normpath(result_dir))
+            basename = os.path.basename(os.path.normpath(result_dir))  # TODO: result_dir undefined
             process_name_save = basename.lower().replace(" ", "_")
             plt.savefig(os.path.join(result_dir, process_name_save + plot_name + '.pdf'))
             plt.savefig(os.path.join(result_dir, process_name_save + plot_name + '.png'))
@@ -1014,7 +1018,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
 class AbstractUniformHittingTimeDistribution(AbstractUniformArrivalDistribution, AbstractHittingTimeDistribution, ABC):
     """Uses point predictors for the arrival time prediction and a uniform distribution.
 
-    This distribution corresponds to the "usual" case where we define a fixed ejection window.
+    This distribution corresponds to the "usual" case where we define a fixed deflection window.
     """
     def __init__(self, name='AbstractUniformHittingTimeDistribution', **kwargs):
         """Initializes the distribution.
@@ -1047,14 +1051,13 @@ class AbstractMCHittingTimeDistribution(AbstractMCArrivalDistribution, AbstractH
      using scipy.stats.rv_histogram.
 
     """
-    def __init__(self, t_range, t_samples=None, name="AbstractMCHittingTimeDistribution", **kwargs):
+    def __init__(self, t_range, t_samples, name="AbstractMCHittingTimeDistribution", **kwargs):
         """Initializes the distribution.
 .
         :param name: String, the (default) name for the distribution.
-          :param t_range: A list of length 2 representing the limits for the first-passage time histogram (the number of
+        :param t_range: A list of length 2 representing the limits for the first-passage time histogram (the number of
             bins within t_range will correspond to bins).
-        :param t_samples: None or a np.array of shape [num_samples] containing the first-passage times of the particles.
-            If None, t_samples will be created by a call to a sampling method. If given, given values will be used.
+        :param t_samples: A np.array of shape [num_samples] containing the first-passage times of the particles.
         """
         super().__init__(name=name,
                          range=t_range,

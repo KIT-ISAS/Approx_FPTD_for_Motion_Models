@@ -1,5 +1,5 @@
 """
-#########################################  wiener_process.py  #########################################
+#########################################  wiener_process_main.py  #########################################
 Authors: Marcel Reith-Braun (ISAS, marcel.reith-braun@kit.edu), Jakob Thumm
 #######################################################################################################
 Calculates approximate first-passage time distributions for a Wiener process with drift using different
@@ -13,7 +13,7 @@ usage:
             -v </path/to/repo>:/mnt \\
             tensorflow/approx_fptd:2.8.0-gpu:
  - within container:
-     $   python3 /mnt/wiener_process.py \\
+     $   python3 /mnt/wiener_process_main.py \\
 requirements:
   - Required packages/tensorflow/approx_fptd:2.8.0-gpu image: See corresponding dockerfile.
   - Volume mounts: Specify a path </path/to/repo/> that points to the repo.
@@ -45,13 +45,13 @@ flags.DEFINE_string('save_path', default='/mnt/wiener_samples.npz',
                     help='The path to save the .npz  file.')
 flags.DEFINE_bool('save_results', default=False,
                     help='Whether to save the results.')
-flags.DEFINE_string('_result_dir', default='/mnt/results/',
+flags.DEFINE_string('result_dir', default='/mnt/results/',
                     help='The directory where to save the results.')
 flags.DEFINE_bool('sw_fifty', default=False,
                     help='Whether to use Sw=50.')
 flags.DEFINE_bool('no_show', default=False,
                   help='Set this to True if you do not want to show evaluation graphics and only save them.')
-flags.DEFINE_bool('_for_paper', default=False,
+flags.DEFINE_bool('for_paper', default=False,
                   help='Boolean, whether to use the plots for publication (omit headers, etc.)..')
 flags.DEFINE_bool('measure_computational_times', default=False,
                     help='Whether to measure the computational times.')
@@ -92,8 +92,8 @@ def main(args):
     hte = HittingTimeEvaluator('Wiener Process with Drift', x_predTo, plot_t, t_predicted,
                                get_example_tracks_fn=get_example_tracks(mu, sigma, x0),
                                save_results=FLAGS.save_results,
-                               result_dir=FLAGS._result_dir,
-                               for_paper=FLAGS._for_paper,
+                               result_dir=FLAGS.result_dir,
+                               for_paper=FLAGS.for_paper,
                                no_show=FLAGS.no_show)
 
     # Create samples
@@ -122,13 +122,13 @@ def main(args):
     mc_model = MCWienerHittingTimeDistribution(mu, sigma, x0, x_predTo, t_range, t_samples=t_samples)
 
     # Plot valid regions
-    approx_model.plot_valid_regions(theta=t_predicted, save_results=FLAGS.save_results, result_dir=FLAGS._result_dir,
+    approx_model.plot_valid_regions(theta=t_predicted, save_results=FLAGS.save_results, result_dir=FLAGS.result_dir,
                                     for_paper=True, no_show=FLAGS.no_show)
     # no difference to the one before as the process is Markov
-    # approx_model.plot_valid_regions(save_results=FLAGS.save_results, _result_dir=FLAGS._result_dir, _for_paper=True,
+    # approx_model.plot_valid_regions(save_results=FLAGS.save_results, result_dir=FLAGS.result_dir, for_paper=True,
     #                                 no_show=FLAGS.no_show)
     logging.info('Mass inside invalid region: {}'.format(
-        approx_model.cdf(t_predicted + approx_model.trans_dens_ppf())[0] - approx_model.cdf(t_predicted)))
+        approx_model.cdf(t_predicted + approx_model.trans_dens_ppf()) - approx_model.cdf(t_predicted)))
     logging.info('Approximate returning probs after a crossing until time t_max: {}'.format(
         approx_model.get_statistics()['ReturningProbs'](approx_model.t_max)))
 
@@ -137,23 +137,23 @@ def main(args):
     # Plot the quantile functions
     hte.plot_quantile_functions(approaches_temp_ls)
     # Calculate moments and compare the results
-    hte.compare_moments_temporal(approaches_temp_ls)
+    hte.compare_moments(approaches_temp_ls)
 
     # Calculate wasserstein distance and compare results
-    hte.compare_wasserstein_distances(t_samples, approaches_temp_ls)
+    hte.compare_wasserstein_distances(approaches_temp_ls, t_samples)
     # Calculate the Hellinger distance
-    hte.compare_hellinger_distances(t_samples, approaches_temp_ls)
+    hte.compare_hellinger_distances(approaches_temp_ls, t_samples)
     # Calculate the first wasserstein distance
-    hte.compare_first_wasserstein_distances(t_samples, approaches_temp_ls)
+    hte.compare_first_wasserstein_distances(approaches_temp_ls, t_samples)
     # Calculate the kolmogorov distance
-    hte.compare_kolmogorov_distances(t_samples, approaches_temp_ls)
+    hte.compare_kolmogorov_distances(approaches_temp_ls, t_samples)
 
     # Plot histogram of samples and hitting time distributions
-    hte.plot_first_hitting_time_distributions(t_samples, approaches_temp_ls, plot_hist_for_all_particles=True)
-    hte.plot_fptd_and_paths_in_one(ev_fn, var_fn, t_samples, approaches_temp_ls, plot_hist_for_all_particles=True)
+    hte.plot_first_hitting_time_distributions(approaches_temp_ls, t_samples, plot_hist_for_all_particles=True)
+    hte.plot_fptd_and_paths_in_one(approaches_temp_ls, ev_fn, var_fn, t_samples, plot_hist_for_all_particles=True)
     # Plot histogram of samples for returning distribution and estimated returning distribution
     # hte.plot_returning_probs_from_fptd_histogram(ev_fn, var_fn, t_samples, approaches_temp_ls)   # this is too noisy
-    hte.plot_returning_probs_from_sample_paths(fraction_of_returns, dt, approaches_temp_ls,
+    hte.plot_returning_probs_from_sample_paths(approaches_temp_ls, fraction_of_returns, dt,
                                                t_range=[t_range[0], 3 * t_range[1]])
 
     if FLAGS.measure_computational_times:
@@ -177,7 +177,7 @@ class AbstractWienerHittingTimeDistribution(AbstractHittingTimeDistribution, ABC
         :param x_predTo: A float, the position of the boundary.
         :param name: String, the (default) name for the distribution.
         """
-        if not np.all.reduce((np.isscalar(mu), np.isscalar(sigma), np.isscalar(x_predTo))):
+        if not np.logical_and.reduce((np.isscalar(mu), np.isscalar(sigma), np.isscalar(x_predTo))):
             raise ValueError(
                 'Batch size must be equal to 1. Note that {} does not support a batch dimension.'.format(
                     self.__class__.__name__))
@@ -187,7 +187,7 @@ class AbstractWienerHittingTimeDistribution(AbstractHittingTimeDistribution, ABC
         self._x0 = x0
 
         super().__init__(x_predTo=x_predTo,
-                         t_L=0,  # methods only support _t_L = 0
+                         t_L=0,  # methods only support t_L = 0
                          name=name,
                          **kwargs)
 
@@ -242,11 +242,11 @@ class AbstractWienerHittingTimeDistribution(AbstractHittingTimeDistribution, ABC
         return self.sigma**2*t
 
     def trans_density(self, dt, theta=None):
-        """The transition density p(x(dt+theta)| x(theta) =x_predTo) from going fromx_predTo at time theta to
+        """The transition density p(x(dt+theta)| x(theta) =x_predTo) from going from x_predTo at time theta to
         x(dt+theta) at time dt+theta.
 
-        Note that in terms of the used approximation, this can be seen as the first returning time tox_predTo after
-        a crossing ofx_predTo at theta.
+        Note that in terms of the used approximation, this can be seen as the first returning time to x_predTo after
+        a crossing of x_predTo at theta.
 
         Depends only on the time difference dt, not on theta itself, since the Wiener process with drift is a 1D Markov
         process.
@@ -376,7 +376,7 @@ class AnalyticWienerHittingTimeDistribution(AbstractWienerHittingTimeDistributio
 
         Approach:
 
-         P(t < T_a , x(t) < a) = int_{-inf}^x_predTo int_{_t_L}^t fptd(theta) p(x(t) | x(theta) = a) d theta d x(t) ,
+         P(t < T_a , x(t) < a) = int_{-inf}^x_predTo int_{t_L}^t fptd(theta) p(x(t) | x(theta) = a) d theta d x(t) ,
 
           with theta the time, when x(theta) = a.
 
@@ -496,19 +496,17 @@ class NoReturnWienerHittingTimeDistribution(AbstractWienerHittingTimeDistributio
 
         :returns:
             t: A np.array of shape [1], the value of the PPF for q.
-            candidate_roots: A np.array of shape [1, 2] containing the values of all possible roots.
+            candidate_roots: A np.array of shape [1, num_possible_solutions] containing the values of all possible
+                roots.
         """
-        if q < 0.0 or q > 1.0:
-            raise ValueError('Confidence level q must be between 0 and 1.')
-
         # quadratic function
         # t**2 + p*t + qq = 0
         qf = norm.ppf(1 - q)  # Standard-Gaussian quantile function
 
-        p = - (2*(self.x_predTo - self.x0)/self.mu + qf**2*self.sigma**2/self.mu**2)
-        qq = (self.x_predTo - self.x0)**2/self.mu**2  # p**2 > qq everywhere!
+        p = - (2 * (self.x_predTo - self.x0) / self.mu + qf ** 2 * self.sigma ** 2 / self.mu ** 2)
+        qq = (self.x_predTo - self.x0) ** 2 / self.mu ** 2  # p**2 > qq everywhere!
 
-        t_1 = - p/2 + np.sqrt((p/2)**2  - qq)
+        t_1 = - p / 2 + np.sqrt((p / 2) ** 2 - qq)
         t_2 = - p / 2 - np.sqrt((p / 2) ** 2 - qq)
 
         # Function must be positive for all confidence levels (because t is starting at 0),
@@ -637,7 +635,8 @@ def create_wiener_samples_hitting_time(mu,
         return x_next
 
     # Let the samples move to the actuator array
-    time_before_arrival, x_before_arrival, x_after_arrival, x_term, fraction_of_returns = create_hitting_time_samples(
+    (time_before_arrival, x_before_arrival, x_after_arrival, x_term,
+     fraction_of_returns), _ = create_hitting_time_samples(
         initial_samples[:, None],  # expects a 2D array
         compute_x_next_func,
         x_predTo,

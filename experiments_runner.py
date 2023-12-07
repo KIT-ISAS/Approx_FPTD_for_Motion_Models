@@ -38,11 +38,11 @@ def add_defaults(experiments_list, flags):
         if (flags.save_samples or flags.load_samples) and "save_path" not in experiment_config.keys():
             experiment_config['save_path'] = os.path.join(flags.save_dir, experiment_config['experiment_name'] + '.npz')
             experiment_config['save_samples'] = flags.save_samples
-        if flags._result_dir is not None and "_result_dir" not in experiment_config.keys():
-            result_dir = os.path.join(flags._result_dir, experiment_config['experiment_name'])
+        if flags.result_dir is not None and "result_dir" not in experiment_config.keys():
+            result_dir = os.path.join(flags.result_dir, experiment_config['experiment_name'])
             if not os.path.exists(result_dir):
                 os.makedirs(result_dir)
-            experiment_config['_result_dir'] = result_dir
+            experiment_config['result_dir'] = result_dir
             experiment_config['save_results'] = flags.save_results
         if flags.load_samples and "load_samples" not in experiment_config.keys():
             experiment_config['load_samples'] = flags.load_samples
@@ -65,6 +65,6 @@ def store_config(config, save_results):
     :param save_results: A Boolean, whether to save the results.
     """
     if save_results:
-        config_file = os.path.join(config['_result_dir'], "config.json")
+        config_file = os.path.join(config['result_dir'], "config.json")
         with open(config_file, 'w') as outfile:
             json.dump(config, outfile, indent=4)

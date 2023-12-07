@@ -1,4 +1,11 @@
-from abstract_hitting_location_distributions import *
+from abc import ABC, abstractmethod
+
+import numpy as np
+
+from abstract_hitting_location_distributions import AbstractHittingLocationDistribution, \
+    AbstractGaussTaylorHittingLocationDistribution, AbstractSimpleGaussHittingLocationDistribution, \
+    AbstractUniformHittingLocationDistribution, AbstractBayesMixtureHittingLocationDistribution, \
+    AbstractBayesianHittingLocationDistribution, AbstractMCHittingLocationDistribution
 from cv_arrival_distributions.cv_utils import create_ty_cv_samples_hitting_time
 
 
@@ -32,7 +39,7 @@ class AbstractCVHittingLocationDistribution(AbstractHittingLocationDistribution,
 
         :returns A float or np.array of shape [batch_size], the power spectral density.
         """
-        return np.squeeze(self._S_w, axis=0)
+        return np.squeeze(self._S_w)
 
     @S_w.setter
     @abstractmethod
@@ -51,7 +58,7 @@ class AbstractCVHittingLocationDistribution(AbstractHittingLocationDistribution,
 
         :returns: A float or a np.array of shape [batch_size], the expected value.
         """
-        return self._htd.x_L[..., -2] + self._htd.x_L[..., -1] * (self._htd.ev - self._htd._t_L)
+        return np.squeeze(self._htd.x_L[..., -2] + self._htd.x_L[..., -1] * (self._htd.ev - self._htd.t_L))
 
     @property
     def var(self):
@@ -59,7 +66,7 @@ class AbstractCVHittingLocationDistribution(AbstractHittingLocationDistribution,
 
         :returns: A float or a np.array of shape [batch_size], the variance.
         """
-        return self._compute_var(self._htd, self._S_w)
+        return np.squeeze(self._compute_var(self._htd, self._S_w))
 
     @staticmethod
     def _compute_var(htd, S_w):  # TODO: In die abstract? Die haben wir schon für die Taylor? Brauchen wir die wirklich im Allgemeinen?
@@ -71,12 +78,12 @@ class AbstractCVHittingLocationDistribution(AbstractHittingLocationDistribution,
         :returns: A np.array of shape [batch_size], the variance of the approximation.  # TODO: Das ist nun nicht unbedingt shape = batchsize, schlimm?
         """
         var = htd.C_L[..., -2, -2] + 2 * htd.C_L[..., -2, -1] * (
-                htd.ev - htd._t_L) \
+                htd.ev - htd.t_L) \
               + htd.C_L[..., -1, -1] * (
-                      htd.second_moment - 2 * htd.ev * htd._t_L + htd._t_L ** 2) \
+                      htd.second_moment - 2 * htd.ev * htd.t_L + htd.t_L ** 2) \
               + S_w / 3 * (
-                      htd.third_moment - 3 * htd.second_moment * htd._t_L + 3 * htd.ev * htd._t_L ** 2
-                      - htd._t_L ** 3)
+                      htd.third_moment - 3 * htd.second_moment * htd.t_L + 3 * htd.ev * htd.t_L ** 2
+                      - htd.t_L ** 3)
         return var
 
     # TODO: Eine Plot funktion um den Verlauf der Tracks zu sehen wäre noch sehr hilfreicg
@@ -89,7 +96,7 @@ class AbstractCVHittingLocationDistribution(AbstractHittingLocationDistribution,
 
         :returns: A np.array of shape [batch_size, sample_size], the mean in y at time t.
         """
-        return self._htd.x_L[..., -2] + self._htd.x_L[..., -1] * (t - self._htd._t_L)
+        return self._htd.x_L[..., -2] + self._htd.x_L[..., -1] * (t - self._htd.t_L)
 
     def _var_t(self, t):
         """The variance function of the motion model in y.
@@ -99,8 +106,8 @@ class AbstractCVHittingLocationDistribution(AbstractHittingLocationDistribution,
 
         :returns: A np.array of shape [batch_size, sample_size], the variance in y at time t.
         """
-        return self._htd.C_L[..., -2, -2] + 2 * self._htd.C_L[..., -2, -1] * (t - self._htd._t_L) + self._htd.C_L[
-            ..., -1, -1] * (t - self._htd._t_L) ** 2 + self._S_w * pow(t - self._htd._t_L, 3) / 3
+        return self._htd.C_L[..., -2, -2] + 2 * self._htd.C_L[..., -2, -1] * (t - self._htd.t_L) + self._htd.C_L[
+            ..., -1, -1] * (t - self._htd.t_L) ** 2 + self._S_w * pow(t - self._htd.t_L, 3) / 3
 
     def scale_params(self, length_scaling_factor, time_scaling_factor):
         """Scales the parameters of the distribution according to the scaling factor.
@@ -132,7 +139,7 @@ class AbstractCVHittingLocationDistribution(AbstractHittingLocationDistribution,
         super()._left_hand_indexing(indices, values)
 
 
-class GaussTaylorCVHittingLocationDistribution(AbstractGaussTaylorHittingLocationDistribution, AbstractCVHittingLocationDistribution):
+class GaussTaylorCVHittingLocationDistribution(AbstractCVHittingLocationDistribution, AbstractGaussTaylorHittingLocationDistribution):
     """A simple Gaussian approximation for the distribution in y at the first-passage time problem using a
     Taylor approximation and error propagation that can be used for CV models.
 
@@ -151,10 +158,10 @@ class GaussTaylorCVHittingLocationDistribution(AbstractGaussTaylorHittingLocatio
             (pos_last, v_last, dt_pred)  --> dy_pred
 
          where
-            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the _t_L.
-            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the _t_L.
+            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the t_L.
+            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the t_L.
             - dt_pred is a np.array of shape [batch_size] with arrival time point estimates as difference times w.r.t.
-                _t_L.
+                t_L.
             - dy_pred is a np.array of shape [batch_size] with point estimates for the arrival location along the
                 actuator array as difference w.r.t. x_L.
 
@@ -167,29 +174,34 @@ class GaussTaylorCVHittingLocationDistribution(AbstractGaussTaylorHittingLocatio
         if not callable(point_predictor):
             raise ValueError('point_predictor must be a callable.')
 
-        ev = point_predictor(htd.x_L[..., [0, -2]], htd.x_L[..., [1, -1]], dt_pred=htd.ev - htd._t_L) + htd.x_L[..., -2]
+        ev = point_predictor(htd.x_L[..., [0, -2]], htd.x_L[..., [1, -1]], dt_pred=htd.ev - htd.t_L) + htd.x_L[..., -2]
+
+        # ev must be resizeable to shape [batch_size]
+        if not np.atleast_1d(ev).ndim == 1 or np.atleast_1d(ev).shape[0] != htd.batch_size:
+            raise ValueError('point predictor must output a float or a np.array of shape [batch_size].')
+
         var = self._compute_var(htd, S_w)
 
         # # Uncertainty prediction in spatial dimension
-        # dt_p = htd.ev - htd._t_L
+        # dt_p = htd.ev - htd.t_L
         # sigma_y = np.sqrt(htd.C_L[2, 2] + 2 * htd.C_L[3, 2] * dt_p + htd.C_L[3, 3] * dt_p ** 2 + S_w * pow(dt_p, 3) / 3)
         # # TODO: Replace sigma y with _var_t(dt_p). Should be the same.  Es ist sogar dasselbe für CA und CV -> Formel (nicht ergebnis) kann auch in die abstract
         # # y-velocity at boundary
         # vy = htd.x_L[3]
         # # y-position at boundary
         # # overwrite the moments of the base class
-        # ev = htd.x_L[2] + (htd.ev - htd._t_L) * htd.x_L[3]
+        # ev = htd.x_L[2] + (htd.ev - htd.t_L) * htd.x_L[3]
         # var = sigma_y ** 2 + vy ** 2 * htd.var
 
         super().__init__(htd=htd,
                          S_w=S_w,
-                         point_predictor=point_predictor,
                          name=name,
                          ev=ev,
                          var=var,
                          )
+
     @staticmethod
-    def _compute_var(htd, S_w):  # TODO: Das noch vereinfachen! Entspricht nicht der signatur der base-methode
+    def _compute_var(htd, S_w):  # TODO: Das noch vereinfachen! Entspricht nicht der signatur der base-methode,
         """Computes the variance of the distribution in y at the first-passage time based on error propagation.
 
         :param htd: An AbstractHittingTimeDistribution object, the used hitting time distribution.
@@ -197,7 +209,7 @@ class GaussTaylorCVHittingLocationDistribution(AbstractGaussTaylorHittingLocatio
 
         :returns: A np.array of shape [batch_size], the variance of the approximation.
         """
-        dt_p = htd.ev - htd._t_L
+        dt_p = htd.ev - htd.t_L
         sigma_y = np.sqrt(
             htd.C_L[..., -2, -2] + 2 * htd.C_L[..., -1, -2] * dt_p + htd.C_L[..., -1, -1] * dt_p ** 2 + S_w * pow(dt_p,
                                                                                                                   3) / 3)
@@ -216,7 +228,7 @@ class GaussTaylorCVHittingLocationDistribution(AbstractGaussTaylorHittingLocatio
         self._var = self._compute_var(self._htd, self._S_w)
     
     
-class SimpleGaussCVHittingLocationDistribution(AbstractSimpleGaussHittingLocationDistribution, AbstractCVHittingLocationDistribution):
+class SimpleGaussCVHittingLocationDistribution(AbstractCVHittingLocationDistribution, AbstractSimpleGaussHittingLocationDistribution):
     """A purely Gaussian approximation for the distribution in y at the first-passage time problem by simply using the
     (theoretic) mean and variance of the distribution in y given the hitting time model that can be used for CV models.
 
@@ -238,10 +250,10 @@ class SimpleGaussCVHittingLocationDistribution(AbstractSimpleGaussHittingLocatio
             (pos_last, v_last, dt_pred)  --> dy_pred
 
          where
-            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the _t_L.
-            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the _t_L.
+            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the t_L.
+            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the t_L.
             - dt_pred is a np.array of shape [batch_size] with arrival time point estimates as difference times w.r.t.
-                _t_L.
+                t_L.
             - dy_pred is a np.array of shape [batch_size] with point estimates for the arrival location along the
                 actuator array as difference w.r.t. x_L.
 
@@ -254,12 +266,16 @@ class SimpleGaussCVHittingLocationDistribution(AbstractSimpleGaussHittingLocatio
         if not callable(point_predictor):
             raise ValueError('point_predictor must be a callable.')
 
-        ev = point_predictor(htd.x_L[..., [0, -2]], htd.x_L[..., [1, -1]], dt_pred=htd.ev - htd._t_L) + htd.x_L[..., -2]
+        ev = point_predictor(htd.x_L[..., [0, -2]], htd.x_L[..., [1, -1]], dt_pred=htd.ev - htd.t_L) + htd.x_L[..., -2]
+
+        # ev must be resizeable to shape [batch_size]
+        if not np.atleast_1d(ev).ndim == 1 or np.atleast_1d(ev).shape[0] != htd.batch_size:
+            raise ValueError('point predictor must output a float or a np.array of shape [batch_size].')
+
         var = self._compute_var(htd, S_w)
 
         super().__init__(htd=htd,
                          S_w=S_w,
-                         point_predictor=point_predictor,
                          name=name,
                          ev=ev,
                          var=var,
@@ -277,11 +293,11 @@ class SimpleGaussCVHittingLocationDistribution(AbstractSimpleGaussHittingLocatio
         self._var = self._compute_var(self._htd, self._S_w)
 
 
-class UniformCVHittingLocationDistribution(AbstractUniformHittingLocationDistribution, AbstractCVHittingLocationDistribution):
+class UniformCVHittingLocationDistribution(AbstractCVHittingLocationDistribution, AbstractUniformHittingLocationDistribution):
     """Uses point predictors for the distribution in y at the first-passage time and a uniform distribution assuming a
     CV model.
 
-    This distribution corresponds to the "usual" case where we define a fixed ejection window.
+    This distribution corresponds to the "usual" case where we define a fixed deflection window.
     """
     def __init__(self, htd, point_predictor, window_length, a=0.5, name='Uniform model'):
         """Initializes the distribution.
@@ -295,10 +311,10 @@ class UniformCVHittingLocationDistribution(AbstractUniformHittingLocationDistrib
             (pos_last, v_last, dt_pred)  --> dy_pred
 
          where
-            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the _t_L.
-            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the _t_L.
+            - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the t_L.
+            - v_last is a np.array of shape [batch_size, 2] and format [x, y] containing the velocities at the t_L.
             - dt_pred is a np.array of shape [batch_size] with arrival time point estimates as difference times w.r.t.
-                _t_L.
+                t_L.
             - dy_pred is a np.array of shape [batch_size] with point estimates for the arrival location along the
                 actuator array as difference w.r.t. x_L.
 
@@ -315,7 +331,12 @@ class UniformCVHittingLocationDistribution(AbstractUniformHittingLocationDistrib
 
         y_predicted = point_predictor(htd.x_L[..., [0, -2]],
                                       htd.x_L[..., [1, -1]],
-                                      dt_pred=htd.ev - htd._t_L) + htd.x_L[..., -2]
+                                      dt_pred=htd.ev - htd.t_L) + htd.x_L[..., -2]
+
+        # y_predicted must be resizeable to shape [batch_size]
+        if not np.atleast_1d(y_predicted).ndim == 1 or np.atleast_1d(y_predicted).shape[0] != htd.batch_size:
+            raise ValueError('point predictor must output a float or a np.array of shape [batch_size].')
+
         super().__init__(htd=htd,
                          S_w=0,  # always zero
                          point_prediction=y_predicted,
@@ -333,7 +354,7 @@ class UniformCVHittingLocationDistribution(AbstractUniformHittingLocationDistrib
         raise NotImplementedError('S_w for {} is always zero.'.format(self.__class__.__name__))
 
 
-class BayesMixtureCVHittingLocationDistribution(AbstractBayesMixtureHittingLocationDistribution, AbstractCVHittingLocationDistribution):
+class BayesMixtureCVHittingLocationDistribution(AbstractCVHittingLocationDistribution, AbstractBayesMixtureHittingLocationDistribution):
     """Mathematically exact way to solve the problem of finding the distribution in y at the first-passage time. Sets up
     the joint distribution of the CV process in y and the approximation for the given first-passage time distribution
     and performs a marginalization over the latter.
@@ -378,7 +399,7 @@ class BayesMixtureCVHittingLocationDistribution(AbstractBayesMixtureHittingLocat
         self._scales = None
 
 
-class BayesianCVHittingLocationDistribution(AbstractBayesianHittingLocationDistribution, AbstractCVHittingLocationDistribution):
+class BayesianCVHittingLocationDistribution(AbstractCVHittingLocationDistribution, AbstractBayesianHittingLocationDistribution):
     """ Mathematically exact way to solve the problem of finding the distribution in y at the first-passage time. Sets up
     the joint distribution of the CV process in y and the approximation for the given first-passage time distribution
     and performs a marginalization over the latter.
@@ -415,7 +436,7 @@ class BayesianCVHittingLocationDistribution(AbstractBayesianHittingLocationDistr
         self._S_w = np.broadcast_to(value, shape=self.batch_size)
 
 
-class MCCVHittingLocationDistribution(AbstractMCHittingLocationDistribution, AbstractCVHittingLocationDistribution):
+class MCCVHittingLocationDistribution(AbstractCVHittingLocationDistribution, AbstractMCHittingLocationDistribution):
     """Wraps the histogram derived by a Monte-Carlo approach to obtain the distribution in y at the first-passage time
     assuming a CV model using scipy.stats.rv_histogram.
 
@@ -438,17 +459,17 @@ class MCCVHittingLocationDistribution(AbstractMCHittingLocationDistribution, Abs
         :param name: String, the name for the distribution.
         """
         # sanity checks
-        if htd.batch_size != 1 or len(np.atleast_1d(S_w)) != 0:
+        if htd.batch_size != 1 or len(np.atleast_1d(S_w)) != 1:
             raise ValueError(
                 'Batch size must be equal to 1. Note that {} does not support a batch dimension.'.format(
                     self.__class__.__name__))
 
         if y_samples is None:
-            _, y_samples, _ = create_ty_cv_samples_hitting_time(htd.x_L,
-                                                                htd.C_L,
-                                                                S_w,
-                                                                htd._x_predTo,
-                                                                htd._t_L)
+            (_, y_samples, _), _ = create_ty_cv_samples_hitting_time(htd.x_L,
+                                                                     htd.C_L,
+                                                                     S_w,
+                                                                     htd.x_predTo,
+                                                                     htd.t_L)
 
         super().__init__(htd=htd,
                          S_w=S_w,
@@ -467,9 +488,10 @@ class MCCVHittingLocationDistribution(AbstractMCHittingLocationDistribution, Abs
         """
         self._S_w = np.broadcast_to(value, shape=self.batch_size)
         # Resample und recalculate the distribution
-        t_samples, _, _ = create_ty_cv_samples_hitting_time(self._htd.x_L,
-                                                            self._htd.C_L,
-                                                            self._S_w,
-                                                            self._htd._x_predTo,
-                                                            self._htd._t_L)
-        self._density = self._build_distribution_from_samples(self._samples, self._range)
+        (_, y_samples, _), _ = create_ty_cv_samples_hitting_time(self._htd.x_L,
+                                                                 self._htd.C_L,
+                                                                 self._S_w,
+                                                                 self._htd.x_predTo,
+                                                                 self._htd.t_L)
+        self._samples = y_samples[np.isfinite(y_samples)]  # there are default values, remove them from array
+        self._density = self._build_distribution_from_samples(self._samples, self._range)   # TODO: Self.range dann auch anpassen?
