@@ -211,6 +211,7 @@ class AbstractCAHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
 
         self._x_L[:, [0, 2]] *= length_scaling_factor
         self._x_L[:, [1, 3]] *= length_scaling_factor / time_scaling_factor
+        self._x_L[:, [2, 4]] *= length_scaling_factor / time_scaling_factor ** 2
 
         self._C_L[:, 0, 0] *= length_scaling_factor ** 2
         self._C_L[:, 2, 2] *= length_scaling_factor ** 2

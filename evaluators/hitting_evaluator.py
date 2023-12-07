@@ -16,7 +16,7 @@ import numpy as np
 import scipy.stats
 from scipy.stats import rv_histogram
 from scipy.spatial import distance_matrix
-from ot.lp import emd2
+# from ot.lp import emd2  # TODO: Wieder anstellen
 
 from abstract_hitting_time_distributions import AbstractHittingTimeDistribution
 from abstract_hitting_location_distributions import AbstractHittingLocationDistribution

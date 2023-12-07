@@ -1,8 +1,8 @@
 """
-############################################ cv_process_main.py  ###########################################
+####################################### wnca_process_main.py  #########################################
 Authors: Marcel Reith-Braun (ISAS, marcel.reith-braun@kit.edu), Jakob Thumm
 #######################################################################################################
-Calculates approximate first-passage time distributions for a constant velocity model using different
+Calculates approximate first-passage time distributions for a white-noise constant acceleration model using different
 approaches.
 
 usage:
@@ -13,7 +13,7 @@ usage:
             -v </path/to/repo>:/mnt \\
             tensorflow/approx_fptd:2.8.0-gpu
  - within container:
-     $   python3 /mnt/cv_process_main.py \\
+     $   python3 /mnt/wnca_process_main.py \\
 requirements:
   - Required packages/tensorflow/approx_fptd:2.8.0-gpu image: See corresponding dockerfile.
   - Volume mounts: Specify a path </path/to/repo/> that points to the repo.
@@ -26,7 +26,7 @@ from absl import flags
 import numpy as np
 
 from cv_arrival_distributions.cv_hitting_time_distributions import GaussTaylorCVHittingTimeDistribution, \
-    NoReturnCVHittingTimeDistribution, UniformCVHittingTimeDistribution, MCCVHittingTimeDistribution
+    NoReturnWNCAHittingTimeDistribution, UniformCVHittingTimeDistribution, MCCVHittingTimeDistribution
 from cv_arrival_distributions.cv_hitting_location_distributions import GaussTaylorCVHittingLocationDistribution, \
     SimpleGaussCVHittingLocationDistribution, UniformCVHittingLocationDistribution, \
     BayesMixtureCVHittingLocationDistribution, BayesianCVHittingLocationDistribution, MCCVHittingLocationDistribution
@@ -45,7 +45,7 @@ flags.DEFINE_bool('load_samples', default=False,
                     help='Whether the samples should be loaded from a .npz  file.')
 flags.DEFINE_bool('save_samples', default=False,
                     help='Whether the samples should be saved to a .npz  file.')
-flags.DEFINE_string('save_path', default='/mnt/cv_with_system_noise_samples.npz',
+flags.DEFINE_string('save_path', default='/mnt/wnca_with_system_noise_samples.npz',
                     help='The path to save the .npz  file.')
 flags.DEFINE_bool('save_results', default=False,
                     help='Whether to save the results.')
@@ -81,6 +81,8 @@ def main(args):
     C_L = np.array([[2E-7, 2E-5, 0, 0], [2E-5, 6E-3, 0, 0], [0, 0, 2E-7, 2E-5], [0, 0, 2E-5, 6E-3]])
     # Mean position at last timestep
     x_L = np.array([0.3, 6.2, 0.5, 0.2])
+    # constant acceleration
+    a_c = 4.4  # TODO
     # length and width of the particle
     particle_size = [0.08, 0.08]
 
@@ -91,7 +93,7 @@ def main(args):
 
     # Run the experiment
     if not FLAGS.with_extents:
-        run_experiment(x_L, C_L, t_L, S_w, x_predTo,
+        run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
                        measure_computational_times=FLAGS.measure_computational_times,
                        load_samples=FLAGS.load_samples,
                        save_samples=FLAGS.save_samples,
@@ -102,7 +104,7 @@ def main(args):
                        no_show=FLAGS.no_show,
                        )
     else:
-        run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
+        run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
                                    particle_size=particle_size,
                                    load_samples=FLAGS.load_samples,
                                    save_samples=FLAGS.save_samples,
@@ -114,7 +116,7 @@ def main(args):
                                    )
 
 
-def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
+def run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
                    t_range=None,
                    y_range=None,
                    measure_computational_times=False,
@@ -127,8 +129,9 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
                    for_paper=False):
     """Runs an experiment including a comparison with Monte Carlo simulation with the given settings.
 
-    The underlying process is a 2D (x, y) constant velocity (CV) model with independent components in x, y.
-    Therefore, the state is [pos_x, velo_x, pos_y, velo_y].
+    The underlying process is a white-noise constant acceleration (WNCA) model in x-direction and a constant velocity
+    (CV) model in y-direction, assuming independent components in x, y. Therefore, the state is
+    [pos_x, velo_x, pos_y, velo_y].
 
     :param x_L: A np.array of shape [4] representing the expected value of the initial state. We use index L here
         because it corresponds to the last time we see a particle in our optical belt sorting scenario.
@@ -136,6 +139,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     :param C_L: A np.array of shape [4, 4] representing the covariance matrix of the initial state.
     :param t_L: A float, the time of the last state/measurement (initial time).
     :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
+    :param a_c: A float, the constant acceleration in x-direction.
     :param x_predTo: A float, the position of the boundary.
     :param t_range: A list of length 2 representing the plot limits for the first-passage time.
     :param y_range: A list of length 2 representing the plot limits for the y component at the first-passage time.
@@ -149,9 +153,11 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     :param for_paper: Boolean, whether to use the plots for a publication (omit headers, etc.).
     """
     # Deterministic predictions
-    cv_temporal_point_predictor = lambda pos_l, v_l, x_predTo: (x_predTo - pos_l[..., 0]) / v_l[..., 0]
+    wnca_temporal_point_predictor = lambda pos_l, v_l, x_predTo:- v_l[..., 0] / a_c + np.sign(a_c) * \
+                                                                    np.sqrt((v_l[..., 0] / a_c) ** 2 + 2 / a_c * (
+                                                                                    x_predTo - pos_l[..., 0]))
     cv_spatial_point_predictor = lambda pos_l, v_l, dt_pred: v_l[..., 1] * dt_pred
-    t_predicted = t_L + cv_temporal_point_predictor(x_L[[0, 2]], x_L[[1, 3]], x_predTo)
+    t_predicted = t_L + wnca_temporal_point_predictor(x_L[[0, 2]], x_L[[1, 3]], x_predTo)
     y_predicted = x_L[2] + cv_spatial_point_predictor(x_L[[0, 2]], x_L[[1, 3]], dt_pred=t_predicted - t_L)
 
     # Plot settings
@@ -164,8 +170,9 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
 
     # Create samples
     dt = 1 / 1000
+    u = a_c * np.array([0.5 * dt ** 2, dt, 0, 0])
     if not load_samples:
-        first_passage_statistics, _ = create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L, dt=dt)
+        first_passage_statistics, _ = create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L, u=u, dt=dt)
         t_samples, y_samples, fraction_of_returns = first_passage_statistics
 
         if save_samples:
@@ -196,16 +203,16 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
 
     # Show example tracks and visualize uncertainties over time
     # hte.plot_example_tracks(N=5)
-    ev_fn = lambda t: x_L[0] + x_L[1] * (t - t_L)
+    ev_fn = lambda t: x_L[0] + x_L[1] * (t - t_L) + 1 / 2 * a_c * (t - t_L) ** 2
     var_fn = lambda t: C_L[0, 0] + 2 * C_L[1, 0] * (t - t_L) + C_L[1, 1] * (t - t_L) ** 2 + S_w * pow(t - t_L, 3) / 3
     hte.plot_mean_and_stddev_over_time(ev_fn, var_fn, show_example_tracks=True)
 
     # Set up the hitting time approaches
     gauss_taylor_htd = GaussTaylorCVHittingTimeDistribution(x_L, C_L, S_w, x_predTo, t_L,
-                                                            point_predictor=cv_temporal_point_predictor)
-    no_return_htd = NoReturnCVHittingTimeDistribution(x_L, C_L, S_w, x_predTo, t_L)
+                                                            point_predictor=wnca_temporal_point_predictor)
+    no_return_htd = NoReturnWNCAHittingTimeDistribution(x_L, C_L, S_w, x_predTo, t_L, a_c=a_c)
     uniform_htd = UniformCVHittingTimeDistribution(x_L, x_predTo, t_L,
-                                                   point_predictor=cv_temporal_point_predictor,
+                                                   point_predictor=wnca_temporal_point_predictor,
                                                    window_length=0.08 / x_L[1],  # length / x-velocity
                                                    )
     mc_htd = MCCVHittingTimeDistribution(x_L, C_L, S_w, x_predTo, t_L, t_range,
@@ -215,15 +222,15 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     approaches_temp_ls = [gauss_taylor_htd, no_return_htd, uniform_htd, mc_htd]
 
     logging.info('MAX CDF: {} at {}'.format(no_return_htd.q_max, no_return_htd.t_max))
-    no_return_htd.plot_valid_regions(theta=t_predicted, save_results=save_results, result_dir=result_dir,
-                                     for_paper=True,
-                                     no_show=no_show)
-    # approx_model.plot_valid_regions(save_results=save_results, result_dir=_result_dir, for_paper=True, no_show_no_show)
-    logging.info('tau_max: {}'.format(no_return_htd.trans_dens_ppf(t_predicted)[0]))
-    logging.info('Mass inside invalid region: {}'.format(
-        1 - no_return_htd.cdf(t_predicted + no_return_htd.trans_dens_ppf(t_predicted)[0])))
-    logging.info('Approximate returning probs after a crossing until time t_max: {}'.format(
-        no_return_htd.get_statistics()['ReturningProbs'](no_return_htd.t_max)))
+    # no_return_htd.plot_valid_regions(theta=t_predicted, save_results=save_results, result_dir=result_dir,
+    #                                  for_paper=True,
+    #                                  no_show=no_show)
+    # # approx_model.plot_valid_regions(save_results=save_results, result_dir=_result_dir, for_paper=True, no_show_no_show)
+    # logging.info('tau_max: {}'.format(no_return_htd.trans_dens_ppf(t_predicted)[0]))
+    # logging.info('Mass inside invalid region: {}'.format(
+    #     1 - no_return_htd.cdf(t_predicted + no_return_htd.trans_dens_ppf(t_predicted)[0])))
+    # logging.info('Approximate returning probs after a crossing until time t_max: {}'.format(
+    #     no_return_htd.get_statistics()['ReturningProbs'](no_return_htd.t_max)))  # TODO: implemetieren und wieder anstellen
 
     # Plot the quantile functions
     hte.plot_quantile_functions(approaches_temp_ls)
@@ -233,7 +240,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     hte.compare_skewness(approaches_temp_ls)
 
     # Calculate wasserstein distance and compare results
-    hte.compare_wasserstein_distances(approaches_temp_ls, t_samples)
+    # hte.compare_wasserstein_distances(approaches_temp_ls, t_samples)
     # Calculate the Hellinger distance
     hte.compare_hellinger_distances(approaches_temp_ls, t_samples)
     # Calculate the first wasserstein distance
@@ -246,7 +253,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     hte.plot_fptd_and_paths_in_one(approaches_temp_ls, ev_fn, var_fn, t_samples, plot_hist_for_all_particles=True)
     # Plot histogram of samples for returning distribution and estimated returning distribution
     # hte.plot_returning_probs_from_fptd_histogram(ev_fn, var_fn, t_samples, approaches_temp_ls)   # this is too noisy
-    hte.plot_returning_probs_from_sample_paths(approaches_temp_ls, fraction_of_returns, dt)
+    # hte.plot_returning_probs_from_sample_paths(approaches_temp_ls, fraction_of_returns, dt)  # TODO: Not implemented
 
     logging.info('Evaluations for the distributions in y at the first hitting time.')
 
@@ -307,9 +314,9 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     if measure_computational_times:
         logging.info('Measuring computational time for cv process hitting time distributions.')
         model_class_ls = [MCCVHittingTimeDistribution, GaussTaylorCVHittingTimeDistribution,
-                          NoReturnCVHittingTimeDistribution]
+                          NoReturnWNCAHittingTimeDistribution]
         model_attributes_ls = [[x_L, C_L, S_w, x_predTo, t_L, t_range]] + [
-            [x_L, C_L, S_w, x_predTo, t_L, cv_temporal_point_predictor]] + [[x_L, C_L, S_w, x_predTo, t_L]]
+            [x_L, C_L, S_w, x_predTo, t_L, wnca_temporal_point_predictor]] + [[x_L, C_L, S_w, x_predTo, t_L]]
         measure_computation_times(model_class_ls, model_attributes_ls, t_range=t_range)
 
         logging.info('Measuring computational time for cv process hitting location distributions.')
@@ -320,7 +327,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
         measure_computation_times(model_class_ls, model_attributes_ls, t_range=t_range)
 
 
-def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
+def run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
                                particle_size,
                                t_range_with_extents=None,
                                y_range_with_extents=None,
@@ -334,8 +341,9 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
     """Runs an experiment including a comparison with Monte Carlo simulation with the given settings for the
     extent-based representation of the particles.
 
-    The underlying process is a 2D (x, y) constant velocity (CV) model with independent components in x, y.
-    Therefore, the state is [pos_x, velo_x, pos_y, velo_y].
+    The underlying process is a white-noise constant acceleration (WNCA) model in x-direction and a constant velocity
+    (CV) model in y-direction, assuming independent components in x, y. Therefore, the state is
+    [pos_x, velo_x, pos_y, velo_y].
 
     :param x_L: A np.array of shape [4] representing the expected value of the initial state. We use index L here
         because it corresponds to the last time we see a particle in our optical belt sorting scenario.
@@ -343,6 +351,7 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
     :param C_L: A np.array of shape [4, 4] representing the covariance matrix of the initial state.
     :param t_L: A float, the time of the last state/measurement (initial time).
     :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
+    :param a_c: A float, the constant acceleration in x-direction.
     :param x_predTo: A float, the position of the boundary.
     :param particle_size: A list of length 2 representing the length and width (in transport direction and
         perpendicular) of the particle.
@@ -358,9 +367,11 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
     :param for_paper: Boolean, whether to use the plots for a publication (omit headers, etc.).
     """
     # Deterministic predictions
-    cv_temporal_point_predictor = lambda pos_l, v_l, x_predTo: (x_predTo - pos_l[..., 0]) / v_l[..., 0]
+    wnca_temporal_point_predictor = lambda pos_l, v_l, x_predTo: - v_l[..., 0] / a_c + np.sign(a_c) * \
+                                                                 np.sqrt((v_l[..., 0] / a_c) ** 2 + 2 / a_c * (
+                                                                         x_predTo - pos_l[..., 0]))
     cv_spatial_point_predictor = lambda pos_l, v_l, dt_pred: v_l[..., 1] * dt_pred
-    t_predicted = t_L + cv_temporal_point_predictor(x_L[[0, 2]], x_L[[1, 3]], x_predTo)
+    t_predicted = t_L + wnca_temporal_point_predictor(x_L[[0, 2]], x_L[[1, 3]], x_predTo)
     y_predicted = x_L[2] + cv_spatial_point_predictor(x_L[[0, 2]], x_L[[1, 3]], dt_pred=t_predicted - t_L)
 
     # Plot settings
@@ -375,9 +386,11 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
 
     # Create samples
     dt = 1 / 1000
+    u = a_c * np.array([0.5 * dt ** 2, dt, 0, 0])
     if not load_samples:
         first_passage_statistics, first_arrival_interval_statistics = create_ty_cv_samples_hitting_time(x_L, C_L, S_w,
                                                                                                         x_predTo, t_L,
+                                                                                                        u=u,
                                                                                                         length=
                                                                                                         particle_size[
                                                                                                             0],
@@ -431,16 +444,16 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
 
     gauss_taylor_htwe = HittingTimeWithExtentsModel(particle_size[0], GaussTaylorCVHittingTimeDistribution,
                                                     dict(hitting_time_distr_kwargs,
-                                                         point_predictor=cv_temporal_point_predictor),
+                                                         point_predictor=wnca_temporal_point_predictor),
                                                     name="Gauß-Taylor with extent")
-    no_return_htwe = HittingTimeWithExtentsModel(particle_size[0], NoReturnCVHittingTimeDistribution,
+    no_return_htwe = HittingTimeWithExtentsModel(particle_size[0], NoReturnWNCAHittingTimeDistribution,
                                                  hitting_time_distr_kwargs,
                                                  name="No-return approx. with extent")
     uniform_htwe = HittingTimeWithExtentsModel(particle_size[0], UniformCVHittingTimeDistribution,
                                                dict(x_L=hitting_time_distr_kwargs["x_L"],
                                                     x_predTo=hitting_time_distr_kwargs["x_predTo"],
                                                     t_L=hitting_time_distr_kwargs["t_L"],
-                                                    point_predictor=cv_temporal_point_predictor,
+                                                    point_predictor=wnca_temporal_point_predictor,
                                                     window_length=0),  # TODO: macht das sinn?
                                                name="Uniform with extent")
     mc_htwe = HittingTimeWithExtentsModel(particle_size[0], MCCVHittingTimeDistribution,
@@ -451,7 +464,7 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
     simplified_taylor_htwe = HittingTimeWithExtentsSimplifiedModel(particle_size[0],
                                                                    GaussTaylorCVHittingTimeDistribution,
                                                                    dict(hitting_time_distr_kwargs,
-                                                                        point_predictor=cv_temporal_point_predictor),
+                                                                        point_predictor=wnca_temporal_point_predictor),
                                                                    name="Gauß-Taylor with extent (simplified)")
 
     # Results for temporal uncertainties

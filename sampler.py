@@ -201,6 +201,7 @@ def create_lgssm_hitting_time_samples(F,
                                       calculate_intersection_delta_time_fn,
                                       calculate_delta_y,
                                       y_pos_ind,
+                                      u=None,
                                       length=None,
                                       N=100000,
                                       dt=1 / 1000,
@@ -245,6 +246,7 @@ def create_lgssm_hitting_time_samples(F,
     :param calculate_delta_y: A callable, a function that returns the position in y as delta w.r.t. the position of
         the last state.
     :param y_pos_ind: An integer, the index where the position component in y-direction is located in the state-vector.
+    :param u: None or a np.array of shape [length_state], the input.
     :param length: None or a float, the length (in transport direction) of the particle. If None, no
         extent_passage_statistics will be calculated.
     :param N: Integer, number of samples to use.
@@ -283,11 +285,12 @@ def create_lgssm_hitting_time_samples(F,
 
     initial_samples = np.random.multivariate_normal(mean=x_L, cov=C_L, size=N)
 
+    u = np.zeros_like(x_L) if u is None else u
     mean_w = np.zeros(x_L.shape[0])
 
     def compute_x_next_func(x_curr):
         x_curr_tf = tf.convert_to_tensor(x_curr)
-        x_next = tf.linalg.matvec(F, x_curr_tf).numpy()
+        x_next = tf.linalg.matvec(F, x_curr_tf).numpy() + u
         w_k = np.random.multivariate_normal(mean=mean_w, cov=Q, size=N)
         x_next = x_next + w_k
         return x_next

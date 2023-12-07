@@ -283,6 +283,7 @@ class AbstractArrivalDistribution(ABC):
 
         return check_input_valid
 
+    @batch_size_one_function
     def plot_quantile_function(self,
                                q_min=0.005,
                                q_max=0.995,
@@ -298,11 +299,6 @@ class AbstractArrivalDistribution(ABC):
         :param for_paper: Boolean, whether to use a publication (omit headers, etc.).
         :param y_label: String, the y_label of the plot.
         """
-        # TODO: Die plot functions müssen noch auf batch betrieb umgestellt werden, z. B. als abstract machen, docstrings
-        # TODO: Welcher dieser Funktionnen verwenden
-        if not isinstance(self.ppf(0.5), float):
-            raise ValueError('Plotting the PPF is only supported for distributions of batch size equal to 1.')
-
         plot_q = np.arange(q_min, q_max, 0.01)
         plot_quant = [self.ppf(q) for q in plot_q]
         plt.plot(plot_q, plot_quant)
@@ -316,6 +312,7 @@ class AbstractArrivalDistribution(ABC):
             plt.savefig(result_dir + self.name + '_quantile_function.png')
         plt.show()
 
+    @batch_size_one_function
     def plot_first_hitting_time_distribution(self, x_min=None, x_max=None, save_results=False, result_dir=None,
                                              for_paper=False, x_label='Time in s'):  # TODO Name
         """Plots the ejection distribution (PDF, CDF, Ev, Stddev).
@@ -329,8 +326,6 @@ class AbstractArrivalDistribution(ABC):
         """
         # TODO: Die plot functions müssen noch auf batch betrieb umgestellt werden, z. B. als abstract machen, docstrings
         # TODO: Welcher dieser Funktionnen verwenden
-        if not isinstance(self.ppf(0.5), float):
-            raise ValueError('Plotting the PPF is only supported for distributions of batch size equal to 1.')
 
         fig, ax1 = plt.subplots()
 

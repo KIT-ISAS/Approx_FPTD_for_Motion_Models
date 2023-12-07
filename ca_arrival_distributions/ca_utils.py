@@ -52,6 +52,7 @@ def create_ty_ca_samples_hitting_time(x_L,
                                       S_w,
                                       x_predTo,
                                       t_L=0.0,
+                                      u=None,
                                       length=None,
                                       N=100000,
                                       dt=1 / 1000,
@@ -61,22 +62,22 @@ def create_ty_ca_samples_hitting_time(x_L,
     CA motion model and determines their first-passage at x_predTo as well as the location in y at the first-passage by
     interpolating the positions between the last time before and the first time after the boundary.
 
-    Assumed CV state format:
+    Assumed CA state format:
 
         [pos_x, velo_x, acc_x, pos_y, velo_y, acc_y]
 
     Note that particles that do not reach the boundary after break_after_n_time_steps time_steps are handled with a
     fallback value of max(t_samples) + 1 in the t_samples and np.nan in the y_samples and all other samples.
 
-    :param x_L: A np.array of shape [4] representing the expected value of the initial state. We use index L here
+    :param x_L: A np.array of shape [6] representing the expected value of the initial state. We use index L here
         because it corresponds to the last time we see a particle in our optical belt sorting scenario.
-        Format: [pos_x, velo_x, pos_y, velo_y].
-    :param C_L: A np.array of shape [4, 4] representing the covariance matrix of the initial state.
+    :param C_L: A np.array of shape [6, 6] representing the covariance matrix of the initial state.
     :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
     :param x_predTo: A float, the position of the boundary.
+    :param t_L: A float, the time of the last state/measurement (initial time).
+    :param u: None or a np.array of shape [6], the input.
     :param length: None or a float, the length (in transport direction) of the particle. If None, no
         extent_passage_statistics will be calculated.
-    :param t_L: A float, the time of the last state/measurement (initial time).
     :param N: Integer, number of samples to use.
     :param dt: A float, the time increment.
     :param break_after_n_time_steps: Integer, maximum number of time steps for the simulation.
@@ -150,6 +151,7 @@ def create_ty_ca_samples_hitting_time(x_L,
         x_predTo,
         calculate_intersection_delta_time_fn,
         calculate_delta_y,
+        u=u,
         length=length,
         y_pos_ind=3,
         N=N,

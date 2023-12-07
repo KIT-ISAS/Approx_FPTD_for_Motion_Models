@@ -153,7 +153,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     ca_temporal_point_predictor = lambda pos_l, v_l, a_l, x_predTo: - v_l[..., 0] / a_l[..., 0] + np.sign(a_l[..., 0]) * \
                                                                     np.sqrt((v_l[..., 0] / a_l[..., 0]) ** 2 + 2 / a_l[
                                                                         ..., 0] * (
-                                                                                    x_predTo - pos_l[..., 0]))
+                                                                                    x_predTo - pos_l[..., 0]))  # TODO: Stimmt das eigentlich?, die formel nutzen wir auch für wnca
     ca_spatial_point_predictor = lambda pos_l, v_l, a_l, dt_pred: dt_pred * v_l[..., 1] + 1 / 2 * dt_pred ** 2 * a_l[
         ..., 1]
     # t_predicted = t_L - x_L[1] / x_L[2] + np.sign(x_L[2]) * \
@@ -266,7 +266,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
                                                                             C_L,
                                                                             S_w,
                                                                             get_system_matrices_from_parameters,
-                                                                            return_component_ind=2,
+                                                                            return_component_ind=3,
                                                                             # y-position
                                                                             ),
                                    save_results=save_results,
@@ -341,7 +341,8 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
                                result_dir=None,
                                no_show=False,
                                for_paper=False):
-    """Runs an experiment including a comparison with Monte Carlo simulation with the given settings.
+    """Runs an experiment including a comparison with Monte Carlo simulation with the given settings for the
+    extent-based representation of the particles.
 
     The underlying process is a 2D (x, y) constant acceleration (CA) model with independent components in x, y.
     Therefore, the state is [pos_x, velo_x, acc_x, pos_y, velo_y, acc_y].
@@ -518,7 +519,7 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
                                                                                        C_L,
                                                                                        S_w,
                                                                                        get_system_matrices_from_parameters,
-                                                                                       return_component_ind=2,
+                                                                                       return_component_ind=3,
                                                                                        # y-position
                                                                                        ),
                                               save_results=save_results,

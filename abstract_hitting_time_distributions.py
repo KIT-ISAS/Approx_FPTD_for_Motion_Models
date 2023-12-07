@@ -203,8 +203,6 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
         """
         # TODO: Die plot functions müssen noch auf batch betrieb umgestellt werden, z. B. als abstract machen, docstrings
         # TODO: Welcher dieser Funktionnen verwenden?
-        if not isinstance(self.ppf(0.5), float):
-            raise ValueError('Plotting the PPF is only supported for distributions of batch size equal to 1.')
 
         plot_q = np.arange(q_min, q_max, 0.01)
         # TODO: Perhaps silent warnings
@@ -262,7 +260,7 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
         hit_stats = {}   # TODO: Warum keine PPF?
         hit_stats['PDF'] = self.pdf
         hit_stats['CDF'] = self.cdf
-        hit_stats['EV'] = self.ev
+        hit_stats['EV'] = self.ev  # TODO: wieder rein
         hit_stats['STDDEV'] = self.stddev
         hit_stats['SKEW'] = self.skew  # TODO: immer an? bei machen wird es auch extra hinzugefügt
         return hit_stats
@@ -647,18 +645,23 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
             q_test = self._cdf(t)
             non_valids = np.logical_not(np.logical_or(np.isclose(q, q_test, atol=5e-2, rtol=3e-1), np.isnan(t)))
             if np.any(non_valids):
+                invalid_samples = np.any(non_valids, axis=0)
                 raise ValueError(
                     'The PPF for q={0}, {1} was computed with high errors for the roots {2} with CDF {3}.'.format(q,
                                                                                                                   q_test[
-                                                                                                                      non_valids],
+                                                                                                                  invalid_samples,
+                                                                                                                  :],
                                                                                                                   candidate_roots[
-                                                                                                                      non_valids],
-                                                                                                                  self.cdf(
-                                                                                                                      candidate_roots)[
-                                                                                                                      non_valids]))
+                                                                                                                  invalid_samples,
+                                                                                                                  :],
+                                                                                                                  np.atleast_2d(
+                                                                                                                      self.cdf(
+                                                                                                                          candidate_roots))[
+                                                                                                                  invalid_samples,
+                                                                                                                  :]))
         return np.squeeze(t)
 
-    def _get_max_cdf_value_and_location(self):
+    def _get_max_cdf_value_and_location(self, eps=0.03):
         """Method that finds the maximum of the CDF of the approximation and its location.
 
         Approach:
@@ -667,6 +670,9 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
 
         We solve the equation for t = t - t_L to simplify calculations and add t_L at the end of the function.
 
+        :param eps: A float, the tolerance for the maximum value of the CDF. If the tolerance is not achieved, the
+            approximation is considered to be invalid.
+
         :returns:
             q_max: A numpy array of shape [batch_size], the maximum value of the CDF.
             t_q_max: A numpy array of shape [batch_size], the time when the CDF visits its maximum.
@@ -674,34 +680,26 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
         roots = self._get_max_cdf_location_roots()
         q_max = self._cdf(roots)
 
-        valid_idx = np.logical_and(np.isfinite(q_max),
-                                   np.greater(q_max, 0, where=np.isfinite(q_max)),  # to silent the warnings
-                                   np.less(q_max, 1, where=np.isfinite(q_max)))
-        ambiguous = np.sum(valid_idx, axis=1) > 1
-        no_valids = np.sum(valid_idx, axis=1) == 0
-
-        if np.any(ambiguous):
-            # import code
-            # code.interact(local=dict(globals(), **locals()))
-            raise RuntimeError('Ambiguous roots {} for t_q_max found.'.format(roots[ambiguous]))
+        valid_idx = np.logical_and.reduce((np.isfinite(q_max),
+                                           np.greater(q_max, 0, where=np.isfinite(q_max)),  # to silent the warnings
+                                           np.less(q_max, 1, where=np.isfinite(q_max)),
+                                           np.greater(roots, self._t_L),
+                                           np.isclose(q_max, 1, atol=eps, rtol=0)
+                                           ))
 
         # Get the valid t and CDF values
-        t_q_max = np.empty(valid_idx.shape[0])
-        q_max_filtered = np.empty(valid_idx.shape[0])
-        ro = roots[valid_idx]
-        # print(ro.shape)
-        t_q_max[np.logical_not(np.logical_or(ambiguous, no_valids))] = ro
-        q_max_filtered[np.logical_not(np.logical_or(ambiguous, no_valids))] = q_max[valid_idx]
+        ind = np.ma.argmin(np.ma.masked_array(roots, np.logical_not(valid_idx)), axis=1)  # get the index with the
+        # smallest t-value where the indices are valid
+        t_q_max_filtered = roots[np.arange(q_max.shape[0]), ind]
+        q_max_filtered = q_max[np.arange(q_max.shape[0]), ind]
 
+        no_valids = np.sum(valid_idx, axis=1) == 0
         if np.any(no_valids):
-            # To overwrite all values, where no valid distribution can be found
-            t_q_max[no_valids] = np.nan
-            q_max_filtered[no_valids] = np.nan
-            self._t_L[no_valids, :] = np.nan  # to force nan outputs for all calculations  #TODO: nicht sehr elegant
+            self._x_predTo[no_valids] = np.nan  # to force nan outputs for all calculations  #TODO: nicht sehr elegant
             logging.warning('No valid roots {} for t_q_max found.'.format(roots[no_valids]))
             # raise ValueError('No valid roots {} for t_q_max found.'.format(roots[no_valids]))
 
-        return q_max_filtered, t_q_max
+        return q_max_filtered, t_q_max_filtered
 
     def _get_numerical_moment_integrator(self, n=400, t_min=None, t_max=None):
         """Generator that builds a numerical integrator based on Riemann sums.

@@ -550,12 +550,15 @@ class NoReturnCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstr
 
         gauss = norm.pdf((self._x_predTo - self._ev_t(t)) / np.sqrt(self._var_t(t)))  # Std. Gauss pdf
 
-        der_arg = self._x_L[:, np.newaxis, 1] / np.sqrt(self._var_t(t)) + (self._x_predTo - self._ev_t(t)) * (
-                0.5 * self._S_w * t ** 2 - self._S_w * t * self._t_L + 0.5 * self._S_w * self._t_L ** 2 + t * self._C_L[:,
-                np.newaxis, 1, 1] - self._t_L * self._C_L[:, np.newaxis, 1, 1] + self._C_L[:, np.newaxis, 1, 0]) / (
-                self._var_t(t)) ** (3.0 / 2.0)
+        der_ev = self._x_L[:, np.newaxis, 1]
+        der_var = 0.5 * self._S_w * t ** 2 - self._S_w * t * self._t_L + 0.5 * self._S_w * self._t_L ** 2 \
+                  + t * self._C_L[:, np.newaxis, 1, 1] - self._t_L * self._C_L[:, np.newaxis, 1, 1] + self._C_L[:,
+                                                                                                      np.newaxis, 1, 0]
 
-        return gauss * der_arg
+        der_arg = der_ev / np.sqrt(self._var_t(t)) + (self._x_predTo - self._ev_t(t)) * der_var / (self._var_t(t)) ** (
+                    3.0 / 2.0)
+
+        return gauss * der_arg  # TODO: Bei CA auch so umformen, evtl. sachen in die abstract klasse verschieben
 
     def _ppf(self, q):
         """The quantile function / percent point function (PPF) of the first-passage time distribution.
@@ -771,7 +774,6 @@ class NoReturnCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstr
         :param time_scaling_factor: Float, the scaling factor for times.
         """
         super().scale_params(length_scaling_factor, time_scaling_factor)
-        # Force recalculating all privates
 
     def get_statistics(self):  # TODO: Property? Docstrings?
         """Get some statistics from the model as a dict."""
@@ -779,6 +781,234 @@ class NoReturnCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstr
         hit_stats.update({'RAW_CDF': lambda t: np.squeeze(self._cdf(t)),
                           })
         return hit_stats
+
+
+class NoReturnWNCAHittingTimeDistribution(NoReturnCVHittingTimeDistribution):
+    """An approximation to the first-passage time distribution for the white-noise constant acceleration model using the
+     assumption that particles are unlikely to move back once they have passed the boundary.
+
+    The white-noise constant acceleration model is an extension of the CV model. The state is the
+    same as for the CV model but the mean acceleration is assumed to be constant and not equal to zero.
+
+    """
+    def __init__(self, x_L, C_L, S_w, x_predTo, t_L, a_c, name="No-return approx."):
+        """Initializes the distribution.
+
+         State format:
+
+            [pos_x, velo_x, ... (e.g., pos_x, velo_x, if a CV model for both x and y is used)]
+
+        :param x_L: A np.array of shape [state_length] or [batch_size, state_length] representing the expected value of
+            the initial state. We use index L here because it usually corresponds to the last time we see a particle in
+            our optical belt sorting scenario.
+        :param C_L: A np.array of shape [state_size, state_length] or [batch_size, state_length, state_length]
+            representing the covariance matrix of the initial state.
+        :param S_w: A float or np.array of shape [batch_size], the power spectral density (PSD) in x-direction.
+        :param x_predTo: A float or np.array of shape [batch_size], the position of the boundary.
+        :param t_L: A float, the time of the last state/measurement (initial time).
+        :param a_c: A float or np.array of shape [batch_size], the constant acceleration.
+        :param name: String, the name for the distribution.
+        """
+        self._a_c = np.broadcast_to(a_c, shape=np.atleast_2d(x_L).shape[0])
+
+        super().__init__(x_L=x_L,
+                         C_L=C_L,
+                         S_w=S_w,
+                         x_predTo=x_predTo,
+                         t_L=t_L,
+                         name=name)
+
+    def _ev_t(self, t):
+        """The mean function of the white-noise constant acceleration model.
+
+        :param t: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
+            [batch_size, sample_size], the time parameter of the distribution.
+
+        :returns: A np.array of shape [batch_size, sample_size], the mean in x at time t.
+        """
+        return self._x_L[:, np.newaxis, 0] + self._x_L[:, np.newaxis, 1] * (t - self._t_L) + 0.5 * self._a_c * (
+                    t - self._t_L) ** 2
+
+    def _pdf(self, t):
+        """Time-derivative of self._cdf.
+
+        Can be calculated from the standard Gaussian PDF N( ) with an argument (x_predTo - ev(t))/stddev(t) times the
+        derivative w.r.t. of these argument (chain rule), i.e.,
+
+           d/dt [ 1 - int( p(x(t), x= -infty ..x_predTo ) ] = d/dt [ PHI( (x_predTo - ev(t))/stddev(t) ) ]
+
+                                                             = d/dt (x_predTo - ev(t))/stddev(t) )
+                                                                        * N(x_predTo; ev(t), stddev(t)^2 )
+
+           with PHI( ) being the standard Gaussian CDF.
+
+        :param t: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
+            [batch_size, sample_size], the time parameter of the distribution.
+
+        :returns: A np.array of shape [batch_size, sample_size], the time derivative of self._cdf.
+        """
+        gauss = norm.pdf((self._x_predTo - self._ev_t(t)) / np.sqrt(self._var_t(t)))  # Std. Gauss pdf
+
+        der_ev = self._x_L[:, np.newaxis, 1] + self._a_c * (t - self._t_L)
+        der_var = 0.5 * self._S_w * t ** 2 - self._S_w * t * self._t_L + 0.5 * self._S_w * self._t_L ** 2 \
+                  + t * self._C_L[:, np.newaxis, 1, 1] - self._t_L * self._C_L[:, np.newaxis, 1, 1] + self._C_L[:,
+                                                                                                      np.newaxis, 1, 0]
+
+        der_arg = der_ev / np.sqrt(self._var_t(t)) + (self._x_predTo - self._ev_t(t)) * der_var / (self._var_t(t)) ** (
+                    3.0 / 2.0)
+
+        return gauss * der_arg
+
+    def _ppf(self, q):
+        """The quantile function / percent point function (PPF) of the first-passage time distribution.
+
+        Approach:
+
+              1 - q = int(N(x, mu(t), var(t)), x = -inf ..x_predTo) = PHI ( (x_predTo - mu(t)) / sqrt(var(t))
+              PHI^-1(1 -q) = (x_predTo - mu(t)) / sqrt(var(t)) -> solve for t...
+
+        We solve the equation for t = t - t_L to simplify calculations and add t_L at the end of the function.
+
+        :param q: A float, the confidence parameter of the distribution, 0 <= q <= 1.
+
+        :returns:
+            t: A np.array of shape [batch_size], the value of the PPF for q.
+            candidate_roots: A np.array of shape [batch_size, num_possible_solutions] containing the values of all
+                possible roots.
+        """
+        # We compute the ppf for t = t - t_L to simplify calculations.
+
+        # Special case q = 0.5, this corresponds to the median.
+        # 0 = (x_predTo - mu(t)) / sqrt(var(t) ->x_predTo = mu(t) -> solve for t...
+        if q == 0.5:
+            t = (self._x_predTo - self._x_L[:, 0]) / self._x_L[:, 1] + self._t_L   # TODO: Das nocj ändern
+            return t, t
+
+        # polynomial of degree 4
+        # At**4 + B*t**3 + C*t**2 + Dt + E = 0
+        qf = norm.ppf(1 - q)  # Standard-Gaussian quantile function
+
+        A = - 1 / 4 * self._a_c ** 2
+        B = 1 / 3 * self._S_w * qf ** 2 - self._x_L[:, 1] * self._a_c
+        C = self._C_L[:, 1, 1] * qf ** 2 - self._x_L[:, 1] ** 2 + (self._x_predTo - self._x_L[:, 0]) * self._a_c
+        D = 2 * (self._C_L[:, 0, 1] * qf ** 2 + (self._x_predTo - self._x_L[:, 0]) * self._x_L[:, 1])
+        E = qf ** 2 * self._C_L[:, 0, 0] - (self._x_predTo - self._x_L[:, 0]) ** 2
+        # A may be a scalar or a np.array, so ensure that the shape is equal to the ones of B, C, D, E.
+        A = np.tile(A, B.shape[0]) if np.isscalar(A) else A  # TODO: Das auch anders lösen, überall sonst auch
+
+        # Use numerical methods as there is no analytical solution for polynomials of degree 4.
+        real_roots = np.empty((self.batch_size, 4))
+        real_roots[:] = np.nan
+        t = np.empty(self.batch_size)
+        t[:] = np.nan
+        for i in range(self.batch_size):
+            # unfortunately, there exists no vectorized implementation
+            roots_i = np.roots([A[i], B[i], C[i], D[i], E[i]])
+
+            # TODO: Vectorize this
+            # roots are in descending order, the first root is always too large.
+            real_roots_i = roots_i.real[np.logical_not(
+                np.iscomplex(roots_i))] + self.t_L  # TODO: Stimmt das so wie es hier steht?, allgemeine Regel?
+            # if real_roots_i.shape[0] == 5:
+            #     t[i] = float(real_roots_i[4] if q < 0.5 else real_roots_i[3])
+            # elif real_roots_i.shape[0] >= 2:
+            #     t[i] = float(real_roots_i[2] if q < 0.5 else real_roots_i[1])
+            # elif real_roots_i.shape[0] == 1:
+            #     t[i] = float(real_roots_i)
+            # else:
+            #     raise ValueError('Unsupported number of roots.')
+            t[i] = float(real_roots_i[1] if q < 0.5 else real_roots_i[0])
+
+            real_roots[i, :real_roots_i.shape[0]] = real_roots_i
+
+        return t, real_roots
+
+    def _get_max_cdf_location_roots(self):
+        """Method that finds the argmax roots of the CDF of the approximation.
+
+        Approach:
+
+            set self._pdf(t) = 0, solve for t.
+
+        We solve the equation for t = t - t_L to simplify calculations and add t_L at the end of the function.
+
+        :returns:
+            roots: A numpy array of shape [batch_size, num_roots], candidates for the maximum value of the CDF.
+        """
+        A = 1 / 6 * self._S_w * self._a_c
+        B = -1 / 3 * self._S_w * self._x_L[:, 1] + self._a_c * self._C_L[:, 1, 1]
+        C = (self._x_predTo - self._x_L[:, 0]) * self._S_w + 3 * self._a_c * self._C_L[:, 0, 1]
+        D = 2 * (self._a_c * self._C_L[0, 0] + self._x_L[:, 1] * self._C_L[:, 0, 1] + (
+                self._x_predTo - self._x_L[:, 0]) * self._C_L[:, 1, 1])
+        E = 2 * (self._x_L[:, 1] * self._C_L[:, 0, 0] + (self._x_predTo - self._x_L[:, 0]) * self._C_L[:, 0, 1])
+
+        roots = np.empty((self.batch_size, 4))  # TODO: Passt das?
+        roots[:] = np.nan
+        for i in range(self.batch_size):
+            # unfortunately, there exists no vectorized implementation
+            roots_i = np.roots([A[i], B[i], C[i], D[i], E[i]])
+            roots_i = roots_i[np.isreal(roots_i)].real + self._t_L
+            roots[i, :roots_i.shape[0]] = roots_i
+        return roots
+
+    @AbstractArrivalDistribution.batch_size_one_function
+    def trans_dens_ppf(self, theta, q=0.95):
+        """The PPF of 1 - int ( p(x(dt+theta)| x(theta) =x_predTo), x(dt+theta) = - infty ..x_predTo),
+        i.e., the inverse CDF of the event that particles are abovex_predTo once they have reached it at time theta.
+
+        Note that in terms of the used approximation, this can be seen as PPF of the approximate first-passage
+        returning time distribution w.r.t. the boundary x_pred_to.
+
+        This function does not support batch-wise processing, i.e., a batch dimension of 1 is required.
+
+        :param theta: A float, the (assumed) time at which x(theta) = x_pred_to.
+        :param q: A float, the desired confidence level, 0 <= q <= 1.
+
+        :returns: A np.array, the value of the PPF for q and theta, note that this a delta time w.r.t. theta.
+        """
+        raise NotImplementedError()  # TODO
+
+    @AbstractArrivalDistribution.batch_size_one_function
+    def trans_density(self, dt, theta):
+        raise NotImplementedError()  # TODO
+
+    @AbstractArrivalDistribution.batch_size_one_function
+    def returning_probs_conditioned_on_positive_velocity_integrate_quad(self, t):
+        raise NotImplementedError()  # TODO
+
+    @AbstractArrivalDistribution.batch_size_one_function
+    def returning_probs_conditioned_on_positive_velocity_uniform_samples(self, t):
+        raise NotImplementedError()  # TODO
+
+    @AbstractArrivalDistribution.check_setitem
+    def __setitem__(self, indices, values):
+        """Assigns elements along the batch shape at the given indices. Use this for fancy indexing
+        (e.g., distr[:2] = old_distr).
+
+        :param indices: Slices, or list, or np.array of integers or Booleans. The indices of the values to assign.
+        :param values: An object of the same type as self, the object from which to take the elements.
+        """
+        self._a_c[indices] = values.a_c
+        super().__setitem__(indices, values)
+
+    def _left_hand_indexing(self, indices, values):
+        """Takes elements of values and assigns elements along the batch shape at the given indices. This is a helper
+        function for __getitem__, which is used for fany indexing (e.g., new_distr = distr[:2]).
+
+        :param indices: Slices, or list, or np.array of integers or Booleans. The indices of the values to assign.
+        :param values: An object of the same type as self, the object from which to take the elements.
+        """
+        self._a_c = values.a_c[indices]
+        super()._left_hand_indexing(indices, values)
+
+    def scale_params(self, length_scaling_factor, time_scaling_factor):
+        """Scales the parameters of the distribution according t scaling factor.
+
+        :param length_scaling_factor: Float, the scaling factor for lengths.
+        :param time_scaling_factor: Float, the scaling factor for times.
+        """
+        self._a_c *= length_scaling_factor / time_scaling_factor ** 2
+        super().scale_params(length_scaling_factor, time_scaling_factor)
 
 
 class UniformCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, AbstractUniformHittingTimeDistribution):
