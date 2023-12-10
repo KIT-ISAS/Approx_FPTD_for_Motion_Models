@@ -165,11 +165,16 @@ def run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
         t_range = [t_predicted - 0.3 * (t_predicted - t_L), t_predicted + 0.3 * (t_predicted - t_L)]
     if y_range is None:
         y_range = [0.7 * y_predicted, 1.3 * y_predicted]
-    plot_t = np.arange(t_range[0], t_range[1], 0.00001)
-    plot_y = np.arange(y_range[0], y_range[1], 0.001)
+    # plot_t = np.arange(t_range[0], t_range[1], 0.00001)
+    # plot_y = np.arange(y_range[0], y_range[1], 0.001)
+    plot_t = np.linspace(t_range[0], t_range[1], 1000)  # we want to have 1000 plots points
+    plot_y = np.linspace(y_range[0], y_range[1], 1000)
 
     # Create samples
-    dt = 1 / 1000
+    # dt = 1 / 1000
+    dt = (t_predicted - t_L) / 200  # we want to use approx. 200 time steps in the MC simulation
+    # round dt to the first significant digit
+    dt = np.round(dt, -np.floor(np.log10(np.abs(dt))).astype(int))
     u = a_c * np.array([0.5 * dt ** 2, dt, 0, 0])
     if not load_samples:
         first_passage_statistics, _ = create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L, u=u, dt=dt)
@@ -186,26 +191,43 @@ def run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
 
     logging.info('Evaluations for hitting time distributions.')
 
-    # Create class for evaluations
-    hte = HittingTimeEvaluator('CV Process', x_predTo, plot_t, t_predicted, t_L,
+    # Create classes for evaluations
+    hte = HittingTimeEvaluator('WNCA Process', x_predTo, plot_t, t_predicted, t_L,
                                get_example_tracks_fn=get_example_tracks(x_L,
                                                                         C_L,
                                                                         S_w,
-                                                                        get_system_matrices_from_parameters),
+                                                                        get_system_matrices_from_parameters,
+                                                                        u=u),
                                save_results=save_results,
                                result_dir=result_dir,
                                for_paper=for_paper,
                                no_show=no_show,
                                )
+    # Create class for evaluations
+    hle = HittingLocationEvaluator('WNCA Process', x_predTo, t_predicted, y_predicted, plot_y, t_L,
+                                   get_example_tracks_fn=get_example_tracks(x_L,
+                                                                            C_L,
+                                                                            S_w,
+                                                                            get_system_matrices_from_parameters,
+                                                                            return_component_ind=2,
+                                                                            # y-position
+                                                                            u=u,
+                                                                            ),
+                                   save_results=save_results,
+                                   result_dir=result_dir,
+                                   for_paper=for_paper,
+                                   no_show=no_show,
+                                   )
 
     # Show example histogram
     # hte.plot_sample_histogram(t_samples)
+    # hlw.plot_sample_histogram(y_samples, x_label='y-Coordinate')
 
     # Show example tracks and visualize uncertainties over time
-    # hte.plot_example_tracks(N=5)
+    # hte.plot_example_tracks(dt=dt, N=5)
     ev_fn = lambda t: x_L[0] + x_L[1] * (t - t_L) + 1 / 2 * a_c * (t - t_L) ** 2
     var_fn = lambda t: C_L[0, 0] + 2 * C_L[1, 0] * (t - t_L) + C_L[1, 1] * (t - t_L) ** 2 + S_w * pow(t - t_L, 3) / 3
-    hte.plot_mean_and_stddev_over_time(ev_fn, var_fn, show_example_tracks=True)
+    hte.plot_mean_and_stddev_over_time(ev_fn, var_fn, dt=dt, show_example_tracks=True)
 
     # Set up the hitting time approaches
     gauss_taylor_htd = GaussTaylorCVHittingTimeDistribution(x_L, C_L, S_w, x_predTo, t_L,
@@ -213,10 +235,41 @@ def run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
     no_return_htd = NoReturnWNCAHittingTimeDistribution(x_L, C_L, S_w, x_predTo, t_L, a_c=a_c)
     uniform_htd = UniformCVHittingTimeDistribution(x_L, x_predTo, t_L,
                                                    point_predictor=wnca_temporal_point_predictor,
-                                                   window_length=0.08 / x_L[1],  # length / x-velocity
+                                                   window_length=4 / x_L[1],  # length / x-velocity  # TODO: length nicht hardcoden
                                                    )
-    mc_htd = MCCVHittingTimeDistribution(x_L, C_L, S_w, x_predTo, t_L, t_range,
+    mc_htd = MCCVHittingTimeDistribution(x_L, C_L, S_w, x_predTo, t_L, t_range, a_c=a_c,
                                          t_samples=t_samples)
+
+    # Set up the hitting location approaches
+    htd_for_hld = no_return_htd  # we use the same hitting time distribution for all approaches except the uniform and
+    # MC approach
+    gauss_taylor_hld = GaussTaylorCVHittingLocationDistribution(htd_for_hld, S_w,
+                                                                point_predictor=cv_spatial_point_predictor)
+    simple_gauss_hld = SimpleGaussCVHittingLocationDistribution(htd_for_hld, S_w,
+                                                                point_predictor=cv_spatial_point_predictor)
+    bayes_mixture_hld = BayesMixtureCVHittingLocationDistribution(htd_for_hld, S_w)
+    bayesian_hld = BayesianCVHittingLocationDistribution(htd_for_hld, S_w)
+
+    uniform_hld = UniformCVHittingLocationDistribution(uniform_htd,
+                                                       point_predictor=cv_spatial_point_predictor,
+                                                       window_length=58,  # width
+                                                       )
+    mc_hld = MCCVHittingLocationDistribution(mc_htd, S_w, y_range, y_samples=y_samples, a_c=a_c)
+
+    # Scale the distributions for the plots
+    pixel_to_mm = 1/2.88
+    frame_to_ms = 4
+    gauss_taylor_htd.scale_params(pixel_to_mm, frame_to_ms)
+    no_return_htd.scale_params(pixel_to_mm, frame_to_ms)
+    uniform_htd.scale_params(pixel_to_mm, frame_to_ms)
+    mc_htd.scale_params(pixel_to_mm, frame_to_ms)
+    gauss_taylor_hld.scale_params(pixel_to_mm, frame_to_ms)
+    simple_gauss_hld.scale_params(pixel_to_mm, frame_to_ms)
+    bayes_mixture_hld.scale_params(pixel_to_mm, frame_to_ms)
+    bayesian_hld.scale_params(pixel_to_mm, frame_to_ms)
+    uniform_hld.scale_params(pixel_to_mm, frame_to_ms)
+    mc_hld.scale_params(pixel_to_mm, frame_to_ms)
+    hte._plot_t = hte._plot_t * frame_to_ms  # TODO
 
     # Results for temporal uncertainties
     approaches_temp_ls = [gauss_taylor_htd, no_return_htd, uniform_htd, mc_htd]
@@ -240,7 +293,7 @@ def run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
     hte.compare_skewness(approaches_temp_ls)
 
     # Calculate wasserstein distance and compare results
-    # hte.compare_wasserstein_distances(approaches_temp_ls, t_samples)
+    hte.compare_wasserstein_distances(approaches_temp_ls, t_samples)
     # Calculate the Hellinger distance
     hte.compare_hellinger_distances(approaches_temp_ls, t_samples)
     # Calculate the first wasserstein distance
@@ -250,46 +303,12 @@ def run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
 
     # Plot histogram of samples and hitting time distributions
     hte.plot_first_hitting_time_distributions(approaches_temp_ls, t_samples, plot_hist_for_all_particles=True)
-    hte.plot_fptd_and_paths_in_one(approaches_temp_ls, ev_fn, var_fn, t_samples, plot_hist_for_all_particles=True)
+    hte.plot_fptd_and_paths_in_one(approaches_temp_ls, ev_fn, var_fn, t_samples, dt, plot_hist_for_all_particles=True)
     # Plot histogram of samples for returning distribution and estimated returning distribution
     # hte.plot_returning_probs_from_fptd_histogram(ev_fn, var_fn, t_samples, approaches_temp_ls)   # this is too noisy
     # hte.plot_returning_probs_from_sample_paths(approaches_temp_ls, fraction_of_returns, dt)  # TODO: Not implemented
 
     logging.info('Evaluations for the distributions in y at the first hitting time.')
-
-    # Create class for evaluations
-    hle = HittingLocationEvaluator('CV Process', x_predTo, t_predicted, y_predicted, plot_y, t_L,
-                                   get_example_tracks_fn=get_example_tracks(x_L,
-                                                                            C_L,
-                                                                            S_w,
-                                                                            get_system_matrices_from_parameters,
-                                                                            return_component_ind=2,
-                                                                            # y-position
-                                                                            ),
-                                   save_results=save_results,
-                                   result_dir=result_dir,
-                                   for_paper=for_paper,
-                                   no_show=no_show,
-                                   )
-
-    # Show example histogram
-    # hte_spatial.plot_sample_histogram(y_samples, x_label='y-Coordinate')
-
-    # Set up the hitting location approaches
-    htd_for_hld = no_return_htd  # we use the same hitting time distribution for all approaches except the uniform and
-    # MC approach
-    gauss_taylor_hld = GaussTaylorCVHittingLocationDistribution(htd_for_hld, S_w,
-                                                                point_predictor=cv_spatial_point_predictor)
-    simple_gauss_hld = SimpleGaussCVHittingLocationDistribution(htd_for_hld, S_w,
-                                                                point_predictor=cv_spatial_point_predictor)
-    bayes_mixture_hld = BayesMixtureCVHittingLocationDistribution(htd_for_hld, S_w)
-    bayesian_hld = BayesianCVHittingLocationDistribution(htd_for_hld, S_w)
-
-    uniform_hld = UniformCVHittingLocationDistribution(uniform_htd,
-                                                       point_predictor=cv_spatial_point_predictor,
-                                                       window_length=0.08,  # width
-                                                       )
-    mc_hld = MCCVHittingLocationDistribution(mc_htd, S_w, y_range, y_samples=y_samples)
 
     # Results for spatial uncertainties
     approaches_spatial_ls = [gauss_taylor_hld, simple_gauss_hld, bayes_mixture_hld, bayesian_hld, uniform_hld, mc_hld]
@@ -312,14 +331,14 @@ def run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
     hle.plot_y_at_first_hitting_time_distributions(approaches_spatial_ls, y_samples)
 
     if measure_computational_times:
-        logging.info('Measuring computational time for cv process hitting time distributions.')
+        logging.info('Measuring computational time for wnca process hitting time distributions.')
         model_class_ls = [MCCVHittingTimeDistribution, GaussTaylorCVHittingTimeDistribution,
                           NoReturnWNCAHittingTimeDistribution]
         model_attributes_ls = [[x_L, C_L, S_w, x_predTo, t_L, t_range]] + [
             [x_L, C_L, S_w, x_predTo, t_L, wnca_temporal_point_predictor]] + [[x_L, C_L, S_w, x_predTo, t_L]]
         measure_computation_times(model_class_ls, model_attributes_ls, t_range=t_range)
 
-        logging.info('Measuring computational time for cv process hitting location distributions.')
+        logging.info('Measuring computational time for wnca process hitting location distributions.')
         model_class_ls = [MCCVHittingLocationDistribution, GaussTaylorCVHittingLocationDistribution,
                           BayesMixtureCVHittingLocationDistribution, BayesianCVHittingLocationDistribution]
         model_attributes_ls = [[mc_hld, S_w, y_range]] + [[htd_for_hld, S_w], cv_spatial_point_predictor] + 2 * [
@@ -381,11 +400,16 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
     if y_range_with_extents is None:
         y_range_with_extents = [0.7 * y_predicted - 1 / 2 * particle_size[1],
                                 1.3 * y_predicted + 1 / 2 * particle_size[1]]
-    plot_t = np.arange(t_range_with_extents[0], t_range_with_extents[1], 0.00001)
-    plot_y = np.arange(y_range_with_extents[0], y_range_with_extents[1], 0.001)
+    # plot_t = np.arange(t_range_with_extents[0], t_range_with_extents[1], 0.00001)
+    # plot_y = np.arange(y_range_with_extents[0], y_range_with_extents[1], 0.001)
+    plot_t = np.linspace(t_range_with_extents[0],  t_range_with_extents[1], 1000)  # we want to have 1000 plots points
+    plot_y = np.linspace(y_range_with_extents[0],  y_range_with_extents[1], 1000)
 
     # Create samples
-    dt = 1 / 1000
+    # dt = 1 / 1000
+    dt = (t_predicted - t_L) / 200  # we want to use approx. 200 time steps in the MC simulation
+    # round dt to the first significant digit
+    dt = np.round(dt, -np.floor(np.log10(np.abs(dt))).astype(int))
     u = a_c * np.array([0.5 * dt ** 2, dt, 0, 0])
     if not load_samples:
         first_passage_statistics, first_arrival_interval_statistics = create_ty_cv_samples_hitting_time(x_L, C_L, S_w,
@@ -425,15 +449,20 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
     logging.info('Evaluations for hitting time models with extents.')
 
     # Create class for evaluations
-    hte = HittingTimeEvaluatorWithExtents('CV Process', x_predTo, plot_t, t_predicted, t_L,
+    hte = HittingTimeEvaluatorWithExtents('WNCA Process', x_predTo, plot_t, t_predicted, t_L,
                                           get_example_tracks_fn=get_example_tracks(x_L,
                                                                                    C_L,
                                                                                    S_w,
-                                                                                   get_system_matrices_from_parameters),
+                                                                                   get_system_matrices_from_parameters,
+                                                                                   u=u,
+                                                                                   ),
                                           save_results=save_results,
                                           result_dir=result_dir,
                                           no_show=no_show,
-                                          for_paper=for_paper)
+                                          for_paper=for_paper,
+                                          fig_width=0.5 * 505.89 * 1 / 72,
+                                          paper_font='Helvetica',
+                                          )
 
     # Set up the hitting time approaches
     hitting_time_distr_kwargs = {"x_L": x_L,
@@ -447,19 +476,21 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
                                                          point_predictor=wnca_temporal_point_predictor),
                                                     name="Gauß-Taylor with extent")
     no_return_htwe = HittingTimeWithExtentsModel(particle_size[0], NoReturnWNCAHittingTimeDistribution,
-                                                 hitting_time_distr_kwargs,
+                                                 dict(hitting_time_distr_kwargs,
+                                                      a_c=a_c),
                                                  name="No-return approx. with extent")
     uniform_htwe = HittingTimeWithExtentsModel(particle_size[0], UniformCVHittingTimeDistribution,
                                                dict(x_L=hitting_time_distr_kwargs["x_L"],
                                                     x_predTo=hitting_time_distr_kwargs["x_predTo"],
                                                     t_L=hitting_time_distr_kwargs["t_L"],
                                                     point_predictor=wnca_temporal_point_predictor,
-                                                    window_length=0),  # TODO: macht das sinn?
-                                               name="Uniform with extent")
+                                                    window_length=np.finfo(np.float32).eps),
+                                               name="Dirac with extent")
     mc_htwe = HittingTimeWithExtentsModel(particle_size[0], MCCVHittingTimeDistribution,
                                           dict(hitting_time_distr_kwargs,
                                                t_samples=t_samples,
-                                               t_range=t_range_with_extents),
+                                               t_range=t_range_with_extents,
+                                               a_c=a_c),
                                           name="MC simulation with extent")
     simplified_taylor_htwe = HittingTimeWithExtentsSimplifiedModel(particle_size[0],
                                                                    GaussTaylorCVHittingTimeDistribution,
@@ -468,11 +499,11 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
                                                                    name="Gauß-Taylor with extent (simplified)")
 
     # Results for temporal uncertainties
-    approaches_temp_ls = [gauss_taylor_htwe,
+    approaches_temp_ls = [#gauss_taylor_htwe,
                           no_return_htwe,
                           uniform_htwe,
-                          mc_htwe,
-                          simplified_taylor_htwe,
+                          # mc_htwe,
+                          # simplified_taylor_htwe,
                           ]
 
     # plot the distribution of the particle front and back arrival time at one axis (the time axis)
@@ -509,22 +540,25 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
     logging.info('Evaluations for hitting location models with extents.')
 
     # Create class for evaluations
-    hle = HittingLocationEvaluatorWithExtents('CV Process', x_predTo, t_predicted, y_predicted, plot_y, t_L,
+    hle = HittingLocationEvaluatorWithExtents('WNCA Process', x_predTo, t_predicted, y_predicted, plot_y, t_L,
                                               get_example_tracks_fn=get_example_tracks(x_L,
                                                                                        C_L,
                                                                                        S_w,
                                                                                        get_system_matrices_from_parameters,
                                                                                        return_component_ind=2,
                                                                                        # y-position
+                                                                                       u=u,
                                                                                        ),
                                               save_results=save_results,
                                               result_dir=result_dir,
                                               for_paper=for_paper,
                                               no_show=no_show,
+                                              fig_width=0.5 * 505.89 * 1 / 72,
+                                              paper_font='Helvetica',
                                               )
 
     # Set up the hitting location approaches
-    htwe_model_for_hlwe_model = gauss_taylor_htwe  # we use the same hitting time distribution for all approaches except
+    htwe_model_for_hlwe_model = no_return_htwe  # we use the same hitting time distribution for all approaches except
     # the uniform and MC approach
     hitting_location_distr_kwargs = {'S_w': hitting_time_distr_kwargs['S_w']}
     gauss_taylor_hlwe = HittingLocationWithExtentsModel(particle_size[1],
@@ -558,8 +592,8 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
                                                    uniform_htwe,
                                                    UniformCVHittingLocationDistribution,
                                                    dict(point_predictor=cv_spatial_point_predictor,
-                                                        window_length=0),  # TODO: Macht das Sinn?
-                                                   name="MC with extent",
+                                                        window_length=np.finfo(np.float32).eps),
+                                                   name="Dirac with extent",
                                                    )
     y_samples_for_mc = hle.remove_not_arriving_samples(y_samples)
     mc_hlwe = HittingLocationWithExtentsModel(particle_size[1],
@@ -567,17 +601,19 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
                                               MCCVHittingLocationDistribution,
                                               dict(hitting_location_distr_kwargs,
                                                    y_range=y_range_with_extents,
-                                                   y_samples=y_samples_for_mc),
+                                                   y_samples=y_samples_for_mc,
+                                                   a_c=a_c),
                                               name="MC with extent",
                                               )
 
     # Results for spatial uncertainties
     approaches_spatial_ls = [gauss_taylor_hlwe,
-                             simple_gauss_hlwe,
+                             # simple_gauss_hlwe,
                              # bayes_mixture_hlwe,  # TODO: PPF fehlt!
                              # bayesian_hlwe,
                              uniform_hlwe,
-                             mc_hlwe]
+                             # mc_hlwe,
+                             ]
 
     # plot the distribution of the particle front and back arrival time at one axis (the time axis)
     hle.plot_y_at_first_arrival_interval_distribution_on_y_axis(
@@ -597,7 +633,6 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
     hle.plot_joint_y_at_first_arrival_interval_distribution(approaches_spatial_ls,
                                                             y_min_samples - particle_size[1] / 2,
                                                             y_max_samples + particle_size[1] / 2,
-                                                            plot_marginals=False,
                                                             )
     # plot the calibration
     hle.plot_calibration(approaches_spatial_ls,

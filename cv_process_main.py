@@ -159,11 +159,16 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
         t_range = [t_predicted - 0.3 * (t_predicted - t_L), t_predicted + 0.3 * (t_predicted - t_L)]
     if y_range is None:
         y_range = [0.7 * y_predicted, 1.3 * y_predicted]
-    plot_t = np.arange(t_range[0], t_range[1], 0.00001)
-    plot_y = np.arange(y_range[0], y_range[1], 0.001)
+    # plot_t = np.arange(t_range[0], t_range[1], 0.00001)
+    # plot_y = np.arange(y_range[0], y_range[1], 0.001)
+    plot_t = np.linspace(t_range[0], t_range[1], 1000)  # we want to have 1000 plots points
+    plot_y = np.linspace(y_range[0], y_range[1], 1000)
 
     # Create samples
-    dt = 1 / 1000
+    # dt = 1 / 1000
+    dt = (t_predicted - t_L) / 200  # we want to use approx. 200 time steps in the MC simulation
+    # round dt to the first significant digit
+    dt = np.round(dt, -np.floor(np.log10(np.abs(dt))).astype(int))
     if not load_samples:
         first_passage_statistics, _ = create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L, dt=dt)
         t_samples, y_samples, fraction_of_returns = first_passage_statistics
@@ -243,7 +248,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
 
     # Plot histogram of samples and hitting time distributions
     hte.plot_first_hitting_time_distributions(approaches_temp_ls, t_samples, plot_hist_for_all_particles=True)
-    hte.plot_fptd_and_paths_in_one(approaches_temp_ls, ev_fn, var_fn, t_samples, plot_hist_for_all_particles=True)
+    hte.plot_fptd_and_paths_in_one(approaches_temp_ls, ev_fn, var_fn, t_samples, dt, plot_hist_for_all_particles=True)
     # Plot histogram of samples for returning distribution and estimated returning distribution
     # hte.plot_returning_probs_from_fptd_histogram(ev_fn, var_fn, t_samples, approaches_temp_ls)   # this is too noisy
     hte.plot_returning_probs_from_sample_paths(approaches_temp_ls, fraction_of_returns, dt)
@@ -370,11 +375,16 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
     if y_range_with_extents is None:
         y_range_with_extents = [0.7 * y_predicted - 1 / 2 * particle_size[1],
                                 1.3 * y_predicted + 1 / 2 * particle_size[1]]
-    plot_t = np.arange(t_range_with_extents[0], t_range_with_extents[1], 0.00001)
-    plot_y = np.arange(y_range_with_extents[0], y_range_with_extents[1], 0.001)
+    # plot_t = np.arange(t_range_with_extents[0], t_range_with_extents[1], 0.00001)
+    # plot_y = np.arange(y_range_with_extents[0], y_range_with_extents[1], 0.001)
+    plot_t = np.linspace(t_range_with_extents[0],  t_range_with_extents[1], 1000)  # we want to have 1000 plots points
+    plot_y = np.linspace(y_range_with_extents[0],  y_range_with_extents[1], 1000)
 
     # Create samples
-    dt = 1 / 1000
+    # dt = 1 / 1000
+    dt = (t_predicted - t_L) / 200  # we want to use approx. 200 time steps in the MC simulation
+    # round dt to the first significant digit
+    dt = np.round(dt, -np.floor(np.log10(np.abs(dt))).astype(int))
     if not load_samples:
         first_passage_statistics, first_arrival_interval_statistics = create_ty_cv_samples_hitting_time(x_L, C_L, S_w,
                                                                                                         x_predTo, t_L,
@@ -441,8 +451,8 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
                                                     x_predTo=hitting_time_distr_kwargs["x_predTo"],
                                                     t_L=hitting_time_distr_kwargs["t_L"],
                                                     point_predictor=cv_temporal_point_predictor,
-                                                    window_length=0),  # TODO: macht das sinn?
-                                               name="Uniform with extent")
+                                                    window_length=np.finfo(np.float32).eps),
+                                               name="Dirac with extent")
     mc_htwe = HittingTimeWithExtentsModel(particle_size[0], MCCVHittingTimeDistribution,
                                           dict(hitting_time_distr_kwargs,
                                                t_samples=t_samples,
@@ -545,8 +555,8 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
                                                    uniform_htwe,
                                                    UniformCVHittingLocationDistribution,
                                                    dict(point_predictor=cv_spatial_point_predictor,
-                                                        window_length=0),  # TODO: Macht das Sinn?
-                                                   name="MC with extent",
+                                                        window_length=np.finfo(np.float32).eps),
+                                                   name="Dirac with extent",
                                                    )
     y_samples_for_mc = hle.remove_not_arriving_samples(y_samples)
     mc_hlwe = HittingLocationWithExtentsModel(particle_size[1],
@@ -584,7 +594,6 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
     hle.plot_joint_y_at_first_arrival_interval_distribution(approaches_spatial_ls,
                                                             y_min_samples - particle_size[1] / 2,
                                                             y_max_samples + particle_size[1] / 2,
-                                                            plot_marginals=False,
                                                             )
     # plot the calibration
     hle.plot_calibration(approaches_spatial_ls,

@@ -29,8 +29,9 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
         """
         super().__init__(name=name)
 
-        self._x_predTo = np.broadcast_to(x_predTo, self.batch_size)  # this itself raises an error if not compatible
-        self._t_L = t_L
+        self._x_predTo = np.broadcast_to(x_predTo, self.batch_size).copy().astype(float)  # this itself raises an error
+        # if not compatible, copy because some methods manipulate the array
+        self._t_L = float(t_L)
 
         # # For properties  # TODO: braucht man die hier?
         # self._ev = None
@@ -680,9 +681,14 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
         roots = self._get_max_cdf_location_roots()
         q_max = self._cdf(roots)
 
+        # if there are no roots, the return q_max = 1 and t_max = infty
+        roots[np.all(np.isnan(roots), axis=1), :] = np.inf
+        q_max[np.all(np.isnan(q_max), axis=1)] = 1
+
+        # there may be multiple roots, find the valid ones
         valid_idx = np.logical_and.reduce((np.isfinite(q_max),
                                            np.greater(q_max, 0, where=np.isfinite(q_max)),  # to silent the warnings
-                                           np.less(q_max, 1, where=np.isfinite(q_max)),
+                                           np.less_equal(q_max, 1, where=np.isfinite(q_max)),
                                            np.greater(roots, self._t_L),
                                            np.isclose(q_max, 1, atol=eps, rtol=0)
                                            ))

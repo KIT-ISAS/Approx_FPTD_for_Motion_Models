@@ -28,6 +28,7 @@ class HittingLocationEvaluator(AbstractHittingEvaluator):
                  for_paper=True,
                  fig_width=0.34 * 505.89 * 1 / 72,  # factor_of_textwidth * textwidth_in_pt * pt_to_inches
                  font_size=6,
+                 paper_font='Times',
                  paper_scaling_factor=2,
                  no_show=False):
         """Initializes the evaluator.
@@ -54,6 +55,8 @@ class HittingLocationEvaluator(AbstractHittingEvaluator):
          :param for_paper: A Boolean, whether to use a publication (omit headers, etc.).
          :param fig_width: A float, the width of the figures in inches.
          :param font_size: An integer, the font size in point.
+         :param paper_font: A string, the font to be used for the paper. Either "Times", "Helvetica" or "Default". Only
+            relevant if for_paper is True.
          :param paper_scaling_factor: A float, a scaling factor to be applied to the figure and fonts if _for_paper is
              true.
         :param no_show: A Boolean, whether to show the plots (False).
@@ -68,6 +71,7 @@ class HittingLocationEvaluator(AbstractHittingEvaluator):
                          for_paper=for_paper,
                          fig_width=fig_width,
                          font_size=font_size,
+                         paper_font=paper_font,
                          paper_scaling_factor=paper_scaling_factor,
                          no_show=no_show,
                          )

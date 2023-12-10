@@ -216,8 +216,8 @@ class AbstractBayesMixtureHittingLocationDistribution(AbstractHittingLocationDis
         # else:
         #     self._t_max = np.atleast_1d(t_max)
 
-        self._t_min = np.atleast_1d(t_min) if t_min is not None else None
-        self._t_max = np.atleast_1d(t_max) if t_max is not None else None
+        self._t_min = np.atleast_1d(t_min).astype(float) if t_min is not None else None
+        self._t_max = np.atleast_1d(t_max).astype(float) if t_max is not None else None
 
         self._n = n
 
@@ -499,8 +499,8 @@ class AbstractBayesianHittingLocationDistribution(AbstractHittingLocationDistrib
                          **kwargs,
                          )
 
-        self._t_min = np.atleast_1d(t_min) if t_min is not None else None
-        self._t_max = np.atleast_1d(t_max) if t_max is not None else None
+        self._t_min = np.atleast_1d(t_min).astype(float) if t_min is not None else None
+        self._t_max = np.atleast_1d(t_max).astype(float) if t_max is not None else None
 
     @property
     def t_min(self):

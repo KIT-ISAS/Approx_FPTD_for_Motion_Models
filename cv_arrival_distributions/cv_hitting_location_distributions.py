@@ -31,7 +31,8 @@ class AbstractCVHittingLocationDistribution(AbstractHittingLocationDistribution,
                          **kwargs,
                          )
 
-        self._S_w = np.broadcast_to(S_w, shape=self.batch_size)  # this itself raises an error if not compatible
+        self._S_w = np.broadcast_to(S_w, shape=self.batch_size).copy().astype(float)  # this itself raises an error if
+        # not compatible
 
     @property
     def S_w(self):
@@ -223,7 +224,7 @@ class GaussTaylorCVHittingLocationDistribution(AbstractCVHittingLocationDistribu
 
         :param value: S_w: A float or np.array of shape [batch_size], the power spectral density in y-direction.
         """
-        self._S_w = np.broadcast_to(value, shape=self.batch_size)
+        self._S_w = np.broadcast_to(value, shape=self.batch_size).copy()
         # Recalculate the variance
         self._var = self._compute_var(self._htd, self._S_w)
     
@@ -288,7 +289,7 @@ class SimpleGaussCVHittingLocationDistribution(AbstractCVHittingLocationDistribu
 
         :param value: S_w: A float or np.array of shape [batch_size], the power spectral density in y-direction.
         """
-        self._S_w = np.broadcast_to(value, shape=self.batch_size)
+        self._S_w = np.broadcast_to(value, shape=self.batch_size).copy()
         # Recalculate the variance
         self._var = self._compute_var(self._htd, self._S_w)
 
@@ -392,7 +393,7 @@ class BayesMixtureCVHittingLocationDistribution(AbstractCVHittingLocationDistrib
 
         :param value: S_w: A float or np.array of shape [batch_size], the power spectral density in y-direction.
         """
-        self._S_w = np.broadcast_to(value, shape=self.batch_size)
+        self._S_w = np.broadcast_to(value, shape=self.batch_size).copy()
         # Force recalculating all privates, except of t_min and t_max
         self._weights = None
         self._locations = None
@@ -433,7 +434,7 @@ class BayesianCVHittingLocationDistribution(AbstractCVHittingLocationDistributio
 
         :param value: S_w: A float or np.array of shape [batch_size], the power spectral density in y-direction.
         """
-        self._S_w = np.broadcast_to(value, shape=self.batch_size)
+        self._S_w = np.broadcast_to(value, shape=self.batch_size).copy()
 
 
 class MCCVHittingLocationDistribution(AbstractCVHittingLocationDistribution, AbstractMCHittingLocationDistribution):
@@ -441,7 +442,7 @@ class MCCVHittingLocationDistribution(AbstractCVHittingLocationDistribution, Abs
     assuming a CV model using scipy.stats.rv_histogram.
 
     """
-    def __init__(self, htd, S_w, y_range, bins=100, y_samples=None, name='MC simulation'):
+    def __init__(self, htd, S_w, y_range, a_c=0, bins=100, y_samples=None, name='MC simulation'):
         """Initializes the distribution.
 
         State format:
@@ -452,6 +453,8 @@ class MCCVHittingLocationDistribution(AbstractCVHittingLocationDistribution, Abs
         :param S_w: A float, the power spectral density (PSD) in y-direction.
         :param y_range: A list of length 2 representing the limits for the histogram of the distribution in y at the
             first-passage time histogram (the number of bins within y_range will correspond to bins).
+        :param a_c: A float, the constant acceleration in x-direction (can be used to simulate a WNCA process). If a_c
+            is not 0, a state format [pos_x, velo_x, ..., pos_y, velo_y] is assumed.
         :param bins: An integer, the number of bins to use to represent the histogram.
         :param y_samples: None or a np.array of shape [num_samples] containing the y-position at the first-passage
             times of the particles. If None, y_samples will be created by a call to a sampling method. If given, given
@@ -465,11 +468,18 @@ class MCCVHittingLocationDistribution(AbstractCVHittingLocationDistribution, Abs
                     self.__class__.__name__))
 
         if y_samples is None:
+            dt = (np.max(htd.t_range) - htd.t_L) / 200  # we want to use approx. 200 time steps in the MC simulation
+            # round dt to the first significant digit
+            dt = np.round(dt, -np.floor(np.log10(np.abs(dt))).astype(int))
+            u = np.zeros_like(self._htd.x_L)
+            u[:2] = a_c * np.array([0.5 * dt ** 2, dt])
             (_, y_samples, _), _ = create_ty_cv_samples_hitting_time(htd.x_L,
                                                                      htd.C_L,
                                                                      S_w,
                                                                      htd.x_predTo,
-                                                                     htd.t_L)
+                                                                     htd.t_L,
+                                                                     u=u,
+                                                                     dt=dt)
 
         super().__init__(htd=htd,
                          S_w=S_w,
@@ -479,6 +489,17 @@ class MCCVHittingLocationDistribution(AbstractCVHittingLocationDistribution, Abs
                          bins=bins,
                          )
 
+        self._a_c = float(a_c)
+
+    def scale_params(self, length_scaling_factor, time_scaling_factor):
+        """Scales the parameters of the distribution according t scaling factor.
+
+        :param length_scaling_factor: Float, the scaling factor for lengths.
+        :param time_scaling_factor: Float, the scaling factor for times.
+        """
+        self._a_c *= length_scaling_factor / time_scaling_factor ** 2
+        super().scale_params(length_scaling_factor, time_scaling_factor)
+
     @AbstractCVHittingLocationDistribution.S_w.setter
     def S_w(self, value):
         """The setter of the power spectral density (PSD) S_w in y-direction. Depending on the distribution, S_w might
@@ -486,12 +507,19 @@ class MCCVHittingLocationDistribution(AbstractCVHittingLocationDistribution, Abs
 
         :param value: S_w: A float, the power spectral density in y-direction.
         """
-        self._S_w = np.broadcast_to(value, shape=self.batch_size)
+        self._S_w = np.broadcast_to(value, shape=self.batch_size).copy()
         # Resample und recalculate the distribution
+        dt = (np.max(self._htd.t_range) - self._htd.t_L) / 200  # we want to use approx. 200 time steps in the MC
+        # simulation
+        # round dt to the first significant digit
+        dt = np.round(dt, -np.floor(np.log10(np.abs(dt))).astype(int))
+        u = np.zeros_like(self._htd.x_L)
+        u[:2] = self._a_c * np.array([0.5 * dt ** 2, dt])
         (_, y_samples, _), _ = create_ty_cv_samples_hitting_time(self._htd.x_L,
                                                                  self._htd.C_L,
                                                                  self._S_w,
                                                                  self._htd.x_predTo,
-                                                                 self._htd.t_L)
+                                                                 self._htd.t_L,
+                                                                 dt=dt)
         self._samples = y_samples[np.isfinite(y_samples)]  # there are default values, remove them from array
         self._density = self._build_distribution_from_samples(self._samples, self._range)   # TODO: Self.range dann auch anpassen?

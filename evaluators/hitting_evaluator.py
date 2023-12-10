@@ -16,7 +16,7 @@ import numpy as np
 import scipy.stats
 from scipy.stats import rv_histogram
 from scipy.spatial import distance_matrix
-# from ot.lp import emd2  # TODO: Wieder anstellen
+from ot.lp import emd2
 
 from abstract_hitting_time_distributions import AbstractHittingTimeDistribution
 from abstract_hitting_location_distributions import AbstractHittingLocationDistribution
@@ -36,6 +36,7 @@ class AbstractHittingEvaluator(ABC):
                  for_paper=True,
                  fig_width=0.34 * 505.89 * 1 / 72,  # factor_of_textwidth * textwidth_in_pt * pt_to_inches
                  font_size=6,
+                 paper_font='Times',
                  paper_scaling_factor=2,
                  no_show=False):
         """Initializes the evaluator.
@@ -59,6 +60,8 @@ class AbstractHittingEvaluator(ABC):
         :param for_paper: A Boolean, whether to use a publication (omit headers, etc.).
         :param fig_width: A float, the width of the figures in inches.
         :param font_size: An integer, the font size in point.
+        :param paper_font: A string, the font to be used for the paper. Either "Times", "Helvetica" or "Default". Only
+            relevant if for_paper is True.
         :param paper_scaling_factor: A float, a scaling factor to be applied to the figure and fonts if _for_paper is
             true.
         :param no_show: A Boolean, whether to show the plots (False).
@@ -66,6 +69,8 @@ class AbstractHittingEvaluator(ABC):
         # sanity checks
         if get_example_tracks_fn is not None and not callable(get_example_tracks_fn):
             raise ValueError('get_example_tracks_fn must be either None or a callable.')
+        if paper_font not in ['Times', 'Helvetica', 'Default']:
+            raise ValueError('paper_font must be either "Times", "Helvetica" or "Default".')
 
         self._x_predTo = x_predTo
         self._t_predicted = t_predicted
@@ -104,27 +109,57 @@ class AbstractHittingEvaluator(ABC):
                                  'ytick.labelsize': paper_scaling_factor * font_size,
                                  })
 
-            # latex appearance
+            # Latex appearance, we use the latex version installed in the container for all supported fonts
             # See, e.g.,  https://matplotlib.org/stable/gallery/userdemo/pgf_preamble_sgskip.html
+            # build latex preamble
             latex_pream = "\n".join([
                 r"\usepackage{amsmath}",  # enable more math
                 r"\usepackage{mathtools}",
                 r"\usepackage{amssymb}",
-                r"\usepackage{newtxtext,newtxmath}",  # setup font to Times (font in IEEEtran)
                 r"\usepackage{accents}",  # underline
                 r"\usepackage{mleftright}",  # \mleft, \mright
             ])
+            if paper_font == "Times":
+                # setup font to Times (font used in IEEEtran)
+                latex_pream = "\n".join([latex_pream,
+                                         r"\usepackage{newtxtext,newtxmath}",
+                                         ])
+            elif paper_font == "Helvetica":
+                # setup font to Helvetica (sans-serif font, similar to Arial)
+                # See https://tex.stackexchange.com/questions/197813/how-to-combine-another-sans-serif-math-font-with-helvet-for-text
+                latex_pream = "\n".join([latex_pream,
+                                         r"\usepackage{sansmathfonts}",  # this is for the math font (e.g.,in the ticks)
+                                         r"\usepackage[scaled=0.95]{helvet}",
+                                         r"\renewcommand{\rmdefault}{\sfdefault}"
+                                         # r"\usepackage{helvet}",  # this alone does not change math font
+                                         # r"\renewcommand{\familydefault}{\sfdefault}",  # this is also for Helvetica
+                                         # r"\usepackage{cmbright}",  # this is for the math font (e.g.,in the ticks),
+                                         # but changes the font of the text as well
+                                         ])
+
+            # configure matplotlib accordingly for the latex appearance
             plt.rcParams.update({
                 # "pgf.texsystem": "pdflatex",
                 "text.usetex": True,  # use inline maths for ticks
-                "pgf.rcfonts": False,  # don't setup fonts from rc parameters
-                "font.family": "serif",  # use serif/main font for text elements
-                "font.serif": "Times",
+                "pgf.rcfonts": False,  # don't set up fonts from rc parameters
                 # "font.serif": "STIXGeneral",   # this comes very close to Times or even is the same for most of the
                 # things (to use it, uncomment properties 'pgf.texsystem' and 'pgf.rcfonts')
                 'text.latex.preamble': latex_pream,  # for pdf, png, ...
                 "pgf.preamble": latex_pream,  # for pgf plots
             })
+            if paper_font == "Times":
+                plt.rcParams.update({
+                    "font.family": "serif",  # use serif/main font for text elements
+                    "font.serif": ["Times"],
+                })
+            if paper_font == "Default":
+                plt.rcParams.update({
+                    "font.family": "serif",  # use serif/main font for text elements
+                })
+            else:
+                plt.rcParams.update({
+                    "font.family": "sans-serif",  # use sans-serif font for text elements
+                })
 
             # other appearance options
             plt.rcParams['legend.loc'] = 'upper left'  # legend location
@@ -386,7 +421,7 @@ class AbstractHittingEvaluator(ABC):
         # To be overwritten by subclass
         raise NotImplementedError('Call to abstract method.')
 
-    def plot_example_tracks(self, N=5, dt=0.0001, plot_x_predTo=True):
+    def plot_example_tracks(self, N=5, dt=0.0001, plot_x_predTo=True):  # TODO: dt nicht optional
         """Plots example paths (with time evolving along the x-axis and the x-position along the y-axis).
 
         :param N: An integer, the number of tracks to plot.
@@ -417,7 +452,7 @@ class AbstractHittingEvaluator(ABC):
                                         ax,
                                         ev_fn,
                                         var_fn,
-                                        dt=0.0001,
+                                        dt=0.0001, # TODO: dt nicht optional
                                         show_example_tracks=False,
                                         plot_x_predTo=True):
         """Plots mean and standard deviation (and example tracks) over time.

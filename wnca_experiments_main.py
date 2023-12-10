@@ -25,10 +25,12 @@ from absl import flags
 
 import numpy as np
 
-from cv_process_main import run_experiment, run_experiment_with_extent
+from wnca_process_main import run_experiment, run_experiment_with_extent
 from experiments_runner import get_experiments_by_name, add_defaults, convert_to_numpy, store_config
 from kalman_filter import KalmanFilter
 from cv_arrival_distributions.cv_utils import get_system_matrices_from_parameters
+from abstract_distributions import AbstractArrivalDistribution
+
 
 # Delete all FLAGS defined by CV process as we here not want them to be overwritten by the following flags.
 for name in list(flags.FLAGS):
@@ -129,7 +131,7 @@ track_measurements = np.array([[1101.069, 34.743],
                                [1087.000, 843.933],
                                [1086.563, 872.073],
                                [1086.205, 900.417],
-                               [1085.885, 929.273]])  # TODO: Die messungen gehen wsl. über den Düsenbalken hinaus --> entsprechend kürzen
+                               [1085.885, 929.273]])
 
 experiments_config = [
     {
@@ -137,46 +139,69 @@ experiments_config = [
         "experiment_name": "WNCA IOSB",
         # Process parameters
         "measurements": np.fliplr(track_measurements),
+        "dt": 1,
+        "S_w": 0.005,
+        "a_c": 0.3,
+        "S_v": 10,
+        # "init_state_mean": np.array([30, 20, 1000, 0]),  # TODO,
+        "init_state_mean": np.array([track_measurements[0, 1], 18, track_measurements[0, 0], 0]),  # TODO,
+        "init_state_cov": np.diag([1, 1, 60, 60]),
         # Boundary
+        "x_predFrom": 800 - (5.8 + 4 / 2) * 30,  # = 566
+        # x_predTo - (5.8 frames + half length i frames) * velo (in pixel / frame)  # 530,
         "x_predTo": 800,
         # Particle size
         "particle_size": [4, 58],
         # Plot settings (optional)
-        # "t_range": [0.048, 0.062],
-        # "y_range": [0.47, 0.56]
+        "t_range": [34, 35],
+        "y_range": [1050, 1130],
+        "t_range_with_extents": [33.9, 35.1],
+        "y_range_with_extents": [1040, 1140],
+        # Factors for changing the units
+        # "pixel_to_mm": 1/2.88,
+        # "frame_to_ms": 4,
     }
 ]
 
 
 def estimate_states_from_measurements(measurements,
-                                      dt=1,
-                                      S_w=0.005,
-                                      a_c=0.3,
-                                      C_v=0.1,
-                                      init_state_mean=None,
-                                      init_state_cov=None,
+                                      dt,
+                                      S_w,
+                                      a_c,
+                                      S_v,
+                                      init_state_mean,
+                                      init_state_cov,
                                       ):
-
-    if init_state_mean is None:
-        init_state_mean = np.array([30, 20, 1000, 0])  # TODO
-    if init_state_cov is None:
-        init_state_cov = np.diag([900, 1600, 10e6, 1600])
 
     F, Q = get_system_matrices_from_parameters(dt, S_w)
     F = np.block([[F, np.zeros((2, 2))], [np.zeros((2, 2)), F]])
     Q = np.block([[Q, np.zeros((2, 2))], [np.zeros((2, 2)), Q]])
+    C_v = np.diag([S_v, S_v])
     H = np.array([[1, 0, 0, 0], [0, 0, 1, 0]])
     u = a_c * np.array([0.5 * dt ** 2, dt, 0, 0])
 
-    def system_model(state):
-        return (np.matmul(F, np.squeeze(state)) + u, np.matmul(np.matmul(F, np.squeeze(state)), F.T) + Q)[None, :]
+    # reshape the arrays to the required format
+    F = AbstractArrivalDistribution.batch_atleast_3d(F)
+    Q = AbstractArrivalDistribution.batch_atleast_3d(Q)
+    C_v = AbstractArrivalDistribution.batch_atleast_3d(C_v)
+    u = np.atleast_2d(u)
+    init_state_mean = np.atleast_2d(init_state_mean)
+    init_state_cov = AbstractArrivalDistribution.batch_atleast_3d(init_state_cov)
+    measurements = AbstractArrivalDistribution.batch_atleast_3d(measurements)
+
+    def system_model(state_mean, state_cov, k):
+        return np.matmul(F, state_mean[:, :, np.newaxis]).squeeze(-1) + u, \
+               np.matmul(np.matmul(F, state_cov), F.transpose((0, 2, 1))) + Q
 
     kf = KalmanFilter(system_model, init_state_mean, init_state_cov)
 
-    for k, measurement in enumerate(measurements):
-        kf.update_own_state(measurement[None, :], H[None, :, :], C_v)
-        if k < len(measurements) - 1:
-            kf.predict_own_state()
+    for k in range(1, measurements.shape[1]):  # TODO: Abbruchkriterium bzw. predfron
+        kf.predict_own_state()
+        kf.update_own_state(measurements[:, k, :], H, C_v)
+    # for k in range(0, measurements.shape[1]):
+        # kf.update_own_state(measurements[:, k, :], H, C_v)
+        # if k < measurements.shape[1] - 1:
+        #     kf.predict_own_state()
 
     return np.squeeze(kf.state_mean), np.squeeze(kf.state_cov), k * dt
 
@@ -200,13 +225,29 @@ def main(args):
     for i, config in enumerate(experiments_list):
 
         if "measurements" in config.keys():  # Overwrite all other state components
-            x_L, C_l, t_L = estimate_states_from_measurements(config["measurements"])
-            config["x_L"] = x_L
-            config["C_L"] = C_l
+            # shorten measurements
+            measurements = config["measurements"]
+            measurements = measurements[measurements[:, 0] < config["x_predFrom"], :]
+
+            x_L, C_l, t_L = estimate_states_from_measurements(measurements,
+                                                              config["dt"],
+                                                              config["S_w"],
+                                                              config["a_c"],
+                                                              config["S_v"],
+                                                              config["init_state_mean"],
+                                                              config["init_state_cov"])
+
+            config["x_L"] = x_L.tolist()
+            config["C_L"] = C_l.tolist()
             config["t_L"] = t_L
+            del config['measurements']
+            del config['dt']
+            del config['S_v']
+            del config['init_state_mean']
+            del config['init_state_cov']
+            del config['x_predFrom']
 
-
-        store_config(config, FLAGS.save_results)
+        store_config(config, FLAGS.save_dir)
         convert_to_numpy(config)  # convert the configs entries to numpy arrays
         logging.info('Running experiment {}.'.format(config['experiment_name']))
         del config['experiment_name']  # name cannot be passed to run_experiment

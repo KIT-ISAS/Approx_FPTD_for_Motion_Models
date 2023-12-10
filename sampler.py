@@ -399,7 +399,7 @@ def create_lgssm_hitting_time_samples(F,
     return first_passage_statistics, first_arrival_interval_statistics
 
 
-def get_example_tracks_lgssm(x_L, C_L, S_w, get_system_matrices_from_parameters_func, return_component_ind=0):
+def get_example_tracks_lgssm(x_L, C_L, S_w, get_system_matrices_from_parameters_func, return_component_ind=0, u=None):
     """Generator that creates a function for simulation of example tracks of LGSSMs. Used for plotting purpose only.
 
     :param x_L: A np.array of shape [4] representing the expected value of the initial state. We use index L here
@@ -411,10 +411,12 @@ def get_example_tracks_lgssm(x_L, C_L, S_w, get_system_matrices_from_parameters_
         Signature: f(dt, S_w), with dt a float being the time increment.
     :param return_component_ind: An integer, the index where the state component to be returned is located in the
         state-vector.
+    :param u: None or a np.array of shape [length_state], the input.
 
     :returns:
         _get_example_tracks: A function that can be used for simulation of example tracks.
     """
+    u = np.zeros_like(x_L) if u is None else u
 
     def get_example_tracks(plot_t, N=5):
         """Create data (only x-positions) of some tracks.
@@ -438,7 +440,7 @@ def get_example_tracks_lgssm(x_L, C_L, S_w, get_system_matrices_from_parameters_
         tracks = np.expand_dims(initial_samples, axis=2)
         for _ in range(plot_t.size - 1):
             x_curr_tf = tf.convert_to_tensor(tracks[:, :, -1])
-            x_next = tf.linalg.matvec(F, x_curr_tf).numpy()
+            x_next = tf.linalg.matvec(F, x_curr_tf).numpy() + u
             w_k = np.random.multivariate_normal(mean=mean_w, cov=Q, size=N)
             x_next = np.expand_dims(x_next + w_k, axis=-1)
             tracks = np.concatenate((tracks, x_next), axis=-1)

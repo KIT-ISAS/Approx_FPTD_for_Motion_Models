@@ -36,6 +36,7 @@ class AbstractHittingEvaluatorWithExtents(AbstractHittingEvaluator, ABC):
                                                     approaches_ls,
                                                     plot_hist_for_all_particles=True,
                                                     plot_cdfs=False,
+                                                    plot_back_and_front_distr=False,
                                                     prefix_ls=[' (front arrival)', ' (back arrival)'],
                                                     ):
         """Plots the (actually two-dimensional) temporal or spatial deflection window on the same axis (representing
@@ -51,6 +52,8 @@ class AbstractHittingEvaluatorWithExtents(AbstractHittingEvaluator, ABC):
         :param plot_hist_for_all_particles: A Boolean, whether to plot the histogram
                 only for particles that arrive at the boundary (False).
         :param plot_cdfs: A Boolean, whether to additionally plot the CDF on a new plot axis.
+        :param plot_back_and_front_distr: A Boolean, whether to plot the marginal distributions for the front and back
+            arrival locations. Only relevant for spatial deflection windows.
         :param prefix_ls: A list of length 2 containing strings, a prefix for the lower and upper marginal distribution.
         """
         if not plot_hist_for_all_particles:
@@ -58,8 +61,10 @@ class AbstractHittingEvaluatorWithExtents(AbstractHittingEvaluator, ABC):
             lower_marginal_samples = self.remove_not_arriving_samples(lower_marginal_samples)
 
             y_hist, x_hist, _ = ax1.hist(lower_marginal_samples,
-                                         bins=self._distribute_bins_in_plot_range(lower_marginal_samples),
-                                         # we want to have 100 samples in the plot window
+                                         bins=self._distribute_bins_in_plot_range(lower_marginal_samples,
+                                                                                  no_of_bins=200),
+                                         # we want to have 200 samples in the plot window since the plot window is
+                                         # larger than for the distributions without extents
                                          density=True,
                                          histtype='stepfilled',  # no space between the bars
                                          color=[0.8, 0.8, 0.8],
@@ -69,8 +74,7 @@ class AbstractHittingEvaluatorWithExtents(AbstractHittingEvaluator, ABC):
             # check if there are default values (particles that did not arrive) in the array
             upper_marginal_samples = self.remove_not_arriving_samples(upper_marginal_samples)
             ax1.hist(upper_marginal_samples,
-                     bins=self._distribute_bins_in_plot_range(upper_marginal_samples),
-                     # we want to have 100 samples in the plot window
+                     bins=self._distribute_bins_in_plot_range(upper_marginal_samples, no_of_bins=200),
                      density=True,
                      histtype='stepfilled',  # no space between the bars
                      color=[0.8, 0.8, 1.0],
@@ -80,13 +84,13 @@ class AbstractHittingEvaluatorWithExtents(AbstractHittingEvaluator, ABC):
 
         else:
             y_hist, x_hist, _ = ax1.hist(lower_marginal_samples,
-                                         bins=self._distribute_bins_in_plot_range(lower_marginal_samples),
-                                         # we want to have 100 samples in the plot window
+                                         bins=self._distribute_bins_in_plot_range(lower_marginal_samples,
+                                                                                  no_of_bins=200),
                                          density=True,
                                          histtype='stepfilled',  # no space between the bars
                                          color=[0.8, 0.8, 0.8])
             ax1.hist(upper_marginal_samples,
-                     bins=self._distribute_bins_in_plot_range(upper_marginal_samples),
+                     bins=self._distribute_bins_in_plot_range(upper_marginal_samples, no_of_bins=200),
                      # we want to have 100 samples in the plot window
                      density=True,
                      histtype='stepfilled',  # no space between the bars
@@ -101,11 +105,13 @@ class AbstractHittingEvaluatorWithExtents(AbstractHittingEvaluator, ABC):
         if plot_cdfs:
 
             lower_marginal_hist = np.histogram(lower_marginal_samples,
-                                               bins=self._distribute_bins_in_plot_range(lower_marginal_samples),
+                                               bins=self._distribute_bins_in_plot_range(lower_marginal_samples,
+                                                                                        no_of_bins=200),
                                                density=False)
             lower_marginal_density = rv_histogram(lower_marginal_hist, density=True)
             upper_marginal_hist = np.histogram(upper_marginal_samples,
-                                               bins=self._distribute_bins_in_plot_range(upper_marginal_samples),
+                                               bins=self._distribute_bins_in_plot_range(upper_marginal_samples,
+                                                                                        no_of_bins=200),
                                                density=False)
             upper_marginal_density = rv_histogram(upper_marginal_hist, density=True)
 
@@ -122,7 +128,7 @@ class AbstractHittingEvaluatorWithExtents(AbstractHittingEvaluator, ABC):
         for i, approach in enumerate(approaches_ls):
             lower_bound, upper_bound = approach.calculate_confidence_bounds(0.95)
             logging.info('Deflection windows for model {}: {}, {}'.format(approach.name, np.round(lower_bound, 4),
-                                                                        np.round(upper_bound, 4)))
+                                                                          np.round(upper_bound, 4)))
             ax1.vlines((lower_bound, upper_bound), ymin=0, ymax=1.4 * y_hist_max,
                        label=approach.name,
                        color=self.color_cycle[i])
@@ -146,57 +152,72 @@ class AbstractHittingEvaluatorWithExtents(AbstractHittingEvaluator, ABC):
                 ax1.plot(self.plot_points, [approach.max_y_distribution.pdf(y) for y in self.plot_points],
                          label=approach.name,
                          color=self.color_cycle[i])
-                ax1.plot(self.plot_points, [approach.max_y_distribution.back_location_pdf(y) for y in self.plot_points],
-                         label=approach.name,
-                         linestyle='dashed',
-                         color='red')
-                ax1.plot(self.plot_points, [approach.max_y_distribution.front_location_pdf(y) for y in self.plot_points],
-                         label=approach.name,
-                         linestyle='dotted',
-                         color=self.color_cycle[i])
+                if plot_back_and_front_distr:
+                    ax1.plot(self.plot_points,
+                             [approach.max_y_distribution.back_location_pdf(y) for y in self.plot_points],
+                             label=approach.name,
+                             linestyle='dashed',
+                             color='red')
+                    ax1.plot(self.plot_points,
+                             [approach.max_y_distribution.front_location_pdf(y) for y in self.plot_points],
+                             label=approach.name,
+                             linestyle='dotted',
+                             color=self.color_cycle[i])
                 if plot_cdfs:
                     ax2.plot(self.plot_points, [approach.max_y_distribution.cdf(y) for y in self.plot_points],
                              label=approach.name,
                              color=self.color_cycle[i])
-                    ax2.plot(self.plot_points, [approach.max_y_distribution.back_location_cdf(y) for y in self.plot_points],
-                             label=approach.name,
-                             linestyle='dashed',
-                             color='red')
-                    ax2.plot(self.plot_points, [approach.max_y_distribution.front_location_cdf(y) for y in self.plot_points],
-                             label=approach.name,
-                             linestyle='dotted',
-                             color=self.color_cycle[i])
+                    if plot_back_and_front_distr:
+                        ax2.plot(self.plot_points,
+                                 [approach.max_y_distribution.back_location_cdf(y) for y in self.plot_points],
+                                 label=approach.name,
+                                 linestyle='dashed',
+                                 color='red')
+                        ax2.plot(self.plot_points,
+                                 [approach.max_y_distribution.front_location_cdf(y) for y in self.plot_points],
+                                 label=approach.name,
+                                 linestyle='dotted',
+                                 color=self.color_cycle[i])
             if hasattr(approach, 'min_y_distribution'):
                 ax1.plot(self.plot_points, [approach.min_y_distribution.pdf(y) for y in self.plot_points],
                          label=approach.name,
                          color=self.color_cycle[i])
-                ax1.plot(self.plot_points, [approach.min_y_distribution.back_location_pdf(y) for y in self.plot_points],
-                         label=approach.name,
-                         linestyle='dashed',
-                         color='red')
-                ax1.plot(self.plot_points, [approach.min_y_distribution.front_location_pdf(y) for y in self.plot_points],
-                         label=approach.name,
-                         linestyle='dotted',
-                         color=self.color_cycle[i])
+                if plot_back_and_front_distr:
+                    ax1.plot(self.plot_points,
+                             [approach.min_y_distribution.back_location_pdf(y) for y in self.plot_points],
+                             label=approach.name,
+                             linestyle='dashed',
+                             color='red')
+                    ax1.plot(self.plot_points,
+                             [approach.min_y_distribution.front_location_pdf(y) for y in self.plot_points],
+                             label=approach.name,
+                             linestyle='dotted',
+                             color=self.color_cycle[i])
                 if plot_cdfs:
                     ax2.plot(self.plot_points, [approach.min_y_distribution.cdf(y) for y in self.plot_points],
                              label=approach.name,
                              color=self.color_cycle[i])
-                    ax2.plot(self.plot_points, [approach.min_y_distribution.back_location_cdf(y) for y in self.plot_points],
-                             label=approach.name,
-                             linestyle='dashed',
-                             color='red')
-                    ax2.plot(self.plot_points, [approach.min_y_distribution.front_location_cdf(y) for y in self.plot_points],
-                             label=approach.name,
-                             linestyle='dotted',
-                             color=self.color_cycle[i])
+                    if plot_back_and_front_distr:
+                        ax2.plot(self.plot_points,
+                                 [approach.min_y_distribution.back_location_cdf(y) for y in self.plot_points],
+                                 label=approach.name,
+                                 linestyle='dashed',
+                                 color='red')
+                        ax2.plot(self.plot_points,
+                                 [approach.min_y_distribution.front_location_cdf(y) for y in self.plot_points],
+                                 label=approach.name,
+                                 linestyle='dotted',
+                                 color=self.color_cycle[i])
 
         # add legend manually since it fails sometimes
         legend_elements = [Line2D([0], [0], color=c, linewidth=3, label=approach.name) for c, approach in
                            zip(self.color_cycle, approaches_ls)]
         legend_elements.append(Patch(facecolor=[0.8, 0.8, 0.8], label='MC simulation' + prefix_ls[0]))
         legend_elements.append(Patch(facecolor=[0.8, 0.8, 1], label='MC simulation' + prefix_ls[1]))
-        ax1.legend(handles=legend_elements)
+        if plot_cdfs:
+            ax2.legend(handles=legend_elements)
+        else:
+            ax1.legend(handles=legend_elements)
 
         ax1.set_ylim(0, 1.4 * y_hist_max)  # leave some space for labels
         ax1.set_xlim(self.plot_points[0], self.plot_points[-1])
@@ -241,11 +262,15 @@ class AbstractHittingEvaluatorWithExtents(AbstractHittingEvaluator, ABC):
         if marginal_x_axis is not None or marginal_y_axis is not None or use_independent_joint:
             # marginal densities
             lower_marginal_hist = np.histogram(lower_marginal_samples,
-                                               bins=self._distribute_bins_in_plot_range(lower_marginal_samples),
+                                               bins=self._distribute_bins_in_plot_range(lower_marginal_samples,
+                                                                                        no_of_bins=200),
+                                               # we want to have 200 samples in the plot window since the plot window is
+                                               # larger than for the distributions without extents
                                                density=False)
             lower_marginal_density = rv_histogram(lower_marginal_hist, density=True)
             upper_marginal_hist = np.histogram(upper_marginal_samples,
-                                               bins=self._distribute_bins_in_plot_range(upper_marginal_samples),
+                                               bins=self._distribute_bins_in_plot_range(upper_marginal_samples,
+                                                                                        no_of_bins=200),
                                                density=False)
             upper_marginal_density = rv_histogram(upper_marginal_hist, density=True)
 
@@ -253,8 +278,10 @@ class AbstractHittingEvaluatorWithExtents(AbstractHittingEvaluator, ABC):
             # joint distribution
             twod_hist, xedges, yedges, _ = ax1.hist2d(lower_marginal_samples,
                                                       upper_marginal_samples,
-                                                      bins=[self._distribute_bins_in_plot_range(lower_marginal_samples),
-                                                            self._distribute_bins_in_plot_range(upper_marginal_samples)],
+                                                      bins=[self._distribute_bins_in_plot_range(lower_marginal_samples,
+                                                                                                no_of_bins=200),
+                                                            self._distribute_bins_in_plot_range(upper_marginal_samples,
+                                                                                                no_of_bins=200)],
                                                       density=True,
                                                       norm=mcolors.PowerNorm(0.3),
                                                       )
@@ -264,8 +291,10 @@ class AbstractHittingEvaluatorWithExtents(AbstractHittingEvaluator, ABC):
             # first get the edges from joint histogram
             twod_hist, xedges, yedges = np.histogram2d(lower_marginal_samples,
                                                        upper_marginal_samples,
-                                                       bins=[self._distribute_bins_in_plot_range(lower_marginal_samples),
-                                                             self._distribute_bins_in_plot_range(upper_marginal_samples)],
+                                                       bins=[self._distribute_bins_in_plot_range(lower_marginal_samples,
+                                                                                                 no_of_bins=200),
+                                                             self._distribute_bins_in_plot_range(upper_marginal_samples,
+                                                                                                 no_of_bins=200)],
                                                        density=True,
                                                        )
             # calulate the joint
@@ -276,9 +305,11 @@ class AbstractHittingEvaluatorWithExtents(AbstractHittingEvaluator, ABC):
 
         # marginal distributions
         if marginal_x_axis is not None:
-            marginal_x_axis.plot(self.plot_points, [lower_marginal_density.pdf(t) for t in self.plot_points])
+            lower_mc_pdf_values = [lower_marginal_density.pdf(x) for x in self.plot_points]
+            marginal_x_axis.plot(self.plot_points, lower_mc_pdf_values)
         if marginal_y_axis is not None:
-            marginal_y_axis.plot([upper_marginal_density.pdf(t) for t in self.plot_points], self.plot_points)
+            upper_mc_pdf_values = [upper_marginal_density.pdf(t) for t in self.plot_points]
+            marginal_y_axis.plot(upper_mc_pdf_values, self.plot_points)
 
         ax1.plot([min(lower_marginal_samples), max(lower_marginal_samples)],
                  [min(lower_marginal_samples), max(lower_marginal_samples)],
@@ -308,7 +339,7 @@ class AbstractHittingEvaluatorWithExtents(AbstractHittingEvaluator, ABC):
                                          color=self.color_cycle[i])
                 marginal_x_axis.vlines(approach.calculate_confidence_bounds(0.95)[0],
                                        ymin=0,
-                                       ymax=max(pdf_values),
+                                       ymax=max(lower_mc_pdf_values),
                                        label=approach.name,
                                        color=self.color_cycle[i])
 
@@ -320,13 +351,12 @@ class AbstractHittingEvaluatorWithExtents(AbstractHittingEvaluator, ABC):
                                          color=self.color_cycle[i])
                 if hasattr(approach, 'max_y_distribution'):
                     pdf_values = [approach.max_y_distribution.pdf(y) for y in self.plot_points]
-                    marginal_x_axis.plot(self.plot_points,
-                                         pdf_values,
+                    marginal_y_axis.plot(pdf_values, self.plot_points,
                                          label=approach.name,
                                          color=self.color_cycle[i])
                 marginal_y_axis.hlines(approach.calculate_confidence_bounds(0.95)[1],
                                        xmin=0,
-                                       xmax=max(pdf_values),
+                                       xmax=max(upper_mc_pdf_values),
                                        label=approach.name,
                                        color=self.color_cycle[i])
 
@@ -369,8 +399,10 @@ class AbstractHittingEvaluatorWithExtents(AbstractHittingEvaluator, ABC):
         # joint densities
         twod_hist, xedges, yedges, = np.histogram2d(lower_marginal_samples,
                                                     upper_marginal_samples,
-                                                    bins=[self._distribute_bins_in_plot_range(lower_marginal_samples),
-                                                          self._distribute_bins_in_plot_range(upper_marginal_samples)],
+                                                    bins=[self._distribute_bins_in_plot_range(lower_marginal_samples,
+                                                                                              no_of_bins=500),
+                                                          self._distribute_bins_in_plot_range(upper_marginal_samples,
+                                                                                              no_of_bins=500)],
                                                     density=True,
                                                     )
 
@@ -382,11 +414,11 @@ class AbstractHittingEvaluatorWithExtents(AbstractHittingEvaluator, ABC):
 
         # marginal densities
         front_hist = np.histogram(lower_marginal_samples,
-                                  bins=self._distribute_bins_in_plot_range(lower_marginal_samples),
+                                  bins=self._distribute_bins_in_plot_range(lower_marginal_samples, no_of_bins=500),
                                   density=False)
         front_arrival_time_density = rv_histogram(front_hist, density=True)
         back_hist = np.histogram(upper_marginal_samples,
-                                 bins=self._distribute_bins_in_plot_range(upper_marginal_samples),
+                                 bins=self._distribute_bins_in_plot_range(upper_marginal_samples, no_of_bins=500),
                                  density=False)
         back_arrival_time_density = rv_histogram(back_hist, density=True)
 
@@ -448,6 +480,7 @@ class HittingTimeEvaluatorWithExtents(HittingTimeEvaluator, AbstractHittingEvalu
                  for_paper=True,
                  fig_width=0.34 * 505.89 * 1 / 72,  # factor_of_textwidth * textwidth_in_pt * pt_to_inches
                  font_size=6,
+                 paper_font='Times',
                  paper_scaling_factor=2,
                  no_show=False):
         """Initializes the evaluator.
@@ -469,6 +502,8 @@ class HittingTimeEvaluatorWithExtents(HittingTimeEvaluator, AbstractHittingEvalu
         :param save_results: A Boolean, whether to save the plots.
         :param result_dir: A string, the directory where to save the plots.
         :param for_paper: A Boolean, whether to use a publication (omit headers, etc.).
+        :param paper_font: A string, the font to be used for the paper. Either "Times", "Helvetica" or "Default". Only
+            relevant if for_paper is True.
         :param fig_width: A float, the width of the figures in inches.
         :param font_size: An integer, the font size in point.
         :param paper_scaling_factor: A float, a scaling factor to be applied to the figure and fonts if _for_paper is
@@ -486,6 +521,7 @@ class HittingTimeEvaluatorWithExtents(HittingTimeEvaluator, AbstractHittingEvalu
                          for_paper=for_paper,
                          fig_width=fig_width,
                          font_size=font_size,
+                         paper_font=paper_font,
                          paper_scaling_factor=paper_scaling_factor,
                          no_show=no_show,
                          )
@@ -540,7 +576,7 @@ class HittingTimeEvaluatorWithExtents(HittingTimeEvaluator, AbstractHittingEvalu
 
         if not self._for_paper:
             plt.title(
-                "Distribution of First Arrival Interval (Particle Front & Back Arrival Time) for " + self._process_name)
+                "Distribution of First Particle Front and Back Arrival Time for " + self._process_name)
         # plt.legend()
         if self.save_results:
             plt.savefig(os.path.join(self._result_dir, self._process_name_save + '_first_arrival_interval_distr.pdf'))
@@ -617,10 +653,10 @@ class HittingTimeEvaluatorWithExtents(HittingTimeEvaluator, AbstractHittingEvalu
         if not self._for_paper:
             if not use_independent_joint:
                 plt.title(
-                    "Joint Distribution of First Arrival Interval (Particle Front & Back Arrival Time) for " + self._process_name)
+                    "Joint Distribution of First Particle Front and Back Arrival Time for " + self._process_name)
             else:
                 plt.title(
-                    "Joint Distribution (by Independence Assumption) of First Arrival Interval (Particle Front & Back Arrival Time) for " + self._process_name)
+                    "Joint Distribution (by Independence Assumption) of First Particle Front and Back Arrival Time for " + self._process_name)
         if self.save_results:
             plt.savefig(
                 os.path.join(self._result_dir, self._process_name_save + '_joint_first_arrival_interval_distr.pdf'))
@@ -692,6 +728,7 @@ class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHitt
                  for_paper=True,
                  fig_width=0.34 * 505.89 * 1 / 72,  # factor_of_textwidth * textwidth_in_pt * pt_to_inches
                  font_size=6,
+                 paper_font='Times',
                  paper_scaling_factor=2,
                  no_show=False):
         """Initializes the evaluator.
@@ -718,6 +755,8 @@ class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHitt
          :param for_paper: A Boolean, whether to use a publication (omit headers, etc.).
          :param fig_width: A float, the width of the figures in inches.
          :param font_size: An integer, the font size in point.
+         :param paper_font: A string, the font to be used for the paper. Either "Times", "Helvetica" or "Default". Only
+            relevant if for_paper is True.
          :param paper_scaling_factor: A float, a scaling factor to be applied to the figure and fonts if _for_paper is
              true.
         :param no_show: A Boolean, whether to show the plots (False).
@@ -734,6 +773,7 @@ class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHitt
                          for_paper=for_paper,
                          fig_width=fig_width,
                          font_size=font_size,
+                         paper_font=paper_font,
                          paper_scaling_factor=paper_scaling_factor,
                          no_show=no_show,
                          )
@@ -762,7 +802,8 @@ class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHitt
                                                                 approaches_ls,
                                                                 min_y_samples,
                                                                 max_y_samples,
-                                                                plot_cdfs=True
+                                                                plot_cdfs=True,
+                                                                plot_back_and_front_distr=False,
                                                                 ):
         """Plots the (actually two-dimensional) temporal deflection window on the time axis.
 
@@ -772,14 +813,17 @@ class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHitt
         :param max_y_samples: A np.array of shape [num_samples] containing samples of the particles' uppermost edge
             locations.
         :param plot_cdfs: A Boolean, whether to additionally plot the CDF on a new plot axis.
+        :param plot_back_and_front_distr: A Boolean, whether to plot the marginal distributions for the front and back
+            arrival locations.
         """
         fig, ax1 = plt.subplots()
         self._plot_interval_distributions_on_single_axis(ax1,
                                                          min_y_samples,
                                                          max_y_samples,
                                                          approaches_ls,
-                                                         plot_hist_for_all_particles=True,  # always True
+                                                         plot_hist_for_all_particles=False,  # always False
                                                          plot_cdfs=plot_cdfs,
+                                                         plot_back_and_front_distr=plot_back_and_front_distr,
                                                          prefix_ls=[' (min of y)', ' (max of y)'])
         ax1.set_xlabel("y in mm")
 
@@ -852,7 +896,7 @@ class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHitt
                                                    min_y_samples,
                                                    max_y_samples,
                                                    approaches_ls,
-                                                   plot_hist_for_all_particles=True,  # always True
+                                                   plot_hist_for_all_particles=False,  # always False
                                                    use_independent_joint=use_independent_joint,
                                                    marginal_x_axis=ax_histx,
                                                    marginal_y_axis=ax_histy,

@@ -86,7 +86,8 @@ def main(args):
         t_range = [0, 0.15]  # for sigma = 50
     else:
         t_range = [0.7 * t_predicted, 1.3 * t_predicted]
-    plot_t = np.arange(t_range[0], t_range[1], 0.00001)
+    # plot_t = np.arange(t_range[0], t_range[1], 0.00001)
+    plot_t = np.linspace(t_range_with_extents[0],  t_range_with_extents[1], 1000)  # we want to have 1000 plots points
 
     # Create base class
     hte = HittingTimeEvaluator('Wiener Process with Drift', x_predTo, plot_t, t_predicted,
@@ -97,7 +98,10 @@ def main(args):
                                no_show=FLAGS.no_show)
 
     # Create samples
-    dt = 1 / 20000
+    # dt = 1 / 20000
+    dt = t_predicted / 200  # we want to use approx. 200 time steps in the MC simulation
+    # round dt to the first significant digit
+    dt = np.round(dt, -np.floor(np.log10(np.abs(dt))).astype(int))
     if not FLAGS.load_samples:
         t_samples, _, fraction_of_returns = create_wiener_samples_hitting_time(mu, sigma, x0, x_predTo, dt=dt)
 
@@ -150,7 +154,7 @@ def main(args):
 
     # Plot histogram of samples and hitting time distributions
     hte.plot_first_hitting_time_distributions(approaches_temp_ls, t_samples, plot_hist_for_all_particles=True)
-    hte.plot_fptd_and_paths_in_one(approaches_temp_ls, ev_fn, var_fn, t_samples, plot_hist_for_all_particles=True)
+    hte.plot_fptd_and_paths_in_one(approaches_temp_ls, ev_fn, var_fn, t_samples, dt, plot_hist_for_all_particles=True)
     # Plot histogram of samples for returning distribution and estimated returning distribution
     # hte.plot_returning_probs_from_fptd_histogram(ev_fn, var_fn, t_samples, approaches_temp_ls)   # this is too noisy
     hte.plot_returning_probs_from_sample_paths(approaches_temp_ls, fraction_of_returns, dt,
@@ -182,9 +186,9 @@ class AbstractWienerHittingTimeDistribution(AbstractHittingTimeDistribution, ABC
                 'Batch size must be equal to 1. Note that {} does not support a batch dimension.'.format(
                     self.__class__.__name__))
 
-        self._mu = mu
-        self._sigma = sigma
-        self._x0 = x0
+        self._mu = float(mu)
+        self._sigma = float(sigma)
+        self._x0 = float(x0)
 
         super().__init__(x_predTo=x_predTo,
                          t_L=0,  # methods only support t_L = 0
@@ -578,7 +582,10 @@ class MCWienerHittingTimeDistribution(AbstractWienerHittingTimeDistribution, Abs
         :param name: String, the name for the distribution.
         """
         if t_samples is None:
-            t_samples, _, _ = create_wiener_samples_hitting_time(mu, sigma, x0, x_predTo)
+            dt = np.max(t_range) / 200  # we want to use approx. 200 time steps in the MC simulation
+            # round dt to the first significant digit
+            dt = np.round(dt, -np.floor(np.log10(np.abs(dt))).astype(int))
+            t_samples, _, _ = create_wiener_samples_hitting_time(mu, sigma, x0, x_predTo, dt=dt)
 
         super().__init__(mu=mu,
                          sigma=sigma,

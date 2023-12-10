@@ -42,9 +42,10 @@ class AbstractCAHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
         if not np.array_equal(np.atleast_2d(x_L).shape, self.batch_atleast_3d(C_L).shape[:2]):
             raise ValueError('Shapes of x_L and C_L do not match.')
 
-        self._x_L = np.atleast_2d(x_L)
-        self._C_L = self.batch_atleast_3d(C_L)
-        self._S_w = np.broadcast_to(S_w, shape=self.batch_size)  # this itself raises an error if not compatible
+        self._x_L = np.atleast_2d(x_L).astype(float)
+        self._C_L = self.batch_atleast_3d(C_L).astype(float)
+        self._S_w = np.broadcast_to(S_w, shape=self.batch_size).copy().astype(float)  # this itself raises an error if
+        # not compatible
 
         super().__init__(x_predTo=x_predTo,
                          t_L=t_L,
@@ -293,7 +294,7 @@ class GaussTaylorCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Ab
         if not callable(point_predictor):
             raise ValueError('point_predictor must be a callable.')
 
-        ev = point_predictor(x_L[..., [0, 2]], x_L[..., [1, 3]], x_L[..., [2, 4]], x_predTo)
+        ev = point_predictor(x_L[..., [0, 2]], x_L[..., [1, 3]], x_L[..., [2, 4]], x_predTo) + t_L
 
         # ev must be resizeable to shape [batch_size]
         if not np.atleast_1d(ev).ndim == 1 or np.atleast_1d(ev).shape[0] != np.atleast_2d(x_L).shape[0]:
@@ -310,7 +311,7 @@ class GaussTaylorCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Ab
         #                                            name=name,
         #                                            )
         #
-        # ev = point_predictor(self._x_L[:, [0, 2]], self._x_L[:, [1, 3]], self.x_L[:, [2, 4]])
+        # ev = point_predictor(self._x_L[:, [0, 2]], self._x_L[:, [1, 3]], self.x_L[:, [2, 4]]) + t_L
         # var = self._compute_var(ev, self._x_L, self._C_L, self._t_L, self._S_w)
         #
         # AbstractGaussTaylorHittingTimeDistribution.__init__(self,
@@ -397,7 +398,7 @@ class GaussTaylorCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Ab
 
         :param value: S_w: A float or np.array of shape [batch_size], the power spectral density in x-direction.
         """
-        self._S_w = np.broadcast_to(value, shape=self.batch_size)
+        self._S_w = np.broadcast_to(value, shape=self.batch_size).copy()
         # Recalculate the variance
         self._var = self._compute_var(self._ev, self._x_L, self._C_L, self._t_L, self._S_w)
 
@@ -739,7 +740,8 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
 
         :param value: S_w: A float or np.array of shape [batch_size], the power spectral density in x-direction.
         """
-        self._S_w = np.broadcast_to(value, shape=self.batch_size)  # this itself raises an error if not compatible
+        self._S_w = np.broadcast_to(value, shape=self.batch_size).copy()  # this itself raises an error if not
+        # compatible
         # Force recalculating all privates
         self._q_max = None
         self._t_max = None
@@ -876,7 +878,7 @@ class UniformCAHittingTimeDistribution(AbstractUniformHittingTimeDistribution, A
         if not callable(point_predictor):
             raise ValueError('point_predictor must be a callable.')
 
-        t_predicted = point_predictor(x_L[..., [0, 3]], x_L[..., [1, 4]], x_L[..., [2, 5]], x_predTo)
+        t_predicted = point_predictor(x_L[..., [0, 3]], x_L[..., [1, 4]], x_L[..., [2, 5]], x_predTo) + t_L
 
         # t_predicted must be resizeable to shape [batch_size]
         if not np.atleast_1d(t_predicted).ndim == 1 or np.atleast_1d(t_predicted).shape[0] != np.atleast_2d(x_L).shape[
@@ -892,7 +894,7 @@ class UniformCAHittingTimeDistribution(AbstractUniformHittingTimeDistribution, A
         #                                            name=name,
         #                                            )
         #
-        # t_predicted = point_predictor(self._x_L[:, [0, 2]], self._x_L[:, [1, 3]], self._x_L[:, [2, 4]])
+        # t_predicted = point_predictor(self._x_L[:, [0, 2]], self._x_L[:, [1, 3]], self._x_L[:, [2, 4]]) + t_L
         # AbstractUniformHittingTimeDistribution.__init__(self,
         #                                                 point_prediction=t_predicted,
         #                                                 window_length=window_length,
@@ -980,7 +982,10 @@ class MCCAHittingTimeDistribution(AbstractMCHittingTimeDistribution, AbstractCAH
                     self.__class__.__name__))
 
         if t_samples is None:
-            (t_samples, _, _), _ = create_ty_ca_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L)
+            dt = (np.max(t_range) - t_L) / 200  # we want to use approx. 200 time steps in the MC simulation
+            # round dt to the first significant digit
+            dt = np.round(dt, -np.floor(np.log10(np.abs(dt))).astype(int))
+            (t_samples, _, _), _ = create_ty_ca_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L, dt=dt)
 
         super().__init__(x_L=x_L,
                          C_L=C_L,
@@ -1031,9 +1036,12 @@ class MCCAHittingTimeDistribution(AbstractMCHittingTimeDistribution, AbstractCAH
 
         :param value: S_w: A float, the power spectral density in x-direction.
         """
-        self._S_w = np.broadcast_to(value, shape=self.batch_size)
+        self._S_w = np.broadcast_to(value, shape=self.batch_size).copy()
         # Resample und recalculate the distribution
+        dt = (np.max(self._range) - self._t_L) / 200  # we want to use approx. 200 time steps in the MC simulation
+        # round dt to the first significant digit
+        dt = np.round(dt, -np.floor(np.log10(np.abs(dt))).astype(int))
         (self._samples, _, _), _ = create_ty_ca_samples_hitting_time(self.x_L, self.C_L, self.S_w, self.x_predTo,
-                                                                     self._t_L)
+                                                                     self._t_L, dt=dt)
         self._density = self._build_distribution_from_samples(self._samples,
                                                               self._range)  # TODO: Self.range dann auch anpassen?

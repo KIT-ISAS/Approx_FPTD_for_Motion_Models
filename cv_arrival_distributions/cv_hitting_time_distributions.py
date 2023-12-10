@@ -41,9 +41,10 @@ class AbstractCVHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
         if not np.array_equal(np.atleast_2d(x_L).shape, self.batch_atleast_3d(C_L).shape[:2]):
             raise ValueError('Shapes of x_L and C_L do not match.')
 
-        self._x_L = np.atleast_2d(x_L)
-        self._C_L = self.batch_atleast_3d(C_L)
-        self._S_w = np.broadcast_to(S_w, shape=self.batch_size)  # this itself raises an error if not compatible
+        self._x_L = np.atleast_2d(x_L).astype(float)
+        self._C_L = self.batch_atleast_3d(C_L).astype(float)
+        self._S_w = np.broadcast_to(S_w, shape=self.batch_size).copy().astype(float)  # this itself raises an error if
+        # not compatible
 
         super().__init__(x_predTo=x_predTo,
                          t_L=t_L,
@@ -356,7 +357,7 @@ class GaussTaylorCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Ab
         if not callable(point_predictor):
             raise ValueError('point_predictor must be a callable.')
 
-        ev = point_predictor(x_L[..., [0, 2]], x_L[..., [1, 3]], x_predTo)
+        ev = point_predictor(x_L[..., [0, 2]], x_L[..., [1, 3]], x_predTo) + t_L
 
         # ev must be resizeable to shape [batch_size]
         if not np.atleast_1d(ev).ndim == 1 or np.atleast_1d(ev).shape[0] != np.atleast_2d(x_L).shape[0]:
@@ -373,7 +374,7 @@ class GaussTaylorCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Ab
         #                                            name=name,
         #                                            )
         #
-        # ev = point_predictor(self._x_L[:, [0, 2]], self._x_L[:, [1, 3]])
+        # ev = point_predictor(self._x_L[:, [0, 2]], self._x_L[:, [1, 3]]) + t_L
         # var = self._compute_var(ev, self._x_L, self._C_L, self._t_L, self._S_w)
         # AbstractGaussTaylorHittingTimeDistribution.__init__(self,
         #                                                     ev=ev,
@@ -435,7 +436,7 @@ class GaussTaylorCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Ab
 
         :param value: S_w: A float or np.array of shape [batch_size], the power spectral density in x-direction.
         """
-        self._S_w = np.broadcast_to(value, shape=self.batch_size)
+        self._S_w = np.broadcast_to(value, shape=self.batch_size).copy()
         # Recalculate the variance
         self._var = self._compute_var(self._ev, self._x_L, self._C_L, self._t_L, self._S_w)
 
@@ -726,7 +727,8 @@ class NoReturnCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstr
 
         :param value: S_w: A float or np.array of shape [batch_size], the power spectral density in x-direction.
         """
-        self._S_w = np.broadcast_to(value, shape=self.batch_size)  # this itself raises an error if not compatible
+        self._S_w = np.broadcast_to(value, shape=self.batch_size).copy()  # this itself raises an error if not
+        # compatible
         # Force recalculating all privates
         self._q_max = None
         self._t_max = None
@@ -809,7 +811,7 @@ class NoReturnWNCAHittingTimeDistribution(NoReturnCVHittingTimeDistribution):
         :param a_c: A float or np.array of shape [batch_size], the constant acceleration.
         :param name: String, the name for the distribution.
         """
-        self._a_c = np.broadcast_to(a_c, shape=np.atleast_2d(x_L).shape[0])
+        self._a_c = np.broadcast_to(a_c, shape=np.atleast_2d(x_L).shape[0]).copy().astype(float)
 
         super().__init__(x_L=x_L,
                          C_L=C_L,
@@ -1049,7 +1051,7 @@ class UniformCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstra
         if not callable(point_predictor):
             raise ValueError('point_predictor must be a callable.')
 
-        t_predicted = point_predictor(x_L[..., [0, 2]], x_L[..., [1, 3]], x_predTo)
+        t_predicted = point_predictor(x_L[..., [0, 2]], x_L[..., [1, 3]], x_predTo) + t_L
 
         # t_predicted must be resizeable to shape [batch_size]
         if not np.atleast_1d(t_predicted).ndim == 1 or np.atleast_1d(t_predicted).shape[0] != np.atleast_2d(x_L).shape[
@@ -1110,7 +1112,7 @@ class MCCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, AbstractMCH
 
     Note that this distribution class does not support a batch dimension.
     """
-    def __init__(self, x_L, C_L, S_w, x_predTo, t_L, t_range, bins=100, t_samples=None, name='MC simulation'):
+    def __init__(self, x_L, C_L, S_w, x_predTo, t_L, t_range, a_c=0, bins=100, t_samples=None, name='MC simulation'):
         """Initializes the distribution.
 
          State format:
@@ -1128,6 +1130,7 @@ class MCCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, AbstractMCH
         :param t_range: A list of length 2 representing the limits for the first-passage time histogram (the number of
             bins within t_range will correspond to bins).
         :param bins: An integer, the number of bins to use to represent the histogram.
+        :param a_c: A float, the constant acceleration (can be used to simulate a WNCA process).
         :param t_samples: None or a np.array of shape [num_samples] containing the first-passage times of the particles.
             If None, t_samples will be created by a call to a sampling method. If given, given values will be used.
         :param name: String, the name for the distribution.
@@ -1139,7 +1142,12 @@ class MCCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, AbstractMCH
                     self.__class__.__name__))
 
         if t_samples is None:
-            (t_samples, _, _), _ = create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L)
+            dt = (np.max(t_range) - t_L) / 200  # we want to use approx. 200 time steps in the MC simulation
+            # round dt to the first significant digit
+            dt = np.round(dt, -np.floor(np.log10(np.abs(dt))).astype(int))
+            u = np.zeros_like(x_L)
+            u[:2] = a_c * np.array([0.5 * dt ** 2, dt])
+            (t_samples, _, _), _ = create_ty_cv_samples_hitting_time(x_L, C_L, S_w, x_predTo, t_L, u=u, dt=dt)
 
         super().__init__(x_L=x_L,
                          C_L=C_L,
@@ -1151,6 +1159,17 @@ class MCCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, AbstractMCH
                          bins=bins,
                          name=name)
 
+        self._a_c = float(a_c)
+
+    def scale_params(self, length_scaling_factor, time_scaling_factor):
+        """Scales the parameters of the distribution according t scaling factor.
+
+        :param length_scaling_factor: Float, the scaling factor for lengths.
+        :param time_scaling_factor: Float, the scaling factor for times.
+        """
+        self._a_c *= length_scaling_factor / time_scaling_factor ** 2
+        super().scale_params(length_scaling_factor, time_scaling_factor)
+
     @AbstractCVHittingTimeDistribution.S_w.setter
     def S_w(self, value):
         """The setter of the power spectral density (PSD) S_w in x-direction. Depending on the distribution, S_w might
@@ -1158,8 +1177,14 @@ class MCCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, AbstractMCH
 
         :param value: S_w: A float, the power spectral density in x-direction.
         """
-        self._S_w = np.broadcast_to(value, shape=self.batch_size)
+        self._S_w = np.broadcast_to(value, shape=self.batch_size).copy()
         # Resample und recalculate the distribution
-        self._samples, _, _ = create_ty_cv_samples_hitting_time(self.x_L, self.C_L, self.S_w, self.x_predTo, self._t_L)
-        self._density = self._build_distribution_from_samples(self._samples, self._range)  # TODO: Self.range dann auch anpassen?
-
+        dt = (np.max(self._range) - self._t_L) / 200  # we want to use approx. 200 time steps in the MC simulation
+        # round dt to the first significant digit
+        dt = np.round(dt, -np.floor(np.log10(np.abs(dt))).astype(int))
+        u = np.zeros_like(self._x_L)
+        u[:2] = self._a_c * np.array([0.5 * dt ** 2, dt])
+        self._samples, _, _ = create_ty_cv_samples_hitting_time(self.x_L, self.C_L, self.S_w, self.x_predTo, self._t_L,
+                                                                u=u, dt=dt)
+        self._density = self._build_distribution_from_samples(self._samples,
+                                                              self._range)  # TODO: Self.range dann auch anpassen?

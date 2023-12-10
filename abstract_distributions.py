@@ -435,8 +435,8 @@ class AbstractNormalArrivalDistribution(AbstractArrivalDistribution, ABC):
 
         super().__init__(name=name, **kwargs)
 
-        self._ev = np.atleast_1d(ev)
-        self._var = np.atleast_1d(var)
+        self._ev = np.atleast_1d(ev).astype(float)
+        self._var = np.atleast_1d(var).astype(float)
 
     @property
     def batch_size(self):
@@ -580,10 +580,11 @@ class AbstractUniformArrivalDistribution(AbstractArrivalDistribution, ABC):
             is located.
         :param name: String, the (default) name for the distribution.
         """
-        self._point_prediction = np.atleast_1d(point_prediction)
-        self._window_length = np.broadcast_to(window_length, shape=self.batch_size)  # this itself raises an error if not
-            # compatible
-        self._a = np.broadcast_to(a, shape=self.batch_size)  # this itself raises an error if not compatible
+        self._point_prediction = np.atleast_1d(point_prediction).astype(float)
+        self._window_length = np.broadcast_to(window_length, shape=self.batch_size).copy().astype(float)  # this itself
+        # raises an error if not compatible
+        self._a = np.broadcast_to(a, shape=self.batch_size).copy().astype(float)  # this itself raises an error if not
+        # compatible
         super().__init__(name=name, **kwargs)
 
     @property
@@ -609,8 +610,8 @@ class AbstractUniformArrivalDistribution(AbstractArrivalDistribution, ABC):
 
         :param value: A float or np.array of shape [batch_size], the window length of the distribution.
         """
-        self._window_length = np.broadcast_to(value, shape=self.batch_size)  # this itself raises an error if not
-            # compatible
+        self._window_length = np.broadcast_to(value, shape=self.batch_size).copy()  # this itself raises an error if not
+        # compatible
 
     @property
     def a(self):
@@ -630,7 +631,7 @@ class AbstractUniformArrivalDistribution(AbstractArrivalDistribution, ABC):
         :param value: A float or np.array of shape [batch_size], the ratio of the window length, where the point prediction
             is located.
         """
-        self._a = np.broadcast_to(value, shape=self.batch_size)  # this itself raises an error if not compatible
+        self._a = np.broadcast_to(value, shape=self.batch_size).copy()  # this itself raises an error if not compatible
 
     @property
     def x_max(self):
@@ -796,8 +797,8 @@ class AbstractMCArrivalDistribution(AbstractArrivalDistribution, ABC):
         super().__init__(name=name,
                          **kwargs)
 
-        self._samples = samples
-        self._range = range
+        self._samples = np.asarray(samples, dtype=float)
+        self._range = np.asarray(range, dtype=float)
         self._bins = bins
         self._density = self._build_distribution_from_samples(samples, range)
 

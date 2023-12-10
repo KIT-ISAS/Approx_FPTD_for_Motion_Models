@@ -31,7 +31,8 @@ class AbstractCAHittingLocationDistribution(AbstractHittingLocationDistribution,
                          **kwargs,
                          )
         
-        self._S_w = np.broadcast_to(S_w, shape=self.batch_size)  # this itself raises an error if not compatible
+        self._S_w = np.broadcast_to(S_w, shape=self.batch_size).copy().astype(float)  # this itself raises an error if
+        # not compatible
 
     @property
     def S_w(self):
@@ -263,7 +264,7 @@ class GaussTaylorCAHittingLocationDistribution(AbstractCAHittingLocationDistribu
 
         :param value: S_w: A float or np.array of shape [batch_size], the power spectral density in y-direction.
         """
-        self._S_w = np.broadcast_to(value, shape=self.batch_size)
+        self._S_w = np.broadcast_to(value, shape=self.batch_size).copy()
         # Recalculate the variance
         self._var = self._compute_var(self._htd, self._S_w)
 
@@ -332,7 +333,7 @@ class SimpleGaussCAHittingLocationDistribution(AbstractCAHittingLocationDistribu
 
         :param value: S_w: A float or np.array of shape [batch_size], the power spectral density in y-direction.
         """
-        self._S_w = np.broadcast_to(value, shape=self.batch_size)
+        self._S_w = np.broadcast_to(value, shape=self.batch_size).copy()
         # Recalculate the variance
         self._var = self._compute_var(self._htd, self._S_w)
 
@@ -438,7 +439,7 @@ class BayesMixtureCAHittingLocationDistribution(AbstractCAHittingLocationDistrib
 
         :param value: S_w: A float or np.array of shape [batch_size], the power spectral density in y-direction.
         """
-        self._S_w = np.broadcast_to(value, shape=self.batch_size)
+        self._S_w = np.broadcast_to(value, shape=self.batch_size).copy()
         # Force recalculating all privates, except of t_min and t_max
         self._weights = None
         self._locations = None
@@ -481,7 +482,7 @@ class BayesianCAHittingLocationDistribution(AbstractCAHittingLocationDistributio
 
         :param value: S_w: A float or np.array of shape [batch_size], the power spectral density in y-direction.
         """
-        self._S_w = np.broadcast_to(value, shape=self.batch_size)
+        self._S_w = np.broadcast_to(value, shape=self.batch_size).copy()
 
 
 class MCCAHittingLocationDistribution(AbstractCAHittingLocationDistribution, AbstractMCHittingLocationDistribution):
@@ -513,11 +514,15 @@ class MCCAHittingLocationDistribution(AbstractCAHittingLocationDistribution, Abs
                     self.__class__.__name__))
 
         if y_samples is None:
+            dt = (np.max(htd.t_range) - htd.t_L) / 200  # we want to use approx. 200 time steps in the MC simulation
+            # round dt to the first significant digit
+            dt = np.round(dt, -np.floor(np.log10(np.abs(dt))).astype(int))
             (_, y_samples, _), _ = create_ty_ca_samples_hitting_time(htd.x_L,
                                                                      htd.C_L,
                                                                      S_w,
                                                                      htd.x_predTo,
-                                                                     htd.t_L)
+                                                                     htd.t_L,
+                                                                     dt=dt)
 
         super().__init__(htd=htd,
                          S_w=S_w,
@@ -534,12 +539,17 @@ class MCCAHittingLocationDistribution(AbstractCAHittingLocationDistribution, Abs
 
         :param value: S_w: A float, the power spectral density in y-direction.
         """
-        self._S_w = np.broadcast_to(value, shape=self.batch_size)
+        self._S_w = np.broadcast_to(value, shape=self.batch_size).copy()
         # Resample und recalculate the distribution
+        dt = (np.max(self._htd.t_range) - self._htd.t_L) / 200  # we want to use approx. 200 time steps in the MC
+        # simulation
+        # round dt to the first significant digit
+        dt = np.round(dt, -np.floor(np.log10(np.abs(dt))).astype(int))
         (_, y_samples, _), _ = create_ty_ca_samples_hitting_time(self._htd.x_L,
                                                                  self._htd.C_L,
                                                                  self._S_w,
                                                                  self._htd.x_predTo,
-                                                                 self._htd.t_L)
+                                                                 self._htd.t_L,
+                                                                 dt=dt)
         self._samples = y_samples[np.isfinite(y_samples)]  # there are default values, remove them from array
         self._density = self._build_distribution_from_samples(self._samples, self._range)
