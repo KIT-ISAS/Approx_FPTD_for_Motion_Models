@@ -87,7 +87,7 @@ def main(args):
     else:
         t_range = [0.7 * t_predicted, 1.3 * t_predicted]
     # plot_t = np.arange(t_range[0], t_range[1], 0.00001)
-    plot_t = np.linspace(t_range_with_extents[0],  t_range_with_extents[1], 1000)  # we want to have 1000 plots points
+    plot_t = np.linspace(t_range[0], t_range[1], 1000)  # we want to have 1000 plots points
 
     # Create base class
     hte = HittingTimeEvaluator('Wiener Process with Drift', x_predTo, plot_t, t_predicted,
@@ -95,7 +95,10 @@ def main(args):
                                save_results=FLAGS.save_results,
                                result_dir=FLAGS.result_dir,
                                for_paper=FLAGS.for_paper,
-                               no_show=FLAGS.no_show)
+                               no_show=FLAGS.no_show,
+                               time_unit='s',
+                               length_unit='mm',
+                               )
 
     # Create samples
     # dt = 1 / 20000

@@ -99,7 +99,7 @@ class KalmanFilter:
 
         :param measurement: A np.array of shape [batch_size, measurement_length], the current measurement z_k.
         :param state_mean: A np.array of shape [batch_size, state_length], the states mean.
-        :param state_cov: A np.array of shape [batch_size, state_length, state_length], the states covariance.
+        :param state_cov: A np.array of shape [batch_size, state_length, state_length], the state covariance.
         :param H: A np.array of shape [measurement_length, state_length], the measurement matrix of the
             linear (or linearized) measurement equation.
         :param: C_v: A np.array of shape [measurement_length, measurement_length], the measurement noise

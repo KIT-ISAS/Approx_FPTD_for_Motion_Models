@@ -300,7 +300,7 @@ class UniformCVHittingLocationDistribution(AbstractCVHittingLocationDistribution
 
     This distribution corresponds to the "usual" case where we define a fixed deflection window.
     """
-    def __init__(self, htd, point_predictor, window_length, a=0.5, name='Uniform model'):
+    def __init__(self, htd, point_predictor, window_length, a=0.5, name='Uniform distribution'):
         """Initializes the distribution.
 
          State format:

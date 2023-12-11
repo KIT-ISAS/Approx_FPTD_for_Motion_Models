@@ -92,6 +92,7 @@ def main(args):
     # Run the experiment
     if not FLAGS.with_extents:
         run_experiment(x_L, C_L, t_L, S_w, x_predTo,
+                       particle_size=particle_size,
                        measure_computational_times=FLAGS.measure_computational_times,
                        load_samples=FLAGS.load_samples,
                        save_samples=FLAGS.save_samples,
@@ -100,6 +101,8 @@ def main(args):
                        result_dir=FLAGS.result_dir,
                        for_paper=FLAGS.for_paper,
                        no_show=FLAGS.no_show,
+                       time_unit="normalized time",
+                       length_unit="normalized length",
                        )
     else:
         run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
@@ -111,10 +114,13 @@ def main(args):
                                    result_dir=FLAGS.result_dir,
                                    for_paper=FLAGS.for_paper,
                                    no_show=FLAGS.no_show,
+                                   time_unit="normalized time",
+                                   length_unit="normalized length",
                                    )
 
 
 def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
+                   particle_size,
                    t_range=None,
                    y_range=None,
                    measure_computational_times=False,
@@ -124,7 +130,10 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
                    save_results=False,
                    result_dir=None,
                    no_show=False,
-                   for_paper=False):
+                   for_paper=False,
+                   time_unit='s',
+                   length_unit='m',
+                   ):
     """Runs an experiment including a comparison with Monte Carlo simulation with the given settings.
 
     The underlying process is a 2D (x, y) constant velocity (CV) model with independent components in x, y.
@@ -137,6 +146,8 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     :param t_L: A float, the time of the last state/measurement (initial time).
     :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
     :param x_predTo: A float, the position of the boundary.
+    :param particle_size: A list of length 2 representing the length and width (in transport direction and
+        perpendicular) of the particle.
     :param t_range: A list of length 2 representing the plot limits for the first-passage time.
     :param y_range: A list of length 2 representing the plot limits for the y component at the first-passage time.
     :param measure_computational_times: A Boolean, whether to measure the computational times.
@@ -194,6 +205,8 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
                                result_dir=result_dir,
                                for_paper=for_paper,
                                no_show=no_show,
+                               time_unit=time_unit,
+                               length_unit=length_unit,
                                )
 
     # Show example histogram
@@ -211,7 +224,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     no_return_htd = NoReturnCVHittingTimeDistribution(x_L, C_L, S_w, x_predTo, t_L)
     uniform_htd = UniformCVHittingTimeDistribution(x_L, x_predTo, t_L,
                                                    point_predictor=cv_temporal_point_predictor,
-                                                   window_length=0.08 / x_L[1],  # length / x-velocity
+                                                   window_length=particle_size[0] / x_L[1],  # length / x-velocity
                                                    )
     mc_htd = MCCVHittingTimeDistribution(x_L, C_L, S_w, x_predTo, t_L, t_range,
                                          t_samples=t_samples)
@@ -268,10 +281,12 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
                                    result_dir=result_dir,
                                    for_paper=for_paper,
                                    no_show=no_show,
+                                   time_unit=time_unit,
+                                   length_unit=length_unit,
                                    )
 
     # Show example histogram
-    # hte_spatial.plot_sample_histogram(y_samples, x_label='y-Coordinate')
+    # hle_spatial.plot_sample_histogram(y_samples)
 
     # Set up the hitting location approaches
     htd_for_hld = no_return_htd  # we use the same hitting time distribution for all approaches except the uniform and
@@ -285,7 +300,7 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
 
     uniform_hld = UniformCVHittingLocationDistribution(uniform_htd,
                                                        point_predictor=cv_spatial_point_predictor,
-                                                       window_length=0.08,  # width
+                                                       window_length=particle_size[1],  # width
                                                        )
     mc_hld = MCCVHittingLocationDistribution(mc_htd, S_w, y_range, y_samples=y_samples)
 
@@ -335,7 +350,10 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
                                save_results=False,
                                result_dir=None,
                                no_show=False,
-                               for_paper=False):
+                               for_paper=False,
+                               time_unit='s',
+                               length_unit='m',
+                               ):
     """Runs an experiment including a comparison with Monte Carlo simulation with the given settings for the
     extent-based representation of the particles.
 
@@ -361,6 +379,10 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
     :param result_dir: String, directory where to save the plots.
     :param no_show: Boolean, whether to show the plots (False).
     :param for_paper: Boolean, whether to use the plots for a publication (omit headers, etc.).
+    :param time_unit: A string, the time unit of the process (used for the plot labels).
+    :param length_unit: A string, the location unit of the process (used for the plot labels).
+    :param time_unit: A string, the time unit of the process (used for the plot labels).
+    :param length_unit: A string, the location unit of the process (used for the plot labels).
     """
     # Deterministic predictions
     cv_temporal_point_predictor = lambda pos_l, v_l, x_predTo: (x_predTo - pos_l[..., 0]) / v_l[..., 0]
@@ -430,7 +452,10 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
                                           save_results=save_results,
                                           result_dir=result_dir,
                                           no_show=no_show,
-                                          for_paper=for_paper)
+                                          for_paper=for_paper,
+                                          time_unit=time_unit,
+                                          length_unit=length_unit,
+                                          )
 
     # Set up the hitting time approaches
     hitting_time_distr_kwargs = {"x_L": x_L,
@@ -518,6 +543,8 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
                                               result_dir=result_dir,
                                               for_paper=for_paper,
                                               no_show=no_show,
+                                              time_unit=time_unit,
+                                              length_unit=length_unit,
                                               )
 
     # Set up the hitting location approaches

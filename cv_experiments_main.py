@@ -80,6 +80,9 @@ FLAGS = flags.FLAGS
     "y_range": [y_min, y_max], (floats, defaults by cv_process)
     "t_range_with_extents": [t_min, t_max], (floats, defaults by cv_process_with_extents)
     "y_range_with_extents": [y_min, y_max], (floats, defaults by cv_process_with_extents)
+    # Units (optional)
+    "time_unit": "s",
+    "length_unit": "m",
     # Paths and directories (optional)
     "save_path": ..., (string, default by main function)
     "results_dir": ..., (string, default by main function)
@@ -102,6 +105,9 @@ experiments_config = [
         # Plot settings (optional)
         "t_range": [0.05, 0.065],
         "y_range": [0.46, 0.56],
+        # Units (optional)
+        "time_unit": "normalized time",
+        "length_unit": "normalized length",
     }, {
         # Experiment name
         "experiment_name": "CV_Long_Track_Sw1_denorm",
@@ -122,6 +128,9 @@ experiments_config = [
         "y_range": [62, 71],
         "t_range_with_extents": [0.042, 0.072],
         "y_range_with_extents": [58, 76],
+        # Units (optional)
+        "time_unit": "s",
+        "length_unit": "mm",
     }, {
         # Experiment name
         "experiment_name": "CV_Long_Track_Sw10",
@@ -134,6 +143,9 @@ experiments_config = [
         "x_predTo": 0.6458623971412047,
         # Particle size
         "particle_size": [0.08, 0.08],
+        # Units (optional)
+        "time_unit": "normalized time",
+        "length_unit": "normalized length",
     },  {
         # Experiment name
         "experiment_name": "CV_Long_Track_Sw10_denorm",
@@ -154,6 +166,9 @@ experiments_config = [
         "y_range": [55, 77],
         "t_range_with_extents": [0.033, 0.09],
         "y_range_with_extents": [52, 85],
+        # Units (optional)
+        "time_unit": "s",
+        "length_unit": "mm",
     },  {
         # Experiment name
         "experiment_name": "CV_Long_Track_Sw100",
@@ -169,6 +184,9 @@ experiments_config = [
         # Plot settings (optional)
         "t_range": [0.0, 0.25],
         "y_range": [0.2, 1.3],
+        # Units (optional)
+        "time_unit": "normalized time",
+        "length_unit": "normalized length",
     },  {
         # Experiment name
         "experiment_name": "CV_Long_Track_Sw100_denorm",
@@ -189,6 +207,9 @@ experiments_config = [
         "y_range": [0, 150],
         "t_range_with_extents": [0.01, 0.3],
         "y_range_with_extents": [-50, 200],
+        # Units (optional)
+        "time_unit": "s",
+        "length_unit": "mm",
     },  {
         # Experiment name
         "experiment_name": "CV_Long_Track_Sw300",
@@ -204,6 +225,9 @@ experiments_config = [
         # Plot settings (optional)
         "t_range": [0.0, 0.25],
         "y_range": [0.0, 1.5],
+        # Units (optional)
+        "time_unit": "normalized time",
+        "length_unit": "normalized length",
     }, {
         # Experiment name
         "experiment_name": "CV_Long_Track_High_Initial_Noise",
@@ -216,6 +240,9 @@ experiments_config = [
         "x_predTo": 0.6458623971412047,
         # Particle size
         "particle_size": [0.08, 0.08],
+        # Units (optional)
+        "time_unit": "normalized time",
+        "length_unit": "normalized length",
     }, {
         # Experiment name
         "experiment_name": "CV_Long_Track_High_tL",
@@ -228,6 +255,9 @@ experiments_config = [
         "x_predTo": 0.6458623971412047,
         # Particle size
         "particle_size": [0.08, 0.08],
+        # Units (optional)
+        "time_unit": "normalized time",
+        "length_unit": "normalized length",
     }, {
         # Experiment name
         "experiment_name": "CV_Short_Track_Sw18",
@@ -240,6 +270,9 @@ experiments_config = [
         "x_predTo": 0.6458623971412047,
         # Particle size
         "particle_size": [0.08, 0.08],
+        # Units (optional)
+        "time_unit": "normalized time",
+        "length_unit": "normalized length",
     }, {
         # Experiment name
         "experiment_name": "CV_Long_Track_Sw10_slow",
@@ -255,6 +288,9 @@ experiments_config = [
         "y_range": [0.0, 1.5],
         # Particle size
         "particle_size": [0.08, 0.08],
+        # Units (optional)
+        "time_unit": "normalized time",
+        "length_unit": "normalized length",
     },  {
         # Experiment name
         "experiment_name": "CV_Long_Track_Sw1_slow_denorm",
@@ -275,6 +311,9 @@ experiments_config = [
         "y_range": [60, 75],
         "t_range_with_extents": [0.06, 0.12],
         "y_range_with_extents": [55, 80],
+        # Units (optional)
+        "time_unit": "s",
+        "length_unit": "mm",
     },
 ]
 
@@ -304,10 +343,8 @@ def main(args):
         del config['experiment_name']  # name cannot be passed to run_experiment
 
         if not FLAGS.with_extents:
-            if 'particle_size' in config.keys():
-                del config['particle_size']  # particle_size cannot be passed to run_experiment
             if 't_range_with_extents' in config.keys():
-                del config['t_range_with_extents']
+                del config['t_range_with_extents']  # t_range_with_extents cannot be passed to run_experiment
             if 'y_range_with_extents' in config.keys():
                 del config['y_range_with_extents']
             run_experiment(**config,

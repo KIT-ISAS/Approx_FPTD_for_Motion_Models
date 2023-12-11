@@ -191,7 +191,7 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
         return integrate.quad(fn, a=a, b=t)[0]  # this is a tuple
 
     @AbstractArrivalDistribution.batch_size_one_function
-    def plot_quantile_function(self, q_min=0.005, q_max=0.995, save_results=False, result_dir=None, for_paper=True):  # TODO
+    def plot_quantile_function(self, q_min=0.005, q_max=0.995, save_results=False, result_dir=None, for_paper=True, time_unit='s'):  # TODO
         """Plot the quantile function.
 
         This function does not support batch-wise processing, i.e., a batch dimension of 1 is required.
@@ -201,6 +201,7 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
         :param save_results: Boolean, whether to save the plots.
         :param result_dir: String, directory where to save the plots.
         :param for_paper: Boolean, whether to use a publication (omit headers, etc.).
+        :param time_unit: A string, the time unit of the process (used for the plot label).
         """
         # TODO: Die plot functions müssen noch auf batch betrieb umgestellt werden, z. B. als abstract machen, docstrings
         # TODO: Welcher dieser Funktionnen verwenden?
@@ -210,7 +211,7 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
         plot_quant = [self.ppf(q) for q in plot_q]
         plt.plot(plot_q, plot_quant)
         plt.xlabel('Confidence level')
-        plt.ylabel('Time t in s')
+        plt.ylabel('Time t in ' + time_unit)
 
         if not for_paper:
             plt.title('Quantile Function (Inverse CDF) for ' + self.name)

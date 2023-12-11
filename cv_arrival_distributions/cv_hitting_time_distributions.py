@@ -1018,7 +1018,7 @@ class UniformCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstra
 
     This distribution corresponds to the "usual" case where we define a fixed deflection window.
     """
-    def __init__(self, x_L, x_predTo, t_L, point_predictor, window_length, a=0.5, name='Uniform model'):
+    def __init__(self, x_L, x_predTo, t_L, point_predictor, window_length, a=0.5, name='Uniform distribution'):
         """Initializes the distribution.
 
          State format:

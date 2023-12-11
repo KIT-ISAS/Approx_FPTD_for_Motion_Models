@@ -95,6 +95,7 @@ def main(args):
     if not FLAGS.with_extents:
         run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
                        measure_computational_times=FLAGS.measure_computational_times,
+                       particle_size=particle_size,
                        load_samples=FLAGS.load_samples,
                        save_samples=FLAGS.save_samples,
                        save_path=FLAGS.save_path,
@@ -102,6 +103,8 @@ def main(args):
                        result_dir=FLAGS.result_dir,
                        for_paper=FLAGS.for_paper,
                        no_show=FLAGS.no_show,
+                       time_unit="normalized time",
+                       length_unit="normalized length",
                        )
     else:
         run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
@@ -113,10 +116,13 @@ def main(args):
                                    result_dir=FLAGS.result_dir,
                                    for_paper=FLAGS.for_paper,
                                    no_show=FLAGS.no_show,
+                                   time_unit="normalized time",
+                                   length_unit="normalized length",
                                    )
 
 
 def run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
+                   particle_size,
                    t_range=None,
                    y_range=None,
                    measure_computational_times=False,
@@ -126,7 +132,10 @@ def run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
                    save_results=False,
                    result_dir=None,
                    no_show=False,
-                   for_paper=False):
+                   for_paper=False,
+                   time_unit='s',
+                   length_unit='m',
+                   ):
     """Runs an experiment including a comparison with Monte Carlo simulation with the given settings.
 
     The underlying process is a white-noise constant acceleration (WNCA) model in x-direction and a constant velocity
@@ -141,6 +150,8 @@ def run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
     :param S_w: A float, power spectral density (psd) of the model. Note that we assume the same psd in x and y.
     :param a_c: A float, the constant acceleration in x-direction.
     :param x_predTo: A float, the position of the boundary.
+    :param particle_size: A list of length 2 representing the length and width (in transport direction and
+        perpendicular) of the particle.
     :param t_range: A list of length 2 representing the plot limits for the first-passage time.
     :param y_range: A list of length 2 representing the plot limits for the y component at the first-passage time.
     :param measure_computational_times: A Boolean, whether to measure the computational times.
@@ -151,6 +162,8 @@ def run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
     :param result_dir: String, directory where to save the plots.
     :param no_show: Boolean, whether to show the plots (False).
     :param for_paper: Boolean, whether to use the plots for a publication (omit headers, etc.).
+    :param time_unit: A string, the time unit of the process (used for the plot labels).
+    :param length_unit: A string, the location unit of the process (used for the plot labels).
     """
     # Deterministic predictions
     wnca_temporal_point_predictor = lambda pos_l, v_l, x_predTo:- v_l[..., 0] / a_c + np.sign(a_c) * \
@@ -202,6 +215,11 @@ def run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
                                result_dir=result_dir,
                                for_paper=for_paper,
                                no_show=no_show,
+                               time_unit=time_unit,
+                               length_unit=length_unit,
+                               fig_width=0.5 * 16.4 * 1 / 2.54,
+                               paper_font='Helvetica',
+                               font_size=9,
                                )
     # Create class for evaluations
     hle = HittingLocationEvaluator('WNCA Process', x_predTo, t_predicted, y_predicted, plot_y, t_L,
@@ -217,11 +235,16 @@ def run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
                                    result_dir=result_dir,
                                    for_paper=for_paper,
                                    no_show=no_show,
+                                   time_unit=time_unit,
+                                   length_unit=length_unit,
+                                   fig_width=0.5 * 16.4 * 1 / 2.54,
+                                   paper_font='Helvetica',
+                                   font_size=9,
                                    )
 
     # Show example histogram
     # hte.plot_sample_histogram(t_samples)
-    # hlw.plot_sample_histogram(y_samples, x_label='y-Coordinate')
+    # hle.plot_sample_histogram(y_samples)
 
     # Show example tracks and visualize uncertainties over time
     # hte.plot_example_tracks(dt=dt, N=5)
@@ -235,7 +258,7 @@ def run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
     no_return_htd = NoReturnWNCAHittingTimeDistribution(x_L, C_L, S_w, x_predTo, t_L, a_c=a_c)
     uniform_htd = UniformCVHittingTimeDistribution(x_L, x_predTo, t_L,
                                                    point_predictor=wnca_temporal_point_predictor,
-                                                   window_length=4 / x_L[1],  # length / x-velocity  # TODO: length nicht hardcoden
+                                                   window_length=particle_size[0] / x_L[1],  # length / x-velocity
                                                    )
     mc_htd = MCCVHittingTimeDistribution(x_L, C_L, S_w, x_predTo, t_L, t_range, a_c=a_c,
                                          t_samples=t_samples)
@@ -252,27 +275,28 @@ def run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
 
     uniform_hld = UniformCVHittingLocationDistribution(uniform_htd,
                                                        point_predictor=cv_spatial_point_predictor,
-                                                       window_length=58,  # width
+                                                       window_length=particle_size[1],  # width
                                                        )
     mc_hld = MCCVHittingLocationDistribution(mc_htd, S_w, y_range, y_samples=y_samples, a_c=a_c)
 
     # Scale the distributions for the plots
-    pixel_to_mm = 1/2.88
-    frame_to_ms = 4
-    gauss_taylor_htd.scale_params(pixel_to_mm, frame_to_ms)
-    no_return_htd.scale_params(pixel_to_mm, frame_to_ms)
-    uniform_htd.scale_params(pixel_to_mm, frame_to_ms)
-    mc_htd.scale_params(pixel_to_mm, frame_to_ms)
-    gauss_taylor_hld.scale_params(pixel_to_mm, frame_to_ms)
-    simple_gauss_hld.scale_params(pixel_to_mm, frame_to_ms)
-    bayes_mixture_hld.scale_params(pixel_to_mm, frame_to_ms)
-    bayesian_hld.scale_params(pixel_to_mm, frame_to_ms)
-    uniform_hld.scale_params(pixel_to_mm, frame_to_ms)
-    mc_hld.scale_params(pixel_to_mm, frame_to_ms)
-    hte._plot_t = hte._plot_t * frame_to_ms  # TODO
+    # pixel_to_mm = 1/2.88
+    # frame_to_ms = 4
+    # gauss_taylor_htd.scale_params(pixel_to_mm, frame_to_ms)
+    # no_return_htd.scale_params(pixel_to_mm, frame_to_ms)
+    # uniform_htd.scale_params(pixel_to_mm, frame_to_ms)
+    # mc_htd.scale_params(pixel_to_mm, frame_to_ms)
+    # gauss_taylor_hld.scale_params(pixel_to_mm, frame_to_ms)
+    # simple_gauss_hld.scale_params(pixel_to_mm, frame_to_ms)
+    # bayes_mixture_hld.scale_params(pixel_to_mm, frame_to_ms)
+    # bayesian_hld.scale_params(pixel_to_mm, frame_to_ms)
+    # uniform_hld.scale_params(pixel_to_mm, frame_to_ms)
+    # mc_hld.scale_params(pixel_to_mm, frame_to_ms)
+    # hte._plot_t = hte._plot_t * frame_to_ms  # TODO
 
     # Results for temporal uncertainties
-    approaches_temp_ls = [gauss_taylor_htd, no_return_htd, uniform_htd, mc_htd]
+    # approaches_temp_ls = [gauss_taylor_htd, no_return_htd, uniform_htd, mc_htd]
+    approaches_temp_ls = [no_return_htd, uniform_htd]
 
     logging.info('MAX CDF: {} at {}'.format(no_return_htd.q_max, no_return_htd.t_max))
     # no_return_htd.plot_valid_regions(theta=t_predicted, save_results=save_results, result_dir=result_dir,
@@ -302,8 +326,14 @@ def run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
     hte.compare_kolmogorov_distances(approaches_temp_ls, t_samples)
 
     # Plot histogram of samples and hitting time distributions
-    hte.plot_first_hitting_time_distributions(approaches_temp_ls, t_samples, plot_hist_for_all_particles=True)
-    hte.plot_fptd_and_paths_in_one(approaches_temp_ls, ev_fn, var_fn, t_samples, dt, plot_hist_for_all_particles=True)
+    hte.plot_first_hitting_time_distributions(approaches_temp_ls, t_samples,
+                                              plot_hist_for_all_particles=True,
+                                              plot_moments=False,
+                                              plot_quantiles=False)
+    hte.plot_fptd_and_paths_in_one(approaches_temp_ls, ev_fn, var_fn, t_samples, dt,
+                                   plot_hist_for_all_particles=True,
+                                   plot_moments=False,
+                                   plot_quantiles=False)
     # Plot histogram of samples for returning distribution and estimated returning distribution
     # hte.plot_returning_probs_from_fptd_histogram(ev_fn, var_fn, t_samples, approaches_temp_ls)   # this is too noisy
     # hte.plot_returning_probs_from_sample_paths(approaches_temp_ls, fraction_of_returns, dt)  # TODO: Not implemented
@@ -311,7 +341,8 @@ def run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
     logging.info('Evaluations for the distributions in y at the first hitting time.')
 
     # Results for spatial uncertainties
-    approaches_spatial_ls = [gauss_taylor_hld, simple_gauss_hld, bayes_mixture_hld, bayesian_hld, uniform_hld, mc_hld]
+    # approaches_spatial_ls = [gauss_taylor_hld, simple_gauss_hld, bayes_mixture_hld, bayesian_hld, uniform_hld, mc_hld]
+    approaches_spatial_ls = [gauss_taylor_hld, uniform_hld]
 
     # Plot the quantile functions
     hle.plot_quantile_functions(approaches_spatial_ls)
@@ -328,7 +359,9 @@ def run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
     hle.compare_kolmogorov_distances(approaches_spatial_ls, y_samples)
 
     # Plot histogram of samples and hitting time distributions
-    hle.plot_y_at_first_hitting_time_distributions(approaches_spatial_ls, y_samples)
+    hle.plot_y_at_first_hitting_time_distributions(approaches_spatial_ls, y_samples,
+                                                   plot_moments=False,
+                                                   plot_quantiles=False)
 
     if measure_computational_times:
         logging.info('Measuring computational time for wnca process hitting time distributions.')
@@ -356,7 +389,10 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
                                save_results=False,
                                result_dir=None,
                                no_show=False,
-                               for_paper=False):
+                               for_paper=False,
+                               time_unit='s',
+                               length_unit='m',
+                               ):
     """Runs an experiment including a comparison with Monte Carlo simulation with the given settings for the
     extent-based representation of the particles.
 
@@ -384,6 +420,8 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
     :param result_dir: String, directory where to save the plots.
     :param no_show: Boolean, whether to show the plots (False).
     :param for_paper: Boolean, whether to use the plots for a publication (omit headers, etc.).
+    :param time_unit: A string, the time unit of the process (used for the plot labels).
+    :param length_unit: A string, the location unit of the process (used for the plot labels).
     """
     # Deterministic predictions
     wnca_temporal_point_predictor = lambda pos_l, v_l, x_predTo: - v_l[..., 0] / a_c + np.sign(a_c) * \
@@ -460,8 +498,11 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
                                           result_dir=result_dir,
                                           no_show=no_show,
                                           for_paper=for_paper,
-                                          fig_width=0.5 * 505.89 * 1 / 72,
+                                          time_unit=time_unit,
+                                          length_unit=length_unit,
+                                          fig_width=0.5 * 16.4 * 1 / 2.54,
                                           paper_font='Helvetica',
+                                          font_size=9,
                                           )
 
     # Set up the hitting time approaches
@@ -553,8 +594,11 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
                                               result_dir=result_dir,
                                               for_paper=for_paper,
                                               no_show=no_show,
-                                              fig_width=0.5 * 505.89 * 1 / 72,
+                                              time_unit=time_unit,
+                                              length_unit=length_unit,
+                                              fig_width=0.5 * 16.4 * 1 / 2.54,
                                               paper_font='Helvetica',
+                                              font_size=9,
                                               )
 
     # Set up the hitting location approaches

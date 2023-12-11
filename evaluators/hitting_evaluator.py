@@ -38,7 +38,9 @@ class AbstractHittingEvaluator(ABC):
                  font_size=6,
                  paper_font='Times',
                  paper_scaling_factor=2,
-                 no_show=False):
+                 no_show=False,
+                 time_unit='s',
+                 length_unit='m'):
         """Initializes the evaluator.
 
          Format get_example_tracks_fn:
@@ -65,6 +67,8 @@ class AbstractHittingEvaluator(ABC):
         :param paper_scaling_factor: A float, a scaling factor to be applied to the figure and fonts if _for_paper is
             true.
         :param no_show: A Boolean, whether to show the plots (False).
+        :param time_unit: A string, the time unit of the process (used for the plot labels).
+        :param length_unit: A string, the location unit of the process (used for the plot labels).
         """
         # sanity checks
         if get_example_tracks_fn is not None and not callable(get_example_tracks_fn):
@@ -87,27 +91,37 @@ class AbstractHittingEvaluator(ABC):
         self._for_paper = for_paper
         self.no_show = no_show
 
+        self.time_unit = time_unit
+        self.length_unit = length_unit
+
         self.color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']  # get color cycle
 
         if self._for_paper:
             basename = os.path.basename(os.path.normpath(result_dir))
             self._process_name_save = basename.lower().replace(" ", "_")
 
-            # style
+            ################################################ Style #####################################################
+
             # see https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html
             # use plt.style.available to print a list of all available styles
             plt.style.use('seaborn-paper')
 
-            # figure size
+            ############################################## Figure size #################################################
+
             mpl.rcParams["figure.figsize"] = [paper_scaling_factor * fig_width,
                                               paper_scaling_factor * fig_width * 5.5 / 7]
 
-            # font size
+            ############################################## Font size ###################################################
+
             mpl.rcParams.update({'font.size': paper_scaling_factor * font_size,
                                  'legend.fontsize': paper_scaling_factor * font_size,
                                  'xtick.labelsize': paper_scaling_factor * font_size,
                                  'ytick.labelsize': paper_scaling_factor * font_size,
+                                 'axes.titlesize': paper_scaling_factor * font_size,
+                                 'axes.labelsize': paper_scaling_factor * font_size,
                                  })
+
+            ######################################## Fonts / Latex appearance ##########################################
 
             # Latex appearance, we use the latex version installed in the container for all supported fonts
             # See, e.g.,  https://matplotlib.org/stable/gallery/userdemo/pgf_preamble_sgskip.html
@@ -152,7 +166,7 @@ class AbstractHittingEvaluator(ABC):
                     "font.family": "serif",  # use serif/main font for text elements
                     "font.serif": ["Times"],
                 })
-            if paper_font == "Default":
+            elif paper_font == "Default":
                 plt.rcParams.update({
                     "font.family": "serif",  # use serif/main font for text elements
                 })
@@ -161,20 +175,45 @@ class AbstractHittingEvaluator(ABC):
                     "font.family": "sans-serif",  # use sans-serif font for text elements
                 })
 
+            ######################################## Other appearance options ##########################################
+
             # other appearance options
             plt.rcParams['legend.loc'] = 'upper left'  # legend location
             # plt.rcParams.update({'xtick.direction': 'inout',
             #                      'ytick.direction': 'inout'})  # move the ticks also inside the plot
 
-            # 3 options to avoid cutting off the labels when reducing the figure size.
-            plt.rcParams['savefig.bbox'] = 'tight'  # figsize (without labels) as defined add extra space for the labels
-            # mpl.rcParams["figure.autolayout"] = True  # figure with labels! gets reduced to figsize
-            # mpl.rcParams["figure.constrained_layout.use"] = True  # same as before, but more powerful function, use this one
+            ########################################## Options for saving ##############################################
 
-            # options for saving
-            mpl.rcParams['savefig.dpi'] = 100  # dots per inch
-            plt.rcParams["savefig.pad_inches"] = 0.0  # remove space outside the labels
-            mpl.rcParams['figure.dpi'] = 20  # takes a long time to show the figures otherwise
+            # size of the exported image
+
+            # Three options to avoid cutting off the labels when reducing the figure size.
+            # 1. 'savefig.bbox' = 'tight':
+            #   figsize (figure without labels) will have size as defined, this option adds extra space for the labels.
+            #   Useful if plot windows of all exported images should look the same even if axis have labels of different
+            #   appearance/size
+            plt.rcParams['savefig.bbox'] = 'tight'
+            # 2 'figure.autolayout' = True:
+            #   The figure with labels(!) gets reduced to figsize.
+            #   Useful if same size of all exported images are required.
+            # mpl.rcParams['figure.autolayout'] = True
+            # 3. 'figure.constrained_layout.use' = True:
+            #   Same as 'figure.autolayout' = True, but more powerful function, use this one
+            # mpl.rcParams['figure.constrained_layout.use'] = True
+
+            # white-space padding:
+
+            # Extra space between the end of the title/labes and the end of the figure
+            # plt.rcParams["savefig.pad_inches"] = 0.0  # removes entire space outside the labels, figure will have
+            # exactly figsize, but small parts of capital letters in titles/label might be cut off
+            plt.rcParams["savefig.pad_inches"] = 0.1  # removes space outside the labels, but leaves some small space
+
+            # resolution of the exported image:
+
+            # 1200 DPI is extremely high, but was required for SBSC2024 paper
+            # mpl.rcParams['savefig.dpi'] = 100  # dots per inch
+            mpl.rcParams['savefig.dpi'] = 1200  # dots per inch
+            mpl.rcParams['figure.dpi'] = 20  # this is for displaying, not saving, takes a long time to show the figures
+            # otherwise
 
     @property
     @abstractmethod
@@ -397,7 +436,7 @@ class AbstractHittingEvaluator(ABC):
         logging.info(
             'Kolmogorov distances compared against MC histogram (in plot range!): \n{}'.format(kolmogorv_distances))
 
-    def _plot_sample_histogram(self, samples, x_label='Time t in s'):
+    def _plot_sample_histogram(self, samples, x_label):
         """Plots a histogram of the samples from the Monte Carlo simulations.
 
         :param samples: A np.array of shape [num_samples] containing sampled values.
@@ -412,11 +451,10 @@ class AbstractHittingEvaluator(ABC):
         plt.close()
 
     @abstractmethod
-    def plot_sample_histogram(self, samples, x_label='Time t in s'):
+    def plot_sample_histogram(self, samples):
         """Plots a histogram of the samples from the Monte Carlo simulations.
 
         :param samples: A np.array of shape [num_samples] containing sampled values.
-        :param x_label: A string, the x_label of the plot.
         """
         # To be overwritten by subclass
         raise NotImplementedError('Call to abstract method.')
@@ -441,8 +479,8 @@ class AbstractHittingEvaluator(ABC):
 
         plt.gca().set_xlim(plot_t[0], plot_t[-1])
         plt.title('Example Tracks')
-        plt.xlabel('Time in s')
-        plt.ylabel('Traveled distance in mm')
+        plt.xlabel('Time in ' + self.time_unit)
+        plt.ylabel('Traveled distance in ' + self.length_unit)
         plt.legend()
         if not self.no_show:
             plt.show()
@@ -452,7 +490,7 @@ class AbstractHittingEvaluator(ABC):
                                         ax,
                                         ev_fn,
                                         var_fn,
-                                        dt=0.0001, # TODO: dt nicht optional
+                                        dt=0.0001,  # TODO: dt nicht optional
                                         show_example_tracks=False,
                                         plot_x_predTo=True):
         """Plots mean and standard deviation (and example tracks) over time.
@@ -500,8 +538,8 @@ class AbstractHittingEvaluator(ABC):
             plt.title('Expected Value and Variance over Time for ' + self._process_name)
 
         ax.set_xlim(plot_t[0], plot_t[-1])
-        ax.set_xlabel('Time in s')
-        ax.set_ylabel('Location in mm')
+        ax.set_xlabel('Time in ' + self.time_unit)
+        ax.set_ylabel('Location in ' + self.length_unit)
         ax.legend()
 
     def plot_mean_and_stddev_over_time(self, ev_fn, var_fn, dt=0.0001, show_example_tracks=False, plot_x_predTo=True):
@@ -533,8 +571,7 @@ class AbstractHittingEvaluator(ABC):
             plt.show()
         plt.close()
 
-    @check_approaches_ls
-    def plot_quantile_functions(self, approaches_ls, q_min=0.005, q_max=0.995, y_label='Time t in s'):
+    def _plot_quantile_functions(self, approaches_ls, q_min, q_max, y_label):
         """Plots the quantile functions of the different approaches.
 
         :param approaches_ls: A list of child instances of AbstractHittingTimeDistribution or

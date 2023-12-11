@@ -77,12 +77,15 @@ FLAGS = flags.FLAGS
     # Boundary
     "x_predTo": 0.6458623971412047,
     # Particle size (only required for experiments with extents)
-        "particle_size": [0.08, 0.08],
+    "particle_size": [0.08, 0.08],
     # Plot settings (optional)
     "t_range": [t_min, t_max], (floats, defaults by cv_process)
     "y_range": [y_min, y_max], (floats, defaults by cv_process)
     "t_range_with_extents": [t_min, t_max], (floats, defaults by cv_process_with_extents)
     "y_range_with_extents": [y_min, y_max], (floats, defaults by cv_process_with_extents)
+    # Units (optional)
+    "time_unit": "s",
+    "length_unit": "m",
     # Paths and directories (optional)
     "save_path": ..., (string, default by main function)
     "results_dir": ..., (string, default by main function)
@@ -105,7 +108,10 @@ experiments_config = [
         "particle_size": [0.08, 0.08],
         # Plot settings (optional)
         "t_range": [0.048, 0.062],
-        "y_range": [0.47, 0.56]
+        "y_range": [0.47, 0.56],
+        # Units (optional)
+        "time_unit": "normalized time",
+        "length_unit": "normalized length",
     }, {
         # Experiment name
         "experiment_name": "CA_Sw1000_denorm",
@@ -125,7 +131,10 @@ experiments_config = [
         "particle_size": [8, 8],
         # Plot settings (optional)
         "t_range": [0.048, 0.062],
-        "y_range": [62, 72]
+        "y_range": [62, 72],
+        # Units (optional)
+        "time_unit": "s",
+        "length_unit": "mm",
     }, {
         # Experiment name
         "experiment_name": "CA_Sw100000",
@@ -141,7 +150,10 @@ experiments_config = [
         "particle_size": [0.08, 0.08],
         # Plot settings (optional)
         "t_range": [0.035, 0.07],
-        "y_range": [0.4, 0.64]
+        "y_range": [0.4, 0.64],
+        # Units (optional)
+        "time_unit": "normalized time",
+        "length_unit": "normalized length",
     }, {
         # Experiment name
         "experiment_name": "CA_Sw100000_denorm",
@@ -161,7 +173,10 @@ experiments_config = [
         "particle_size": [8, 8],
         # Plot settings (optional)
         "t_range": [0.025, 0.1],
-        "y_range": [50, 85]
+        "y_range": [50, 85],
+        # Units (optional)
+        "time_unit": "s",
+        "length_unit": "mm",
     }, {
         # Experiment name
         "experiment_name": "CA_Sw1000_negative_acceleration",
@@ -175,6 +190,9 @@ experiments_config = [
         "x_predTo": 0.6458623971412047,
         # Particle size
         "particle_size": [0.08, 0.08],
+        # Units (optional)
+        "time_unit": "normalized time",
+        "length_unit": "normalized length",
     }, {
         # Experiment name
         "experiment_name": "CA_Sw1000_negative_acceleration_denorm",
@@ -194,7 +212,10 @@ experiments_config = [
         "particle_size": [8, 8],
         # Plot settings (optional)
         "t_range": [0.051, 0.066],
-        "y_range": [62, 72]
+        "y_range": [62, 72],
+        # Units (optional)
+        "time_unit": "s",
+        "length_unit": "mm",
     },  {
         # Experiment name
         "experiment_name": "CA_Sw1000_high_acceleration",
@@ -210,7 +231,10 @@ experiments_config = [
         "particle_size": [0.08, 0.08],
         # Plot settings (optional)
         "t_range": [0.0475, 0.06],
-        "y_range": [0.48, 0.56]
+        "y_range": [0.48, 0.56],
+        # Units (optional)
+        "time_unit": "normalized time",
+        "length_unit": "normalized length",
     }, {
         # Experiment name
         "experiment_name": "CA_Sw1000_high_acceleration_denorm",
@@ -230,7 +254,10 @@ experiments_config = [
         "particle_size": [8, 8],
         # Plot settings (optional)
         "t_range": [0.049, 0.06],
-        "y_range": [62, 72]
+        "y_range": [62, 72],
+        # Units (optional)
+        "time_unit": "s",
+        "length_unit": "mm",
     },
 ]
 
@@ -260,10 +287,8 @@ def main(args):
         del config['experiment_name']  # name cannot be passed to run_experiment
 
         if not FLAGS.with_extents:
-            if 'particle_size' in config.keys():
-                del config['particle_size']  # particle_size cannot be passed to run_experiment
             if 't_range_with_extents' in config.keys():
-                del config['t_range_with_extents']
+                del config['t_range_with_extents']  # t_range_with_extents cannot be passed to run_experiment
             if 'y_range_with_extents' in config.keys():
                 del config['y_range_with_extents']
             run_experiment(**config,

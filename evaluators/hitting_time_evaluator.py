@@ -36,7 +36,9 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
                  font_size=6,
                  paper_font='Times',
                  paper_scaling_factor=2,
-                 no_show=False):
+                 no_show=False,
+                 time_unit='s',
+                 length_unit='m'):
         """Initializes the evaluator.
 
          Format get_example_tracks_fn:
@@ -63,6 +65,8 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
         :param paper_scaling_factor: A float, a scaling factor to be applied to the figure and fonts if _for_paper is
             true.
         :param no_show: A Boolean, whether to show the plots (False).
+        :param time_unit: A string, the time unit of the process (used for the plot labels).
+        :param length_unit: A string, the location unit of the process (used for the plot labels).
         """
         super().__init__(process_name=process_name,
                          x_predTo=x_predTo,
@@ -77,6 +81,8 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
                          paper_font=paper_font,
                          paper_scaling_factor=paper_scaling_factor,
                          no_show=no_show,
+                         time_unit=time_unit,
+                         length_unit=length_unit,
                          )
 
         self._plot_t = plot_t
@@ -112,20 +118,39 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
             t_samples = t_samples[t_samples != max(t_samples)]
         return t_samples
 
-    def plot_sample_histogram(self, t_samples, x_label='Time t in s', plot_hist_for_all_particles=True):
+    def plot_sample_histogram(self, t_samples, plot_hist_for_all_particles=True):
         """Plots a histogram of the samples from the Monte Carlo simulations.
 
         :param t_samples: A np.array of shape [num_samples] containing sampled values.
-        :param x_label: A string, the x_label of the plot.
         :param plot_hist_for_all_particles: Boolean, whether to plot the histogram
                 only for particles that arrive at the boundary (False).
         """
         if not plot_hist_for_all_particles:
             # check if there are default values (particles that did not arrive) in the array
             t_samples = self.remove_not_arriving_samples(t_samples)
+        x_label = 'Time t in ' + self.time_unit
         self._plot_sample_histogram(t_samples, x_label)
 
-    def _plot_first_hitting_time_distributions(self, ax1, t_samples, approaches_ls, plot_hist_for_all_particles=True):
+    @AbstractHittingEvaluator.check_approaches_ls
+    def plot_quantile_functions(self, approaches_ls, q_min=0.005, q_max=0.995):
+        """Plots the quantile functions of the different approaches.
+
+        :param approaches_ls: A list of child instances of AbstractHittingTimeDistribution or for the same process to be
+            compared.
+        :param q_min: A float, the smallest value of the confidence plot range.
+        :param q_max: A float, the highest value of the confidence plot range.
+        """
+        # change the defaults
+        y_label = 'Location y in ' + self.time_unit
+        self._plot_quantile_functions(approaches_ls, q_min, q_max, y_label)
+
+    def _plot_first_hitting_time_distributions(self,
+                                               ax1,
+                                               t_samples,
+                                               approaches_ls,
+                                               plot_hist_for_all_particles=True,
+                                               plot_moments=True,
+                                               plot_quantiles=True):
         """Plots the first-passage time distribution.
 
         :param ax1: A plt.axis object.
@@ -134,6 +159,8 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
             compared.
         :param plot_hist_for_all_particles: Boolean, whether to plot the histogram
                 only for particles that arrive at the boundary (False).
+        :param plot_moments: A Boolean, whether to plot the expected value and the standard deviation.
+        :param plot_quantiles: A Boolean, whether to plot the median, the first and the third quantile.
         """
         if not plot_hist_for_all_particles:
             # check if there are default values (particles that did not arrive) in the array
@@ -176,20 +203,21 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
             if 'PDFVALUES' in hit_stats.keys():
                 ax1.plot(hit_stats['PDFVALUES'][0], hit_stats['PDFVALUES'][1], color=self.color_cycle[i],
                          label=approach.name)
-            if 'EV' in hit_stats.keys():
-                ax2.vlines(hit_stats['EV'], 0, 1, color=self.color_cycle[i], linestyle='dashed', label=approach.name)
-                if 'STDDEV' in hit_stats.keys():
-                    ax2.vlines([hit_stats['EV'] - hit_stats['STDDEV'], hit_stats['EV'] + hit_stats['STDDEV']], 0, 1,
-                               color=self.color_cycle[i], linestyle='dashdot', label=approach.name)
-            if 'Median' in hit_stats.keys():
-                ax2.vlines(hit_stats['Median'], 0, 1, color=self.color_cycle[i], linestyle='dashed',
-                           label=approach.name)
-            if 'FirstQuantile' in hit_stats.keys():
-                ax2.vlines(hit_stats['FirstQuantile'], 0, 1, color=self.color_cycle[i], linestyle='dotted',
-                           label=approach.name)
-            if 'ThirdQuantile' in hit_stats.keys():
-                ax2.vlines(hit_stats['ThirdQuantile'], 0, 1, color=self.color_cycle[i], linestyle='dotted',
-                           label=approach.name)
+            if plot_moments and 'EV' in hit_stats.keys():
+                    ax2.vlines(hit_stats['EV'], 0, 1, color=self.color_cycle[i], linestyle='dashed', label=approach.name)
+                    if 'STDDEV' in hit_stats.keys():
+                        ax2.vlines([hit_stats['EV'] - hit_stats['STDDEV'], hit_stats['EV'] + hit_stats['STDDEV']], 0, 1,
+                                   color=self.color_cycle[i], linestyle='dashdot', label=approach.name)
+            if plot_quantiles:
+                if 'Median' in hit_stats.keys():
+                    ax2.vlines(hit_stats['Median'], 0, 1, color=self.color_cycle[i], linestyle='dashed',
+                               label=approach.name)
+                if 'FirstQuantile' in hit_stats.keys():
+                    ax2.vlines(hit_stats['FirstQuantile'], 0, 1, color=self.color_cycle[i], linestyle='dotted',
+                               label=approach.name)
+                if 'ThirdQuantile' in hit_stats.keys():
+                    ax2.vlines(hit_stats['ThirdQuantile'], 0, 1, color=self.color_cycle[i], linestyle='dotted',
+                               label=approach.name)
 
         # add legend manually since it fails sometimes
         legend_elements = [Line2D([0], [0], color=c, linewidth=3, label=approach.name) for c, approach in
@@ -200,12 +228,17 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
         ax1.set_ylim(0, 1.4 * y_hist_max)  # leave some space for labels
         ax2.set_ylim(0, 1.05)
         ax1.set_xlim(self._plot_t[0], self._plot_t[-1])
-        ax1.set_xlabel("Time in s")
+        ax1.set_xlabel("Time in " + self.time_unit)
         ax1.set_ylabel("PDF")
         ax2.set_ylabel("CDF")
 
     @AbstractHittingEvaluator.check_approaches_ls
-    def plot_first_hitting_time_distributions(self, approaches_ls, t_samples, plot_hist_for_all_particles=True):
+    def plot_first_hitting_time_distributions(self,
+                                              approaches_ls,
+                                              t_samples,
+                                              plot_hist_for_all_particles=True,
+                                              plot_moments=True,
+                                              plot_quantiles=True):
         """Plots the first-passage time distribution.
 
         :param approaches_ls: A list of child instances of AbstractHittingTimeDistribution for the same process to be
@@ -213,10 +246,17 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
         :param t_samples: A np.array of shape [num_samples] containing the first-passage times of the particles.
         :param plot_hist_for_all_particles: A Boolean, whether to plot the histogram
                 only for particles that arrive at the boundary (False).
+        :param plot_moments: A Boolean, whether to plot the expected value and the standard deviation.
+        :param plot_quantiles: A Boolean, whether to plot the median, the first and the third quantile.
         """
         fig, ax1 = plt.subplots()
 
-        self._plot_first_hitting_time_distributions(ax1, t_samples, approaches_ls, plot_hist_for_all_particles)
+        self._plot_first_hitting_time_distributions(ax1,
+                                                    t_samples,
+                                                    approaches_ls,
+                                                    plot_hist_for_all_particles,
+                                                    plot_moments,
+                                                    plot_quantiles)
 
         if not self._for_paper:
             plt.title("Distribution of First Passage Time for " + self._process_name)
@@ -230,7 +270,10 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
         plt.close()
 
     @AbstractHittingEvaluator.check_approaches_ls
-    def plot_fptd_and_paths_in_one(self, approaches_ls, ev_fn, var_fn, t_samples, dt, plot_hist_for_all_particles=True):
+    def plot_fptd_and_paths_in_one(self, approaches_ls, ev_fn, var_fn, t_samples, dt,
+                                   plot_hist_for_all_particles=True,
+                                   plot_moments=True,
+                                   plot_quantiles=True):
         """Creates a stacked plot of two subplots. The upper one is the first-passage time distribution and the lower
         one is the plot of paths over time.
 
@@ -249,6 +292,8 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
         :param t_samples: A np.array of shape [num_samples] containing the first-passage times of the particles.
         :param plot_hist_for_all_particles: A Boolean, whether to plot the histogram
                 only for particles that arrive at the boundary (False).
+        :param plot_moments: A Boolean, whether to plot the expected value and the standard deviation.
+        :param plot_quantiles: A Boolean, whether to plot the median, the first and the third quantile.
         """
         # sanity checks
         if not callable(ev_fn):
@@ -264,7 +309,9 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
         self._plot_first_hitting_time_distributions(axes[0],
                                                     t_samples,
                                                     approaches_ls,
-                                                    plot_hist_for_all_particles)
+                                                    plot_hist_for_all_particles,
+                                                    plot_moments,
+                                                    plot_quantiles)
 
         self._plot_mean_and_stddev_over_time(axes[1],
                                              ev_fn,
@@ -333,7 +380,7 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
 
         ax.legend()
         ax.set_xlim(plot_t[0], plot_t[-1])
-        ax.set_xlabel("Time in s")
+        ax.set_xlabel("Time in " + self.time_unit)
         ax.set_ylabel(
             r"Returning probability $\mathbb{P}\mleft( \boldsymbol{T}_a < t, \boldsymbol{x}(t) \le a \mright)$" if self._for_paper else 'Returning probability')
 

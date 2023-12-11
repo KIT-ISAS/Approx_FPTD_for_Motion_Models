@@ -86,6 +86,9 @@ FLAGS = flags.FLAGS
     "y_range": [y_min, y_max], (floats, defaults by cv_process)
     "t_range_with_extents": [t_min, t_max], (floats, defaults by cv_process_with_extents)
     "y_range_with_extents": [y_min, y_max], (floats, defaults by cv_process_with_extents)
+    # Units (optional)
+    "time_unit": "s",
+    "length_unit": "m",
     # Paths and directories (optional)
     "save_path": ..., (string, default by main function)
     "results_dir": ..., (string, default by main function)
@@ -143,9 +146,9 @@ experiments_config = [
         "S_w": 0.005,
         "a_c": 0.3,
         "S_v": 10,
-        # "init_state_mean": np.array([30, 20, 1000, 0]),  # TODO,
-        "init_state_mean": np.array([track_measurements[0, 1], 18, track_measurements[0, 0], 0]),  # TODO,
-        "init_state_cov": np.diag([1, 1, 60, 60]),
+        # "init_state_mean": np.array([30, 20, 1000, 0]),
+        "init_state_mean": np.array([track_measurements[0, 1], 18, track_measurements[0, 0], 0]),
+        "init_state_cov": np.diag([1, 60, 1, 60]),
         # Boundary
         "x_predFrom": 800 - (5.8 + 4 / 2) * 30,  # = 566
         # x_predTo - (5.8 frames + half length i frames) * velo (in pixel / frame)  # 530,
@@ -157,7 +160,47 @@ experiments_config = [
         "y_range": [1050, 1130],
         "t_range_with_extents": [33.9, 35.1],
         "y_range_with_extents": [1040, 1140],
-        # Factors for changing the units
+        # Units (optional)
+        "time_unit": "frames",
+        "length_unit": "pixels",
+        # Factors for changing the units (no config settings, just for information)
+        # "pixel_to_mm": 1/2.88,
+        # "frame_to_ms": 4,
+    }, {
+        # Experiment name
+        "experiment_name": "WNCA IOSB denorm",
+        # Process parameters
+        "measurements": np.fliplr(track_measurements) * 1 / 2.88,
+        "dt": 1 * 4,
+        "S_w": 0.005 * (1 / 2.88) ** 2 / 4 ** 3,
+        "a_c": 0.3 * (1 / 2.88) / 4 ** 2,
+        "S_v": 10 * (1 / 2.88) ** 2,
+        # "init_state_mean": np.array([30, 20, 1000, 0]),
+        "init_state_mean": np.array(
+            [track_measurements[0, 1] * 1 / 2.88,
+             18 * (1 / 2.88) / 4,
+             track_measurements[0, 0] * 1 / 2.88,
+             0]),
+        "init_state_cov": np.diag(
+            [1 * (1 / 2.88) ** 2,
+             60 * (1 / 2.88) ** 2 / 4,
+             1 * (1 / 2.88) ** 2,
+             60 * (1 / 2.88) ** 2 / 4]),
+        # Boundary
+        "x_predFrom": (800 - (5.8 + 4 / 2) * 30) * 1 / 2.88,  # = 566
+        # x_predTo - (5.8 frames + half length i frames) * velo (in pixel / frame)  # 530,
+        "x_predTo": 800 * 1 / 2.88,
+        # Particle size
+        "particle_size": [4 * 1 / 2.88, 58 * 1 / 2.88],
+        # Plot settings (optional)
+        "t_range": [34 * 4, 35 * 4],
+        "y_range": [1050 * 1 / 2.88, 1130 * 1 / 2.88],
+        "t_range_with_extents": [33.9 * 4, 35.1 * 4],
+        "y_range_with_extents": [1040 * 1 / 2.88, 1140 * 1 / 2.88],
+        # Units (optional)
+        "time_unit": "ms",
+        "length_unit": "mm",
+        # Factors for changing the units (no config settings, just for information)
         # "pixel_to_mm": 1/2.88,
         # "frame_to_ms": 4,
     }
@@ -195,7 +238,7 @@ def estimate_states_from_measurements(measurements,
 
     kf = KalmanFilter(system_model, init_state_mean, init_state_cov)
 
-    for k in range(1, measurements.shape[1]):  # TODO: Abbruchkriterium bzw. predfron
+    for k in range(1, measurements.shape[1]):
         kf.predict_own_state()
         kf.update_own_state(measurements[:, k, :], H, C_v)
     # for k in range(0, measurements.shape[1]):
@@ -213,7 +256,7 @@ def main(args):
     logging.set_verbosity(logging.FLAGS.verbosity_level)
 
     # define the experiments to execute by name
-    experiments_name_list = ['WNCA IOSB']
+    experiments_name_list = ['WNCA IOSB denorm']
 
     # get the configs
     experiments_list = get_experiments_by_name(experiments_name_list, experiments_config)
@@ -253,10 +296,8 @@ def main(args):
         del config['experiment_name']  # name cannot be passed to run_experiment
 
         if not FLAGS.with_extents:
-            if 'particle_size' in config.keys():
-                del config['particle_size']  # particle_size cannot be passed to run_experiment
             if 't_range_with_extents' in config.keys():
-                del config['t_range_with_extents']
+                del config['t_range_with_extents']  # t_range_with_extents cannot be passed to run_experiment
             if 'y_range_with_extents' in config.keys():
                 del config['y_range_with_extents']
             run_experiment(**config,

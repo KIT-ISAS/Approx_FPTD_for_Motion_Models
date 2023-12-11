@@ -213,13 +213,13 @@ class AbstractHittingEvaluatorWithExtents(AbstractHittingEvaluator, ABC):
         legend_elements = [Line2D([0], [0], color=c, linewidth=3, label=approach.name) for c, approach in
                            zip(self.color_cycle, approaches_ls)]
         legend_elements.append(Patch(facecolor=[0.8, 0.8, 0.8], label='MC simulation' + prefix_ls[0]))
-        legend_elements.append(Patch(facecolor=[0.8, 0.8, 1], label='MC simulation' + prefix_ls[1]))
+        legend_elements.append(Patch(facecolor=[0.8, 0.8, 1], alpha=0.6, label='MC simulation' + prefix_ls[1]))
         if plot_cdfs:
             ax2.legend(handles=legend_elements)
         else:
             ax1.legend(handles=legend_elements)
 
-        ax1.set_ylim(0, 1.4 * y_hist_max)  # leave some space for labels
+        ax1.set_ylim(0, 1.65 * y_hist_max)  # leave some space for labels
         ax1.set_xlim(self.plot_points[0], self.plot_points[-1])
         ax1.set_ylabel("PDF")
 
@@ -482,7 +482,9 @@ class HittingTimeEvaluatorWithExtents(HittingTimeEvaluator, AbstractHittingEvalu
                  font_size=6,
                  paper_font='Times',
                  paper_scaling_factor=2,
-                 no_show=False):
+                 no_show=False,
+                 time_unit='s',
+                 length_unit='m'):
         """Initializes the evaluator.
 
          Format get_example_tracks_fn:
@@ -509,6 +511,8 @@ class HittingTimeEvaluatorWithExtents(HittingTimeEvaluator, AbstractHittingEvalu
         :param paper_scaling_factor: A float, a scaling factor to be applied to the figure and fonts if _for_paper is
             true.
         :param no_show: A Boolean, whether to show the plots (False).
+        :param time_unit: A string, the time unit of the process (used for the plot labels).
+        :param length_unit: A string, the location unit of the process (used for the plot labels).
         """
         super().__init__(process_name=process_name,
                          x_predTo=x_predTo,
@@ -524,6 +528,8 @@ class HittingTimeEvaluatorWithExtents(HittingTimeEvaluator, AbstractHittingEvalu
                          paper_font=paper_font,
                          paper_scaling_factor=paper_scaling_factor,
                          no_show=no_show,
+                         time_unit=time_unit,
+                         length_unit=length_unit,
                          )
 
     def check_approaches_ls(func):
@@ -572,7 +578,7 @@ class HittingTimeEvaluatorWithExtents(HittingTimeEvaluator, AbstractHittingEvalu
                                                          plot_hist_for_all_particles=plot_hist_for_all_particles,
                                                          plot_cdfs=plot_cdfs,
                                                          )
-        ax1.set_xlabel("Time in s")
+        ax1.set_xlabel("Time in " + self.time_unit)
 
         if not self._for_paper:
             plt.title(
@@ -647,8 +653,8 @@ class HittingTimeEvaluatorWithExtents(HittingTimeEvaluator, AbstractHittingEvalu
                                                    marginal_x_axis=ax_histx,
                                                    marginal_y_axis=ax_histy,
                                                    )
-        ax1.set_xlabel('front arrival time in s')
-        ax1.set_ylabel('back arrival time in s')
+        ax1.set_xlabel('Front arrival time in ' + self.time_unit)
+        ax1.set_ylabel('Back arrival time in ' + self.time_unit)
 
         if not self._for_paper:
             if not use_independent_joint:
@@ -730,7 +736,9 @@ class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHitt
                  font_size=6,
                  paper_font='Times',
                  paper_scaling_factor=2,
-                 no_show=False):
+                 no_show=False,
+                 time_unit='s',
+                 length_unit='m'):
         """Initializes the evaluator.
 
           Format get_example_tracks_fn:
@@ -760,6 +768,8 @@ class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHitt
          :param paper_scaling_factor: A float, a scaling factor to be applied to the figure and fonts if _for_paper is
              true.
         :param no_show: A Boolean, whether to show the plots (False).
+        :param time_unit: A string, the time unit of the process (used for the plot labels).
+        :param length_unit: A string, the location unit of the process (used for the plot labels).
         """
         super().__init__(process_name=process_name,
                          x_predTo=x_predTo,
@@ -776,6 +786,8 @@ class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHitt
                          paper_font=paper_font,
                          paper_scaling_factor=paper_scaling_factor,
                          no_show=no_show,
+                         time_unit=time_unit,
+                         length_unit=length_unit,
                          )
 
     def check_approaches_ls(func):
@@ -825,7 +837,7 @@ class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHitt
                                                          plot_cdfs=plot_cdfs,
                                                          plot_back_and_front_distr=plot_back_and_front_distr,
                                                          prefix_ls=[' (min of y)', ' (max of y)'])
-        ax1.set_xlabel("y in mm")
+        ax1.set_xlabel("Location in " + self.length_unit)
 
         if not self._for_paper:
             plt.title(
@@ -901,8 +913,8 @@ class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHitt
                                                    marginal_x_axis=ax_histx,
                                                    marginal_y_axis=ax_histy,
                                                    )
-        ax1.set_xlabel('min of y in mm')
-        ax1.set_ylabel('max of y in mm')
+        ax1.set_xlabel('Min of y in ' + self.length_unit)
+        ax1.set_ylabel('Max of y in ' + self.length_unit)
 
         if not self._for_paper:
             if not use_independent_joint:
