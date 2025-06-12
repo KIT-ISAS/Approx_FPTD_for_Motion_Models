@@ -301,7 +301,7 @@ class AbstractMinMaxYDistribution(AbstractArrivalDistribution):
         array.
 
         :param y: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the parameter of the distribution.
+            [sample_size, batch_size], the parameter of the distribution.
 
         :returns: A float or a np.array, the value of the CDF for y:
             - If the distribution is scalar (batch_size = 1)
@@ -309,8 +309,8 @@ class AbstractMinMaxYDistribution(AbstractArrivalDistribution):
                 - and y is np.array of shape [sample_size], then returns a np.array of shape [sample_size].
             - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
-                - and y is a np.array of [batch_size, sample_size], then returns a np.array of shape
-                    [batch_size, sample_size].
+                - and y is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
+                    shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size].
         """
         # To be overwritten by subclass
         raise NotImplementedError('Call to abstract method.')
@@ -320,7 +320,7 @@ class AbstractMinMaxYDistribution(AbstractArrivalDistribution):
         """The particle front arrival location distribution at the actuator array.
 
         :param y: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the parameter of the distribution.
+            [sample_size, batch_size], the parameter of the distribution.
 
         :returns: A float or a np.array, the value of the PDF for y:
             - If the distribution is scalar (batch_size = 1)
@@ -328,8 +328,8 @@ class AbstractMinMaxYDistribution(AbstractArrivalDistribution):
                 - and y is np.array of shape [sample_size], then returns a np.array of shape [sample_size].
             - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
-                - and y is a np.array of [batch_size, sample_size], then returns a np.array of shape
-                    [batch_size, sample_size].
+                - and y is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
+                    shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size].
         """
         # To be overwritten by subclass
         raise NotImplementedError('Call to abstract method.')
@@ -345,8 +345,8 @@ class AbstractMinMaxYDistribution(AbstractArrivalDistribution):
                 - and y is np.array of shape [sample_size], then returns a np.array of shape [sample_size].
             - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
-                - and y is a np.array of [batch_size, sample_size], then returns a np.array of shape
-                    [batch_size, sample_size].
+                - and y is a np.array of [sample_size, batch_size], then returns a np.array of shape
+                    [sample_size, batch_size].
         """
         # To be overwritten by subclass
         raise NotImplementedError('Call to abstract method.')
@@ -361,8 +361,8 @@ class AbstractMinMaxYDistribution(AbstractArrivalDistribution):
                 - and y is np.array of shape [sample_size], then returns a np.array of shape [sample_size].
             - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
-                - and y is a np.array of [batch_size, sample_size], then returns a np.array of shape
-                    [batch_size, sample_size].
+                - and y is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
+                    shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size].
         """
         # To be overwritten by subclass
         raise NotImplementedError('Call to abstract method.')
@@ -405,8 +405,8 @@ class MaxYMonotonouslyMotionDistribution(AbstractMinMaxYDistribution):
                     [sample_size].
             - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
-                - and y is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
-                    shape [batch_size, sample_size].
+                - and y is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
+                    shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size]. 
         """
         return np.min(np.stack([self.back_location_cdf(y), self.front_location_cdf(y)]), axis=0)  # np.stack stacks
         # along new axis 0
@@ -421,8 +421,8 @@ class MaxYMonotonouslyMotionDistribution(AbstractMinMaxYDistribution):
                     [sample_size].
             - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
-                - and y is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
-                    shape [batch_size, sample_size].
+                - and y is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
+                    shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size]. 
         """
         return np.stack([self.back_location_pdf(y), self.front_location_pdf(y)])[
             np.argmin(np.stack([self.back_location_cdf(y), self.front_location_cdf(y)]), axis=0)]  # np.stack stacks
@@ -493,8 +493,8 @@ class MinYMonotonouslyMotionDistribution(AbstractMinMaxYDistribution):
                     [sample_size].
             - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
-                - and y is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
-                    shape [batch_size, sample_size].
+                - and y is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
+                    shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size]. 
         """
         return np.max(np.stack([self.back_location_cdf(y), self.front_location_cdf(y)]), axis=0)  # np.stack stacks
         # along new axis 0
@@ -509,8 +509,8 @@ class MinYMonotonouslyMotionDistribution(AbstractMinMaxYDistribution):
                     [sample_size].
             - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
-                - and y is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
-                    shape [batch_size, sample_size].
+                - and y is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
+                    shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size]. 
         """
         return np.stack([self.back_location_pdf(y), self.front_location_pdf(y)])[
             np.argmax(np.stack([self.back_location_cdf(y), self.front_location_cdf(y)]), axis=0)]  # np.stack stacks

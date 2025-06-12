@@ -51,9 +51,9 @@ class AbstractHittingLocationDistribution(AbstractArrivalDistribution, ABC):
         """The mean function of the motion model in y.
 
         :param t: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the time parameter of the distribution.
+            [sample_size, batch_size], the time parameter of the distribution.
 
-        :returns: A np.array of shape [batch_size, sample_size], the mean in y at time t.
+        :returns: A np.array of shape [sample_size, batch_size], the mean in y at time t.
         """
         # To be overwritten by subclass
         raise NotImplementedError('Call to abstract method.')
@@ -63,9 +63,9 @@ class AbstractHittingLocationDistribution(AbstractArrivalDistribution, ABC):
         """The variance function of the motion model in y.
 
         :param t: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the time parameter of the distribution.
+            [sample_size, batch_size], the time parameter of the distribution.
 
-        :returns: A np.array of shape [batch_size, sample_size], the variance in y at time t.
+        :returns: A np.array of shape [sample_size, batch_size], the variance in y at time t.
         """
         # To be overwritten by subclass
         raise NotImplementedError('Call to abstract method.')
@@ -322,7 +322,7 @@ class AbstractBayesMixtureHittingLocationDistribution(AbstractHittingLocationDis
         """The PDF in y at the first-passage time.
 
         :param y: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the y parameter of the distribution.
+            [sample_size, batch_size], the y parameter of the distribution.
 
         :returns: A float or a np.array, the value of the PDF for y:
             - If the distribution is scalar (batch_size = 1)
@@ -331,8 +331,8 @@ class AbstractBayesMixtureHittingLocationDistribution(AbstractHittingLocationDis
                     [sample_size].
             - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
-                - and y is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
-                    shape [batch_size, sample_size].
+                - and y is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
+                    shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size]. 
         """
         # y_mixture = 0
         # for k in range(self.n - 1):
@@ -347,24 +347,24 @@ class AbstractBayesMixtureHittingLocationDistribution(AbstractHittingLocationDis
         # p_y_t_k = norm.pdf(y, loc=self._locations, scale=self.scales)
         # return np.dot(self._weights, p_y_t_k)
 
-        # we assume that y has shape [batch_size, sample_size], so transform it to that shape
+        # we assume that y has shape [sample_size, batch_size], so transform it to that shape
         y = np.broadcast_to(y, shape=(self.batch_size, 1)) if np.isscalar(y) else np.atleast_2d(y).reshape(
             self.batch_size, -1)
 
-        # y has shape [batch_size, sample_size], and locations/scales and weights are of shape [batch_size, n]
-        dist_matrix = (y[:, :, None] - self.locations[:, None, :]) / self.scales[:, None, :]
+        # y has shape [sample_size, batch_size], and locations/scales and weights are of shape [batch_size, n]
+        dist_matrix = (y[:, :, None] - self.locations[:, None, :]) / self.scales[:, None, :]  # TODO: Das passt nun vermutlich nicht mehr, das wir sample und batch_size getauscht haben
         # shape [batch_size, sample_size, n]
         p_y_t_k = norm.pdf(dist_matrix) * 1 / self.scales[:, None, :]  # shape [batch_size, sample_size, n]
         # since p_y_t_k = norm.pdf(y, loc=self._ev_t(t_k), scale=np.sqrt(self._var_t(t_k))) does not work as required
         # here for 3D arrays.
-        return np.squeeze(np.sum(self.weights[:, None, :] * p_y_t_k, axis=-1))  # shape [batch_size, sample_size]
+        return np.squeeze(np.sum(self.weights[:, None, :] * p_y_t_k, axis=-1))  # shape [sample_size, batch_size]
 
     @AbstractArrivalDistribution.check_density_input_dim
     def cdf(self, y):
         """The cumulative distribution function (CDF) of the distribution in y at the first-passage time.
 
         :param y: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the y parameter of the distribution.
+            [sample_size, batch_size], the y parameter of the distribution.
 
         :returns: A float or a np.array, the value of the CDF for y:
             - If the distribution is scalar (batch_size = 1)
@@ -373,8 +373,8 @@ class AbstractBayesMixtureHittingLocationDistribution(AbstractHittingLocationDis
                     [sample_size].
             - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
-                - and y is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
-                    shape [batch_size, sample_size].
+                - and y is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
+                    shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size]. 
         """
         # y_mixture = 0
         # for k in range(self.n - 1):
@@ -390,15 +390,15 @@ class AbstractBayesMixtureHittingLocationDistribution(AbstractHittingLocationDis
         # prob_y_t_k = norm.cdf(y, loc=self._locations, scale=self.scales)
         # return np.dot(self._weights, prob_y_t_k)
 
-        # we assume that y has shape [batch_size, sample_size], so transform it to that shape
+        # we assume that y has shape [sample_size, batch_size], so transform it to that shape
         y = np.broadcast_to(y, shape=(self.batch_size, 1)) if np.isscalar(y) else np.atleast_2d(y).reshape(
             self.batch_size, -1)
 
-        # y has shape [batch_size, sample_size], and locations/scales and weights are of shape [batch_size, n]
-        dist_matrix = (y[:, :, None] - self.locations[:, None, :]) / self.scales[:, None, :]
+        # y has shape [sample_size, batch_size], and locations/scales and weights are of shape [batch_size, n]
+        dist_matrix = (y[:, :, None] - self.locations[:, None, :]) / self.scales[:, None, :]  # TODO: Das passt nun vermutlich nicht mehr, das wir sample und batch_size getauscht haben
         # shape [batch_size, sample_size, n]
         prob_y_t_k = norm.cdf(dist_matrix)  # shape [batch_size, sample_size, n]
-        return np.squeeze(np.sum(self.weights[:, None, :] * prob_y_t_k, axis=-1))  # shape [batch_size, sample_size]
+        return np.squeeze(np.sum(self.weights[:, None, :] * prob_y_t_k, axis=-1))  # shape [sample_size, batch_size]
 
     def ppf(self, q, disable_double_check=False):
         """The quantile function / percent point function (PPF) of the distribution in y at the first-passage time.
@@ -531,7 +531,7 @@ class AbstractBayesianHittingLocationDistribution(AbstractHittingLocationDistrib
         """The PDF in y at the first-passage time.
 
         :param y: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the y parameter of the distribution.
+            [sample_size, batch_size], the y parameter of the distribution.
 
         :returns: A float or a np.array, the value of the PDF for y:
             - If the distribution is scalar (batch_size = 1)
@@ -540,8 +540,8 @@ class AbstractBayesianHittingLocationDistribution(AbstractHittingLocationDistrib
                     [sample_size].
             - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
-                - and y is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
-                    shape [batch_size, sample_size].
+                - and y is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
+                    shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size]. 
         """
         p_y_t = lambda y_, t: norm.pdf(y_, loc=self._ev_t(t), scale=np.sqrt(self._var_t(t)))
         return np.squeeze(integrate.quad(lambda t: p_y_t(y, t) * self._htd.pdf(t), self.t_min, self.t_max)[0])  # TODO: Das geht wsl. schief für batchsize != 1
@@ -551,7 +551,7 @@ class AbstractBayesianHittingLocationDistribution(AbstractHittingLocationDistrib
         """The cumulative distribution function (CDF) of the distribution in y at the first-passage time.
 
         :param y: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the y parameter of the distribution.
+            [sample_size, batch_size], the y parameter of the distribution.
 
         :returns: A float or a np.array, the value of the CDF for y:
             - If the distribution is scalar (batch_size = 1)
@@ -560,8 +560,8 @@ class AbstractBayesianHittingLocationDistribution(AbstractHittingLocationDistrib
                     [sample_size].
             - If the distribution's batch_size is > 1
                 - and y is scalar, then returns a np.array of shape [batch_size],
-                - and y is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
-                    shape [batch_size, sample_size].
+                - and y is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
+                    shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size]. 
         """
         prob_y_t = lambda y_, t: norm.cdf(y_, loc=self._ev_t(t), scale=np.sqrt(self._var_t(t)))
         return np.squeeze(integrate.quad(lambda t: prob_y_t(y, t) * self._htd.pdf(t), self.t_min, self.t_max)[0])

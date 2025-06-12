@@ -79,9 +79,9 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
         """The mean function of the motion model in x.
 
         :param t: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the time parameter of the distribution.
+            [sample_size, batch_size], the time parameter of the distribution.
 
-        :returns: A np.array of shape [batch_size, sample_size], the mean in x at time t.
+        :returns: A np.array of shape [sample_size, batch_size], the mean in x at time t.
         """
         # To be overwritten by subclass
         raise NotImplementedError('Call to abstract method.')
@@ -91,9 +91,9 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
         """The variance function of the motion model in x.
 
         :param t: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the time parameter of the distribution.
+            [sample_size, batch_size], the time parameter of the distribution.
 
-        :returns: A np.array of shape [batch_size, sample_size], the variance in x at time t.
+        :returns: A np.array of shape [sample_size, batch_size], the variance in x at time t.
         """
         # To be overwritten by subclass
         raise NotImplementedError('Call to abstract method.')
@@ -254,7 +254,7 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
         :param values: An object of the same type as self, the object from which to take the elements.
         """
         self._x_predTo = values._x_predTo[indices]
-        self._t_L = values._t_L
+        self._t_L = values._t_L  # TODO: zugriff auf private, ist an vielen Stellen so
         super()._left_hand_indexing(indices, values)
 
     def get_statistics(self):
@@ -472,9 +472,9 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
            with PHI( ) being the standard Gaussian CDF.
 
         :param t: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the time parameter of the distribution.
+            [sample_size, batch_size], the time parameter of the distribution.
 
-        :returns: A np.array of shape [batch_size, sample_size], the time derivative of self._cdf.
+        :returns: A np.array of shape [sample_size, batch_size], the time derivative of self._cdf.
         """
         # To be overwritten by subclass
         raise NotImplementedError('Call to abstract method.')
@@ -543,9 +543,9 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
             P( T_a > t) ≈ P( x(t) > a) = 1 - int( p(x(t), x= -infty ..x_predTo ) .
 
         :param t: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the time parameter of the distribution.
+            [sample_size, batch_size], the time parameter of the distribution.
 
-        :returns: A np.array of shape [batch_size, sample_size], the probability P( x(t) > a).
+        :returns: A np.array of shape [sample_size, batch_size], the probability P( x(t) > a).
         """
         p_x_given_t = norm(loc=self._ev_t(t), scale=np.sqrt(self._var_t(t)))
         return 1 - p_x_given_t.cdf(self._x_predTo)  # TODO e.g. for t=t_q_max, this raises warnings
@@ -555,7 +555,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
         """The cumulative distribution function (CDF) of the first-passage time distribution.
 
         :param t: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the time parameter of the distribution.
+            [sample_size, batch_size], the time parameter of the distribution.
 
         :returns: A float or a np.array, the value of the CDF for t:
             - If the distribution is scalar (batch_size = 1)
@@ -564,8 +564,8 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
                     [sample_size].
             - If the distribution's batch_size is > 1
                 - and t is scalar, then returns a np.array of shape [batch_size],
-                - and t is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
-                    shape [batch_size, sample_size].
+                - and t is a np.array of [sample_size, batch_size] (with sample_size > 1), then returns a np.array of
+                    shape [sample_size, batch_size].
         """
         # t = np.asarray([t]) if np.isscalar(t) else np.asarray(t)
         # cdf_value = self._cdf(t)
@@ -598,7 +598,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
         """The first-passage time distribution (FPTD).
 
         :param t: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the time parameter of the distribution.
+            [sample_size, batch_size], the time parameter of the distribution.
 
         :returns: A float or a np.array, the value of the FPTD for t:
             - If the distribution is scalar (batch_size = 1)
@@ -607,8 +607,8 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
                     [sample_size].
             - If the distribution's batch_size is > 1
                 - and t is scalar, then returns a np.array of shape [batch_size],
-                - and t is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
-                    shape [batch_size, sample_size].
+                - and t is a np.array of [sample_size, batch_size] (with sample_size > 1), then returns a np.array of
+                    shape [sample_size, batch_size].
         """
         pdf_value = self._pdf(t)
 

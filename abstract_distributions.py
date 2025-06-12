@@ -116,7 +116,7 @@ class AbstractArrivalDistribution(ABC):
         """The probability density function (PDF) of the distribution.
 
         :param x: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the parameter of the distribution.
+            [sample_size, batch_size], the parameter of the distribution.
 
         :returns: A float or a np.array, the value of the PDF for x:
             - If the distribution is scalar (batch_size = 1)
@@ -125,8 +125,8 @@ class AbstractArrivalDistribution(ABC):
                     [sample_size].
             - If the distribution's batch_size is > 1
                 - and x is scalar, then returns a np.array of shape [batch_size],
-                - and x is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
-                    shape [batch_size, sample_size].
+                - and x is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
+                    shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size]. 
         """
         # To be overwritten by subclass
         raise NotImplementedError('Call to abstract method.')
@@ -136,7 +136,7 @@ class AbstractArrivalDistribution(ABC):
         """The cumulative distribution function (CDF) of the distribution.
 
         :param x: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the parameter of the distribution.
+            [sample_size, batch_size], the parameter of the distribution.
 
         :returns: A float or a np.array, the value of the CDF for x:
             - If the distribution is scalar (batch_size = 1)
@@ -145,8 +145,8 @@ class AbstractArrivalDistribution(ABC):
                     [sample_size].
             - If the distribution's batch_size is > 1
                 - and x is scalar, then returns a np.array of shape [batch_size],
-                - and x is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
-                    shape [batch_size, sample_size].
+                - and x is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
+                    shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size]. 
         """
         # To be overwritten by subclass
         raise NotImplementedError('Call to abstract method.')
@@ -278,7 +278,7 @@ class AbstractArrivalDistribution(ABC):
         def check_input_valid(self, x):
             if self.batch_size > 1 and not np.isscalar(x) and x.ndim != 2:
                 raise ValueError(
-                    'If batch size > 1, to avoid ambiguities, only scalars and np.arrays of shape [batch_size, sample_size] are supported.')
+                    'If batch size > 1, to avoid ambiguities, only scalars and np.arrays of shape [sample_size, batch_size] are supported.')
             return pdf_cdf_func(self, x)
 
         return check_input_valid
@@ -378,6 +378,7 @@ class AbstractArrivalDistribution(ABC):
         if save_results:
             plt.savefig(os.path.join(result_dir, self.name + '_ejection_distr.pdf'))
             plt.savefig(os.path.join(result_dir, self.name + '_ejection_distr.png'))
+            plt.savefig(os.path.join(result_dir, self.name + '_ejection_distr.pgf'))
         plt.show()
 
     def __getitem__(self, indices):
@@ -475,7 +476,7 @@ class AbstractNormalArrivalDistribution(AbstractArrivalDistribution, ABC):
         """The probability density function (PDF) of the distribution.
 
         :param x: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the parameter of the distribution.
+            [sample_size, batch_size], the parameter of the distribution.
 
         :returns: A float or a np.array, the value of the PDF for x:
             - If the distribution is scalar (batch_size = 1)
@@ -484,8 +485,8 @@ class AbstractNormalArrivalDistribution(AbstractArrivalDistribution, ABC):
                     [sample_size].
             - If the distribution's batch_size is > 1
                 - and x is scalar, then returns a np.array of shape [batch_size],
-                - and x is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
-                    shape [batch_size, sample_size].
+                - and x is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
+                    shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size]. 
         """
         return np.squeeze(norm.pdf(x, loc=self.ev, scale=self.stddev))
 
@@ -494,7 +495,7 @@ class AbstractNormalArrivalDistribution(AbstractArrivalDistribution, ABC):
         """The cumulative distribution function (CDF) of the distribution.
 
         :param x: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the parameter of the distribution.
+            [sample_size, batch_size], the parameter of the distribution.
 
         :returns: A float or a np.array, the value of the CDF for x:
             - If the distribution is scalar (batch_size = 1)
@@ -503,8 +504,8 @@ class AbstractNormalArrivalDistribution(AbstractArrivalDistribution, ABC):
                     [sample_size].
             - If the distribution's batch_size is > 1
                 - and x is scalar, then returns a np.array of shape [batch_size],
-                - and x is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
-                    shape [batch_size, sample_size].
+                - and x is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
+                    shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size]. 
         """
         return np.squeeze(norm.cdf(x, loc=self.ev, scale=self.stddev))
 
@@ -538,6 +539,7 @@ class AbstractNormalArrivalDistribution(AbstractArrivalDistribution, ABC):
         """
         self._ev[indices] = values.ev
         self._var[indices] = values.var
+        super().__setitem__(indices, values)
 
     def _left_hand_indexing(self, indices, values):
         """Takes elements of values and assigns elements along the batch shape at the given indices. This is a helper
@@ -546,8 +548,8 @@ class AbstractNormalArrivalDistribution(AbstractArrivalDistribution, ABC):
         :param indices: Slices, or list, or np.array of integers or Booleans. The indices of the values to assign.
         :param values: An object of the same type as self, the object from which to take the elements.
         """
-        self._ev = values.ev[indices]
-        self._var = values.var[indices]
+        self._ev = np.atleast_1d(values.ev[indices])
+        self._var = np.atleast_1d(values.var[indices])  # TODO: Das überall machen
         super()._left_hand_indexing(indices, values)
 
 
@@ -686,7 +688,7 @@ class AbstractUniformArrivalDistribution(AbstractArrivalDistribution, ABC):
         """The probability density function (PDF) of the distribution.
 
         :param x: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the parameter of the distribution.
+            [sample_size, batch_size], the parameter of the distribution.
 
         :returns: A float or a np.array, the value of the PDF for x:
             - If the distribution is scalar (batch_size = 1)
@@ -695,8 +697,8 @@ class AbstractUniformArrivalDistribution(AbstractArrivalDistribution, ABC):
                     [sample_size].
             - If the distribution's batch_size is > 1
                 - and x is scalar, then returns a np.array of shape [batch_size],
-                - and x is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
-                    shape [batch_size, sample_size].
+                - and x is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
+                    shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size]. 
         """
         return np.squeeze(uniform.pdf(x, loc=self.x_min, scale=self.x_max - self.x_min))
 
@@ -705,7 +707,7 @@ class AbstractUniformArrivalDistribution(AbstractArrivalDistribution, ABC):
         """The cumulative distribution function (CDF) of the distribution.
 
         :param x: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the parameter of the distribution.
+            [sample_size, batch_size], the parameter of the distribution.
 
         :returns: A float or a np.array, the value of the CDF for x:
             - If the distribution is scalar (batch_size = 1)
@@ -714,8 +716,8 @@ class AbstractUniformArrivalDistribution(AbstractArrivalDistribution, ABC):
                     [sample_size].
             - If the distribution's batch_size is > 1
                 - and x is scalar, then returns a np.array of shape [batch_size],
-                - and x is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
-                    shape [batch_size, sample_size].
+                - and x is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
+                    shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size]. 
         """
         return np.squeeze(uniform.cdf(x, loc=self.x_min, scale=self.x_max - self.x_min))
 
@@ -758,7 +760,7 @@ class AbstractUniformArrivalDistribution(AbstractArrivalDistribution, ABC):
         :param indices: Slices, or list, or np.array of integers or Booleans. The indices of the values to assign.
         :param values: An object of the same type as self, the object from which to take the elements.
         """
-        self._point_prediction = values.point_prediction[indices]
+        self._point_prediction = np.atleast_1d(values.point_prediction[indices])
         self._window_length = values.window_length[indices]
         self._a = values.a[indices]
         super()._left_hand_indexing(indices, values)
@@ -1039,7 +1041,7 @@ class AbstractGaussianMixtureArrivalDistribution(AbstractArrivalDistribution, AB
         """The probability density function (PDF) of the distribution.
 
         :param x: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the parameter of the distribution.
+            [sample_size, batch_size], the parameter of the distribution.
 
         :returns: A float or a np.array, the value of the PDF for x:
             - If the distribution is scalar (batch_size = 1)
@@ -1048,8 +1050,8 @@ class AbstractGaussianMixtureArrivalDistribution(AbstractArrivalDistribution, AB
                     [sample_size].
             - If the distribution's batch_size is > 1
                 - and x is scalar, then returns a np.array of shape [batch_size],
-                - and x is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
-                    shape [batch_size, sample_size].
+                - and x is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
+                    shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size]. 
         """
         return np.squeeze(self._distr.prob(x).numpy())
 
@@ -1058,7 +1060,7 @@ class AbstractGaussianMixtureArrivalDistribution(AbstractArrivalDistribution, AB
         """The cumulative distribution function (CDF) of the distribution.
 
         :param x: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the parameter of the distribution.
+            [sample_size, batch_size], the parameter of the distribution.
 
         :returns: A float or a np.array, the value of the CDF for x:
             - If the distribution is scalar (batch_size = 1)
@@ -1067,8 +1069,8 @@ class AbstractGaussianMixtureArrivalDistribution(AbstractArrivalDistribution, AB
                     [sample_size].
             - If the distribution's batch_size is > 1
                 - and x is scalar, then returns a np.array of shape [batch_size],
-                - and x is a np.array of [batch_size, sample_size] (with sample_size > 1), then returns a np.array of
-                    shape [batch_size, sample_size].
+                - and x is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
+                    shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size]. 
         """
         return np.squeeze(self._distr.cdf(x).numpy())
 
@@ -1131,9 +1133,9 @@ class AbstractGaussianMixtureArrivalDistribution(AbstractArrivalDistribution, AB
         :param indices: Slices, or list, or np.array of integers or Booleans. The indices of the values to assign.
         :param values: An object of the same type as self, the object from which to take the elements.
         """
-        self._mus = values.mus[indices]
-        self._sigmas = values.sigmas[indices]
-        self._weights = values.weights[indices]
+        self._mus = np.atleast_2d(values.mus[indices])
+        self._sigmas = np.atleast_2d(values.sigmas[indices])
+        self._weights = np.atleast_2d(values.weights[indices])
         # we do not assign ev and var since they are not too hard to calculate
 
         # reinitialize tfd

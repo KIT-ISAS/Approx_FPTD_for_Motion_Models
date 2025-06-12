@@ -103,9 +103,9 @@ class AbstractCAHittingLocationDistribution(AbstractHittingLocationDistribution,
         """The mean function of the motion model in y.
 
         :param t: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the time parameter of the distribution.
+            [sample_size, batch_size], the time parameter of the distribution.
 
-        :returns: A np.array of shape [batch_size, sample_size], the mean in y at time t.
+        :returns: A np.array of shape [sample_size, batch_size], the mean in y at time t.
         """
         return self._htd.x_L[..., -3] + self._htd.x_L[..., -2] * (t - self._htd.t_L) + self._htd.x_L[..., -1] / 2 * (
                     t - self._htd.t_L) ** 2
@@ -114,9 +114,9 @@ class AbstractCAHittingLocationDistribution(AbstractHittingLocationDistribution,
         """The variance function of the motion model in y.
 
         :param t: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the time parameter of the distribution.
+            [sample_size, batch_size], the time parameter of the distribution.
 
-        :returns: A np.array of shape [batch_size, sample_size], the variance in y at time t.
+        :returns: A np.array of shape [sample_size, batch_size], the variance in y at time t.
         """
         return self._htd.C_L[..., -3, -3] + (t - self._htd.t_L) * self._htd.C_L[..., -3, -2] + (1 / 2) * (
                     t - self._htd.t_L) ** 2 * self._htd.C_L[..., -3, -1] + \

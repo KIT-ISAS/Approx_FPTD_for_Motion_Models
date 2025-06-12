@@ -140,9 +140,9 @@ class AbstractCAHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
         """The mean function of the CA motion model in x.
 
         :param t: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the time parameter of the distribution.
+            [sample_size, batch_size], the time parameter of the distribution.
 
-        :returns: A np.array of shape [batch_size, sample_size], the mean in x at time t.
+        :returns: A np.array of shape [sample_size, batch_size], the mean in x at time t.
         """
         # return self.x_L[0] + self.x_L[1] * (t - self._t_L) + self.x_L[2] / 2 * (t - self._t_L) ** 2
         return self._x_L[:, np.newaxis, 0] + self._x_L[:, np.newaxis, 1] * (t - self._t_L) + self._x_L[:, np.newaxis,
@@ -152,9 +152,9 @@ class AbstractCAHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
         """The variance function of the CA motion model in x.
 
         :param t: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the time parameter of the distribution.
+            [sample_size, batch_size], the time parameter of the distribution.
 
-        :returns: A np.array of shape [batch_size, sample_size], the variance in x at time t.
+        :returns: A np.array of shape [sample_size, batch_size], the variance in x at time t.
         """
         # return self.C_L[0, 0] + 2*self.C_L[0, 1] * (t - self._t_L) \
         #                + (self.C_L[0, 2] + self.C_L[1, 1]) * (t - self._t_L) ** 2 \
@@ -243,8 +243,8 @@ class AbstractCAHittingTimeDistribution(AbstractHittingTimeDistribution, ABC):
         :param indices: Slices, or list, or np.array of integers or Booleans. The indices of the values to assign.
         :param values: An object of the same type as self, the object from which to take the elements.
         """
-        self._x_L = values.x_L[indices]
-        self._C_L = values.C_L[indices]
+        self._x_L = np.atleast_2d(values.x_L[indices])
+        self._C_L = self.batch_atleast_3d(values.C_L[indices])
         self._S_w = values.S_w[indices]
         super()._left_hand_indexing(indices, values)
 
@@ -515,9 +515,9 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
            with PHI( ) being the standard Gaussian CDF.
         
         :param t: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
-            [batch_size, sample_size], the time parameter of the distribution.
+            [sample_size, batch_size], the time parameter of the distribution.
 
-        :returns: A np.array of shape [batch_size, sample_size], the time derivative of self._cdf.
+        :returns: A np.array of shape [sample_size, batch_size], the time derivative of self._cdf.
         """
         # return derivative(self._cdf, t, dx=1e-6)
         # gauss = norm.pdf((self._x_predTo - self._ev_t(t)) / np.sqrt(self._var_t(t)))  # Std. Gauss pdf

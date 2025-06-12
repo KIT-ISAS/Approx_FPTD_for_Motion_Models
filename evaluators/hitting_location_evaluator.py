@@ -244,6 +244,7 @@ class HittingLocationEvaluator(AbstractHittingEvaluator):
         if self.save_results:
             plt.savefig(os.path.join(self._result_dir, self._process_name_save + '_y_at_ftp.pdf'))
             plt.savefig(os.path.join(self._result_dir, self._process_name_save + '_y_at_ftp.png'))
+            plt.savefig(os.path.join(self._result_dir, self._process_name_save + '_y_at_ftp.pgf'))
         if not self.no_show:
             plt.show()
         plt.close()
