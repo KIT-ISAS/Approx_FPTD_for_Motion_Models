@@ -95,6 +95,61 @@ docker run -u $(id -u):$(id -g) --gpus all -it --rm -e DISPLAY=$DISPLAY -v /tmp/
   ```
   Similar for `ca_process_main.py` and `wiener_process_main.py`.
 
+## Import the Repo as a Module & Build the Distributions
+
+The distributions can be imported from the module `Approx_FPDT_for_Motion_Models` (for this, make sure you added
+`/path/to/repo` to your `$PYTHONPATH`).
+
+
+_Example:_
+
+  ```shell script
+from Approx_FPDT_for_Motion_Models import GaussTaylorCVHittingTimeDistribution
+
+# define hyperparameters for the distribution...
+S_w = 10  # power spectral density (PSD)
+x_L = np.array([0.3, 6.2, 0.5, 0.2])  # initial state (x, x_dot, y, y_dot)
+C_L = np.array([[2E-7, 2E-5, 0, 0], [2E-5, 6E-3, 0, 0], [0, 0, 2E-7, 2E-5], [0, 0, 2E-5, 6E-3]])  # initial covariance
+x_predTo = 0.6458623971412047  # boundary to hit (x-coordinate)
+t_L = 0  # initial time
+cv_temporal_point_predictor = lambda pos_l, v_l, x_predTo: (x_predTo - pos_l[..., 0]) / v_l[..., 0]  
+# constant-velocity prediction
+    
+# build the distribution...
+htd = GaussTaylorCVHittingTimeDistribution(x_L, C_L, S_w, x_predTo, t_L,
+                                           point_predictor=cv_temporal_point_predictor)
+# evaluate the distribution, e.g., 
+htd.cdf(0.05)   
+# or, for a larger sample_size, 
+htd.cdf(np.array([0.04, 0.05, 0.06, 0.07]))       
+  ```
+
+The distributions support a batch size. 
+
+_Example:_
+
+  ```shell script
+from Approx_FPDT_for_Motion_Models import GaussTaylorCVHittingTimeDistribution
+
+# define hyperparameters for the distribution...
+S_w = np.stack([S_w, 10**2 * S_w])   # the process at the second batch has a PSD of 100 times the PSD of the first batch 
+x_L = np.stack([x_L, x_L])
+C_L = np.stack([C_L, C_L])
+x_predTo = np.stack([x_predTo, x_predTo])
+    
+# build the distribution...
+htd = GaussTaylorCVHittingTimeDistribution(x_L, C_L, S_w, x_predTo, t_L,
+                                           point_predictor=cv_temporal_point_predictor)
+# evaluate the distribution, e.g., 
+htd.cdf(0.05) >> array([0.07154484, 0.44075421])
+# or, for a larger sample_size, 
+cdf_values = htd.cdf(np.array([[0.04], [0.05], [0.06], [0.07]]))     
+cdf_values.shape >> (4, 2)      
+cdf_values = htd.cdf(np.array([[0.04, 0.01], [0.05, 0.04], [0.06, 0.07], [0.07, 0.1]]))    
+cdf_values.shape >> (4, 2)      
+  ```
+
+
 ## Example Results
 
 **First Passage Time**

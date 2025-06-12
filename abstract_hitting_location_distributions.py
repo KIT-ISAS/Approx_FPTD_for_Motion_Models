@@ -30,6 +30,14 @@ class AbstractHittingLocationDistribution(AbstractArrivalDistribution, ABC):
         self._htd = htd
 
     @property
+    def htd(self):
+        """The hitting time distribution used for calculating the distribution in y at the first-passage time.
+
+        :returns: An AbstractHittingTimeDistribution object, the used hitting time distribution.
+        """
+        return self._htd
+
+    @property
     def batch_size(self):
         """The batch size of the distribution.
 
@@ -77,8 +85,8 @@ class AbstractHittingLocationDistribution(AbstractArrivalDistribution, ABC):
         :param indices: Slices, or list, or np.array of integers or Booleans. The indices of the values to assign.
         :param values: An object of the same type as self, the object from which to take the elements.
         """
-        self._htd[indices] = values.ht  # TODO: Lassen wir das so, ergibt das Sinn es so zu machen?
-        super().__setitem__(indices, values)  # TODO: notwendig?
+        self._htd[indices] = values.htd  # TODO: Lassen wir das so, ergibt das Sinn es so zu machen?
+        # super().__setitem__(indices, values)  # TODO: notwendig? Ne, macht es sogar kaputt
 
     def _left_hand_indexing(self, indices, values):
         """Takes elements of values and assigns elements along the batch shape at the given indices. This is a helper
@@ -87,7 +95,7 @@ class AbstractHittingLocationDistribution(AbstractArrivalDistribution, ABC):
         :param indices: Slices, or list, or np.array of integers or Booleans. The indices of the values to assign.
         :param values: An object of the same type as self, the object from which to take the elements.
         """
-        self._htd = values.ht[indices]  # TODO: Lassen wir das so, ergibt das Sinn es so zu machen?
+        self._htd = values.htd[indices]  # TODO: Lassen wir das so, ergibt das Sinn es so zu machen?
         super()._left_hand_indexing(indices, values)
 
     def get_statistics(self):  # TODO: Evtl. doch in die distributions?

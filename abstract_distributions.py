@@ -274,12 +274,14 @@ class AbstractArrivalDistribution(ABC):
 
         :returns: A callable, the decorator.
         """
+
         @wraps(pdf_cdf_func)
-        def check_input_valid(self, x):
+        def check_input_valid(self, x, *args, **kwargs):
             if self.batch_size > 1 and not np.isscalar(x) and x.ndim != 2:
                 raise ValueError(
-                    'If batch size > 1, to avoid ambiguities, only scalars and np.arrays of shape [sample_size, batch_size] are supported.')
-            return pdf_cdf_func(self, x)
+                    'If batch size > 1, to avoid ambiguities, only scalars and np.arrays of shape '
+                    '[sample_size, batch_size] are supported.')
+            return pdf_cdf_func(self, x, *args, **kwargs)
 
         return check_input_valid
 
@@ -491,11 +493,14 @@ class AbstractNormalArrivalDistribution(AbstractArrivalDistribution, ABC):
         return np.squeeze(norm.pdf(x, loc=self.ev, scale=self.stddev))
 
     @AbstractArrivalDistribution.check_density_input_dim
-    def cdf(self, x):
+    def cdf(self, x, use_gating=False, gating_stddev_factor=6.0):
         """The cumulative distribution function (CDF) of the distribution.
 
         :param x: A float, a np.array of shape [sample_size], a np.array of shape [batch_size], or a np.array of
             [sample_size, batch_size], the parameter of the distribution.
+        :param use_gating: A Boolean, whether to use gating. If enabled, the CDF at ev +/- gating_stddev_factor * stddev
+            is set to 1.0 or 0.0, respectively.
+        :param gating_stddev_factor: A float, the factor multiplied with the standard deviation for the gating.
 
         :returns: A float or a np.array, the value of the CDF for x:
             - If the distribution is scalar (batch_size = 1)
@@ -507,7 +512,27 @@ class AbstractNormalArrivalDistribution(AbstractArrivalDistribution, ABC):
                 - and x is a np.array of [sample_size, batch_size], with sample_size > 1, then returns a np.array of
                     shape [sample_size, batch_size], if sample_size == 1, the array is of shape [batch_size]. 
         """
-        return np.squeeze(norm.cdf(x, loc=self.ev, scale=self.stddev))
+        if use_gating:
+            # goal is to reduce batch size
+            x = np.asarray(x)
+            if x.ndim < 2:
+                x = np.broadcast_to(x, (1, self._ev.shape[0]))  # shape [sample_size, batch_size]
+            cdf_values = np.empty_like(x, dtype=float)  # shape [sample_size, batch_size]
+            lower_than_lower_bound = np.all(x < self._ev - gating_stddev_factor * np.sqrt(self._var),
+                                            axis=0)  # shape [sample_size, batch_size]
+            higher_than_upper_bound = np.all(x > self._ev + gating_stddev_factor * np.sqrt(self._var), axis=0)
+            is_nan = np.isnan(np.sqrt(self._var))   # shape [batch_size]
+            cdf_values[:, lower_than_lower_bound] = 0.0
+            cdf_values[:, higher_than_upper_bound] = 1.0
+            cdf_values[:, is_nan] = np.nan
+            in_bounds = np.logical_not(np.logical_or.reduce((lower_than_lower_bound, higher_than_upper_bound, is_nan)))
+            cdf = norm.cdf(x[:, in_bounds], loc=self._ev[in_bounds], scale=np.sqrt(self._var[in_bounds]))
+            cdf[np.isclose(cdf, 0.0)] = 0.0  # avoid numerical issues when close to 0
+            cdf[np.isclose(cdf, 1.0)] = 1.0  # avoid numerical issues when close to 1
+            cdf_values[:, in_bounds] = cdf
+            return np.squeeze(cdf_values)
+        else:
+            return np.squeeze(norm.cdf(x, loc=self.ev, scale=self.stddev))
 
     def ppf(self, q):
         """The quantile function / percent point function (PPF) of the distribution.
