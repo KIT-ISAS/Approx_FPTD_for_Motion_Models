@@ -294,7 +294,10 @@ class GaussTaylorCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Ab
         if not callable(point_predictor):
             raise ValueError('point_predictor must be a callable.')
 
-        ev = point_predictor(x_L[..., [0, 2]], x_L[..., [1, 3]], x_L[..., [2, 4]], x_predTo) + t_L
+        ev = point_predictor(x_L[..., [0, -3]],
+                             x_L[..., [1, -2]],
+                             x_L[..., [2, -1]],
+                             x_predTo) + t_L
 
         # ev must be resizeable to shape [batch_size]
         if not np.atleast_1d(ev).ndim == 1 or np.atleast_1d(ev).shape[0] != np.atleast_2d(x_L).shape[0]:
@@ -311,7 +314,7 @@ class GaussTaylorCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Ab
         #                                            name=name,
         #                                            )
         #
-        # ev = point_predictor(self._x_L[:, [0, 2]], self._x_L[:, [1, 3]], self.x_L[:, [2, 4]]) + t_L
+        # ev = point_predictor(self._x_L[:, [0, -3]], self._x_L[:, [1, -2]], self.x_L[:, [2, -1]]) + t_L
         # var = self._compute_var(ev, self._x_L, self._C_L, self._t_L, self._S_w)
         #
         # AbstractGaussTaylorHittingTimeDistribution.__init__(self,
@@ -894,7 +897,7 @@ class UniformCAHittingTimeDistribution(AbstractUniformHittingTimeDistribution, A
         #                                            name=name,
         #                                            )
         #
-        # t_predicted = point_predictor(self._x_L[:, [0, 2]], self._x_L[:, [1, 3]], self._x_L[:, [2, 4]]) + t_L
+        # t_predicted = point_predictor(self._x_L[:, [0, 3]], self._x_L[:, [1, 4]], self._x_L[:, [2, 5]]) + t_L
         # AbstractUniformHittingTimeDistribution.__init__(self,
         #                                                 point_prediction=t_predicted,
         #                                                 window_length=window_length,

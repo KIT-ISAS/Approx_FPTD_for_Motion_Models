@@ -174,7 +174,12 @@ class GaussTaylorCAHittingLocationDistribution(AbstractCAHittingLocationDistribu
     Note that this method, although it may capture the shape of the distribution very well, does not have the exact
     moments as calculated in the AbstractCVHittingLocationModel base class.
     """
-    def __init__(self, htd, S_w, point_predictor, name='Gauß--Taylor approx.'):
+    def __init__(self,
+                 htd,
+                 S_w,
+                 point_predictor,
+                 point_predictor_outputs_dy_pred=True,
+                 name='Gauß--Taylor approx.'):
         """Initializes the distribution.
 
          State format:
@@ -183,7 +188,7 @@ class GaussTaylorCAHittingLocationDistribution(AbstractCAHittingLocationDistribu
 
          Format point_predictor:
 
-            (pos_last, v_last, a_last, dt_pred)  --> dy_pred
+            (pos_last, v_last, a_last, dt_pred)  --> dy_pred or y_pred
 
          where
             - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the t_L.
@@ -192,11 +197,14 @@ class GaussTaylorCAHittingLocationDistribution(AbstractCAHittingLocationDistribu
             - dt_pred is a np.array of shape [batch_size] with arrival time point estimates as difference times w.r.t.
                 t_L.
             - dy_pred is a np.array of shape [batch_size] with point estimates for the arrival location along the
-                actuator array as difference w.r.t. x_L.
+                actuator array as difference w.r.t. x_L. Alternatively, y_pred can be given as absolute point
+                estimates for the arrival location along the actuator array
 
         :param htd: An AbstractHittingTimeDistribution object, the used hitting time distribution.
         :param S_w: A float or np.array of shape [batch_size], the power spectral density (PSD) in y-direction.
         :param point_predictor: A callable, a function that returns an estimate for the arrival location.
+        :param point_predictor_outputs_dy_pred: A Boolean, whether the output of the point predictor is relative to
+            x_L (i.e., dy_pred) or absolute (i.e., y_pred).
         :param name: String, the name for the distribution.
         """
         # sanity checks
@@ -206,7 +214,9 @@ class GaussTaylorCAHittingLocationDistribution(AbstractCAHittingLocationDistribu
         ev = point_predictor(htd.x_L[..., [0, -3]],
                              htd.x_L[..., [1, -2]],
                              htd.x_L[..., [2, -1]],
-                             dt_pred=htd.ev - htd.t_L) + htd.x_L[..., -3]
+                             dt_pred=htd.ev - htd.t_L)
+        if point_predictor_outputs_dy_pred:
+            ev += htd.x_L[..., -3]
 
         # ev must be resizeable to shape [batch_size]
         if not np.atleast_1d(ev).ndim == 1 or np.atleast_1d(ev).shape[0] != htd.batch_size:
@@ -279,7 +289,12 @@ class SimpleGaussCAHittingLocationDistribution(AbstractCAHittingLocationDistribu
     Compared with the GaussTaylorHittingLocationDistribution, this distribution uses the exact first and second moments,
     but its shape may capture the underlying distribution less well.
     """
-    def __init__(self, htd, S_w, point_predictor, name='Gauß approx.'):
+    def __init__(self,
+                 htd,
+                 S_w,
+                 point_predictor,
+                 point_predictor_outputs_dy_pred=True,
+                 name='Gauß approx.'):
         """Initializes the distribution.
 
          State format:
@@ -288,7 +303,7 @@ class SimpleGaussCAHittingLocationDistribution(AbstractCAHittingLocationDistribu
 
          Format point_predictor:
 
-            (pos_last, v_last, a_last, dt_pred)  --> dy_pred
+            (pos_last, v_last, a_last, dt_pred)  --> dy_pred or y_pred
 
          where
             - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the t_L.
@@ -297,11 +312,14 @@ class SimpleGaussCAHittingLocationDistribution(AbstractCAHittingLocationDistribu
             - dt_pred is a np.array of shape [batch_size] with arrival time point estimates as difference times w.r.t.
                 t_L.
             - dy_pred is a np.array of shape [batch_size] with point estimates for the arrival location along the
-                actuator array as difference w.r.t. x_L.
+                actuator array as difference w.r.t. x_L. Alternatively, y_pred can be given as absolute point
+                estimates for the arrival location along the actuator
 
         :param htd: An AbstractHittingTimeDistribution object, the used hitting time distribution.
         :param S_w: A float or np.array of shape [batch_size], the power spectral density (PSD) in y-direction.
         :param point_predictor: A callable, a function that returns an estimate for the arrival location.
+        :param point_predictor_outputs_dy_pred: A Boolean, whether the output of the point predictor is relative to
+            x_L (i.e., dy_pred) or absolute (i.e., y_pred).
         :param name: String, the name for the distribution.
         """
         # sanity checks
@@ -311,7 +329,9 @@ class SimpleGaussCAHittingLocationDistribution(AbstractCAHittingLocationDistribu
         ev = point_predictor(htd.x_L[..., [0, -3]],
                              htd.x_L[..., [1, -2]],
                              htd.x_L[..., [2, -1]],
-                             dt_pred=htd.ev - htd.t_L) + htd.x_L[..., -3]
+                             dt_pred=htd.ev - htd.t_L)
+        if point_predictor_outputs_dy_pred:
+            ev += htd.x_L[..., -3]
 
         # ev must be resizeable to shape [batch_size]
         if not np.atleast_1d(ev).ndim == 1 or np.atleast_1d(ev).shape[0] != htd.batch_size:
@@ -344,7 +364,13 @@ class UniformCAHittingLocationDistribution(AbstractCAHittingLocationDistribution
 
     This distribution corresponds to the "usual" case where we define a fixed deflection window.
     """
-    def __init__(self, htd, point_predictor, window_length, a=0.5, name='Uniform distribution'):
+    def __init__(self,
+                 htd,
+                 point_predictor,
+                 window_length,
+                 a=0.5,
+                 point_predictor_outputs_dy_pred=True,
+                 name='Uniform distribution'):
         """Initializes the distribution.
 
          State format:
@@ -353,7 +379,7 @@ class UniformCAHittingLocationDistribution(AbstractCAHittingLocationDistribution
 
          Format point_predictor:
 
-            (pos_last, v_last, a_last, dt_pred)  --> dy_pred
+            (pos_last, v_last, a_last, dt_pred)  --> dy_pred or y_pred
 
          where
             - pos_last is a np.array of shape [batch_size, 2] and format [x, y] containing the positions at the t_L.
@@ -362,13 +388,16 @@ class UniformCAHittingLocationDistribution(AbstractCAHittingLocationDistribution
             - dt_pred is a np.array of shape [batch_size] with arrival time point estimates as difference times w.r.t.
                 t_L.
             - dy_pred is a np.array of shape [batch_size] with point estimates for the arrival location along the
-                actuator array as difference w.r.t. x_L.
+                actuator array as difference w.r.t. x_L. Alternatively, y_pred can be given as absolute point
+                estimates for the arrival location along the actuator
 
         :param htd: An AbstractHittingTimeDistribution object, the used hitting time distribution.
         :param point_predictor: A callable, a function that returns an estimate for the arrival location.
         :param window_length: A float or np.array of shape [batch_size], the window length of the distribution.
         :param a: A float or np.array of shape [batch_size], the ratio of the window length, where the point prediction
             is located.
+        :param point_predictor_outputs_dy_pred: A Boolean, whether the output of the point predictor is relative to
+            x_L (i.e., dy_pred) or absolute (i.e., y_pred).
         :param name: String, the name for the distribution.
         """
         # sanity checks
@@ -376,9 +405,11 @@ class UniformCAHittingLocationDistribution(AbstractCAHittingLocationDistribution
             raise ValueError('point_predictor must be a callable.')
 
         y_predicted = point_predictor(htd.x_L[..., [0, -3]],
-                                      htd.x_L[..., [1, -2]],
-                                      htd.x_L[..., [2, -1]],
-                                      dt_pred=htd.ev - htd.t_L) + htd.x_L[..., -3]
+                                       htd.x_L[..., [1, -2]],
+                                       htd.x_L[..., [2, -1]],
+                                       dt_pred=htd.ev - htd.t_L)
+        if point_predictor_outputs_dy_pred:
+            y_predicted += htd.x_L[..., -3]
 
         # y_predicted must be resizeable to shape [batch_size]
         if not np.atleast_1d(y_predicted).ndim == 1 or np.atleast_1d(y_predicted).shape[0] != htd.batch_size:
