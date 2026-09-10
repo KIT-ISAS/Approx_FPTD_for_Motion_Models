@@ -128,7 +128,7 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
         if not plot_hist_for_all_particles:
             # check if there are default values (particles that did not arrive) in the array
             t_samples = self.remove_not_arriving_samples(t_samples)
-        x_label = 'Time t in ' + self.time_unit
+        x_label = 'Time in ' + self.time_unit
         self._plot_sample_histogram(t_samples, x_label)
 
     @AbstractHittingEvaluator.check_approaches_ls
@@ -141,7 +141,7 @@ class HittingTimeEvaluator(AbstractHittingEvaluator):
         :param q_max: A float, the highest value of the confidence plot range.
         """
         # change the defaults
-        y_label = 'Location y in ' + self.time_unit
+        y_label = 'Time in ' + self.time_unit
         self._plot_quantile_functions(approaches_ls, q_min, q_max, y_label)
 
     def _plot_first_hitting_time_distributions(self,

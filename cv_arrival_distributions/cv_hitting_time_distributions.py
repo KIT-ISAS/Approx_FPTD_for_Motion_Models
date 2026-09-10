@@ -575,7 +575,6 @@ class NoReturnCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstr
         :param q: A float, the confidence parameter of the distribution, 0 <= q <= 1.
 
         :returns:
-            t: A np.array of shape [batch_size], the value of the PPF for q.
             candidate_roots: A np.array of shape [batch_size, num_possible_solutions] containing the values of all
                 possible roots.
         """
@@ -585,7 +584,7 @@ class NoReturnCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstr
         # 0 = (x_predTo - mu(t)) / sqrt(var(t) ->x_predTo = mu(t) -> solve for t...
         if q == 0.5:
             t = (self._x_predTo - self._x_L[:, 0]) / self._x_L[:, 1] + self._t_L
-            return t, t
+            return np.broadcast_to(t, (self.batch_size, 3))
 
         # cubic function
         # At**3 + B*t**2 + C*t + D = 0
@@ -600,10 +599,7 @@ class NoReturnCVHittingTimeDistribution(AbstractCVHittingTimeDistribution, Abstr
         A = np.tile(A, B.shape[0]) if np.isscalar(A) else A
 
         roots = self._find_cubic_roots_cardano_complex(A, B, C, D) + self._t_L
-        t = roots[:, 1] if q < 0.5 else roots[:,
-                                        2]  # TODO: Gibt es hier egal welche funktion man verwendet immer eine natürliche Ordnung? Ansonsten ist das nicht failsafe..
-
-        return t, roots
+        return roots
 
     @staticmethod
     def _find_cubic_roots_cardano_complex(a, b, c, d):
@@ -875,7 +871,6 @@ class NoReturnWNCAHittingTimeDistribution(NoReturnCVHittingTimeDistribution):
         :param q: A float, the confidence parameter of the distribution, 0 <= q <= 1.
 
         :returns:
-            t: A np.array of shape [batch_size], the value of the PPF for q.
             candidate_roots: A np.array of shape [batch_size, num_possible_solutions] containing the values of all
                 possible roots.
         """
@@ -885,7 +880,7 @@ class NoReturnWNCAHittingTimeDistribution(NoReturnCVHittingTimeDistribution):
         # 0 = (x_predTo - mu(t)) / sqrt(var(t) ->x_predTo = mu(t) -> solve for t...
         if q == 0.5:
             t = (self._x_predTo - self._x_L[:, 0]) / self._x_L[:, 1] + self._t_L   # TODO: Das nocj ändern
-            return t, t
+            return np.broadcast_to(t, (self.batch_size, 3))
 
         # polynomial of degree 4
         # At**4 + B*t**3 + C*t**2 + Dt + E = 0
@@ -912,19 +907,10 @@ class NoReturnWNCAHittingTimeDistribution(NoReturnCVHittingTimeDistribution):
             # roots are in descending order, the first root is always too large.
             real_roots_i = roots_i.real[np.logical_not(
                 np.iscomplex(roots_i))] + self.t_L  # TODO: Stimmt das so wie es hier steht?, allgemeine Regel?
-            # if real_roots_i.shape[0] == 5:
-            #     t[i] = float(real_roots_i[4] if q < 0.5 else real_roots_i[3])
-            # elif real_roots_i.shape[0] >= 2:
-            #     t[i] = float(real_roots_i[2] if q < 0.5 else real_roots_i[1])
-            # elif real_roots_i.shape[0] == 1:
-            #     t[i] = float(real_roots_i)
-            # else:
-            #     raise ValueError('Unsupported number of roots.')
-            t[i] = float(real_roots_i[1] if q < 0.5 else real_roots_i[0])
 
             real_roots[i, :real_roots_i.shape[0]] = real_roots_i
 
-        return t, real_roots
+        return real_roots
 
     def _get_max_cdf_location_roots(self):
         """Method that finds the argmax roots of the CDF of the approximation.

@@ -171,7 +171,7 @@ experiments_config = [
         "length_unit": "mm",
     },  {
         # Experiment name
-        "experiment_name": "CV_Long_Track_Sw100",
+        "experiment_name": "CV_Long_Track_Sw1000",
         # Process parameters
         "x_L": [0.3, 6.2, 0.5, 0.2],
         "C_L": [[2E-7, 2E-5, 0, 0], [2E-5, 6E-3, 0, 0], [0, 0, 2E-7, 2E-5], [0, 0, 2E-5, 6E-3]],
@@ -211,6 +211,29 @@ experiments_config = [
         "time_unit": "s",
         "length_unit": "mm",
     },  {
+        # Experiment name
+        "experiment_name": "CV_Long_Track_Sw10_denorm_high_lateral_v",
+        # Process parameters
+        "x_L": [29.0304, 599.9616, 64.96, 250 * 25.984],
+        "C_L": [[1.87280916e-03, 1.87280916e-01, 0, 0],
+                [1.87280916e-01, 5.61842749e+01, 0, 0],
+                [0, 0, 3.37584128e-03, 3.37584128e-01],
+                [0, 0, 3.37584128e-01, 1.01275238e+02]],
+        "t_L": 0,
+        "S_w": 93640.45824,
+        # Boundary
+        "x_predTo": 62.5,
+        # Particle size
+        "particle_size": [8, 8],
+        # Plot settings (optional)
+        "t_range": [0.04, 0.08],
+        "y_range": [330, 550],
+        "t_range_with_extents": [0.01, 0.3],
+        "y_range_with_extents": [-50, 200],
+        # Units (optional)
+        "time_unit": "s",
+        "length_unit": "mm",
+    }, {
         # Experiment name
         "experiment_name": "CV_Long_Track_Sw300",
         # Process parameters
@@ -327,7 +350,7 @@ def main(args):
     # define the experiments to execute by name
     # experiments_name_list = ['CV_Long_Track_Sw1', 'CV_Long_Track_Sw100', 'CV_Long_Track_Sw300']
     # experiments_name_list = ['CV_Long_Track_Sw1_denorm', 'CV_Long_Track_Sw10_denorm', 'CV_Long_Track_Sw100_denorm', 'CV_Long_Track_Sw1_slow_denorm']
-    experiments_name_list = ['CV_Long_Track_Sw100_denorm']
+    experiments_name_list = ['CV_Long_Track_Sw1000_denorm']
 
     # get the configs
     experiments_list = get_experiments_by_name(experiments_name_list, experiments_config)

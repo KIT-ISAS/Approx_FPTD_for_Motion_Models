@@ -502,7 +502,6 @@ class NoReturnWienerHittingTimeDistribution(AbstractWienerHittingTimeDistributio
         :param q: A float, the confidence parameter of the distribution, 0 <= q <= 1.
 
         :returns:
-            t: A np.array of shape [1], the value of the PPF for q.
             candidate_roots: A np.array of shape [1, num_possible_solutions] containing the values of all possible
                 roots.
         """
@@ -516,10 +515,7 @@ class NoReturnWienerHittingTimeDistribution(AbstractWienerHittingTimeDistributio
         t_1 = - p / 2 + np.sqrt((p / 2) ** 2 - qq)
         t_2 = - p / 2 - np.sqrt((p / 2) ** 2 - qq)
 
-        # Function must be positive for all confidence levels (because t is starting at 0),
-        # but we have a sign shift at cl=0.5. Thus:
-        t = t_1 if q > 0.5 else t_2
-        return t, np.array([[t_1, t_2]])
+        return np.array([[t_1, t_2]])
 
     def trans_dens_ppf(self, theta=None, q=0.95):
         """The PPF of 1 - int ( p(x(dt+theta)| x(theta) =x_predTo), x(dt+theta) = - infty ..x_predTo),

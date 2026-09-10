@@ -556,7 +556,6 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
         :param q: A float, the confidence parameter of the distribution, 0 <= q <= 1.
 
         :returns:
-            t: A np.array of shape [batch_size], the value of the PPF for q.
             candidate_roots: A np.array of shape [batch_size, num_possible_solutions] containing the values of all
                 possible roots.
         """
@@ -564,11 +563,9 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
         # 0 =  (x_predTo - mu(t)) / sqrt(var(t) ->x_predTo = mu(t) -> solve for t...
         if q == 0.5:
             # solve: self._x_predTo = self.x_L[0] + self.x_L[1] * t + self.x_L[2] / 2 * t**2
-            pp = self._x_L[:, 1]/self._x_L[:, 2]
-            qq = 2/self._x_L[:, 2]*(self._x_L[:, 0] - self._x_predTo)
-            # Sign depends on the sign of x_L[2]
-            t = - pp + np.sign(self._x_L[:, 2]) * np.sqrt(pp**2 - qq) + self._t_L
-            return t, t
+            num = 2 * (self._x_predTo - self._x_L[:, 0])
+            t = num / (self._x_L[:, 1] + np.sqrt(self._x_L[:, 1] ** 2 + self._x_L[:, 2] * num)) + self._t_L
+            return np.broadcast_to(t, (self.batch_size, 5))
 
         # Polynomial of degree 5
         # At**5 + B*t**4 + C*t**3 + D*t**2 + E*t + F = 0
@@ -592,17 +589,9 @@ class NoReturnCAHittingTimeDistribution(AbstractCAHittingTimeDistribution, Abstr
             # TODO: Vectorize this
             # roots are in descending order, the first root is always too large.
             real_roots_i = roots_i.real[np.logical_not(np.iscomplex(roots_i))] + self.t_L  # TODO: Stimmt das so wie es hier steht?, allgemeine Regel?
-            if real_roots_i.shape[0] == 5:
-                t[i] = float(real_roots_i[4] if q < 0.5 else real_roots_i[3])
-            elif real_roots_i.shape[0] >= 2:
-                t[i] = float(real_roots_i[2] if q < 0.5 else real_roots_i[1])
-            elif real_roots_i.shape[0] == 1:
-                t[i] = float(real_roots_i)
-            else:
-                raise ValueError('Unsupported number of roots.')
             real_roots[i, :real_roots_i.shape[0]] = real_roots_i
 
-        return t, real_roots
+        return real_roots
 
     def _get_max_cdf_location_roots(self):
         """Method that finds the argmax roots of the CDF of the approximation.

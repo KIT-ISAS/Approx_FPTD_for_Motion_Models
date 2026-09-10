@@ -127,7 +127,7 @@ class HittingLocationEvaluator(AbstractHittingEvaluator):
         """
         # check if there are default values (particles that did not arrive) in the array and remove them
         y_samples = self.remove_not_arriving_samples(y_samples)
-        x_label = 'Location y in ' + self.length_unit
+        x_label = 'Location in ' + self.length_unit
         self._plot_sample_histogram(y_samples, x_label)
 
     def plot_example_tracks(self, N=5, dt=0.0001, plot_x_predTo=False):
@@ -147,8 +147,8 @@ class HittingLocationEvaluator(AbstractHittingEvaluator):
         :param q_min: A float, the smallest value of the confidence plot range.
         :param q_max: A float, the highest value of the confidence plot range.
         """
-        y_label = 'Location y in ' + self.length_unit
-        self._plot_quantile_functions(approaches_ls, q_min, q_max, y_label)
+        y_label = 'Location in ' + self.length_unit
+        self._plot_quantile_functions(approaches_ls, q_min, q_max, y_label, save_prefix='_y_at_ftp')
 
     def _plot_y_at_first_hitting_time_distributions(self,
                                                     ax1,

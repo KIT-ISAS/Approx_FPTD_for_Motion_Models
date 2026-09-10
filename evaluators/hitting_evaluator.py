@@ -342,6 +342,7 @@ class AbstractHittingEvaluator(ABC):
         :param samples: A np.array of shape [num_samples] containing sampled values.
         :param bins: An integer, the number of bins to use to represent the histogram.
         """
+        samples = self.remove_not_arriving_samples(samples)
         bins = self._distribute_bins_in_plot_range(samples, no_of_bins=bins)
         mc_hist_values, left_edges = np.histogram(samples, bins=bins, density=True)
 
@@ -371,6 +372,7 @@ class AbstractHittingEvaluator(ABC):
         :param samples: A np.array of shape [num_samples] containing sampled values.
         :param bins: An integer, the number of bins to use to represent the histogram.
         """
+        samples = self.remove_not_arriving_samples(samples)
         bins = self._distribute_bins_in_plot_range(samples, no_of_bins=bins)
         mc_hist = np.histogram(samples, bins=bins, density=False)
         mc_dist = rv_histogram(mc_hist, density=True)
@@ -399,6 +401,7 @@ class AbstractHittingEvaluator(ABC):
         :param samples: A np.array of shape [num_samples] containing sampled values.
         :param bins: An integer, the number of bins to use to represent the histogram.
         """
+        samples = self.remove_not_arriving_samples(samples)
         bins = self._distribute_bins_in_plot_range(samples, no_of_bins=bins)
         mc_hist_values, left_edges = np.histogram(samples, bins=bins, density=True)
 
@@ -422,6 +425,7 @@ class AbstractHittingEvaluator(ABC):
         :param samples: A np.array of shape [num_samples] containing the first-passage times of the particles.
         :param bins: An integer, the number of bins to use to represent the histogram.
         """
+        samples = self.remove_not_arriving_samples(samples)
         bins = self._distribute_bins_in_plot_range(samples, no_of_bins=bins)
         mc_hist = np.histogram(samples, bins=bins, density=False)
         mc_dist = rv_histogram(mc_hist, density=True)
@@ -571,7 +575,7 @@ class AbstractHittingEvaluator(ABC):
             plt.show()
         plt.close()
 
-    def _plot_quantile_functions(self, approaches_ls, q_min, q_max, y_label):
+    def _plot_quantile_functions(self, approaches_ls, q_min, q_max, y_label, save_prefix=""):
         """Plots the quantile functions of the different approaches.
 
         :param approaches_ls: A list of child instances of AbstractHittingTimeDistribution or
@@ -579,6 +583,7 @@ class AbstractHittingEvaluator(ABC):
         :param q_min: A float, the smallest value of the confidence plot range.
         :param q_max: A float, the highest value of the confidence plot range.
         :param y_label: As string, the y_label of the plot.
+        :param save_prefix: A string, the prefix of the saved plot.
         """
         plot_q = np.arange(q_min, q_max, 0.01)
 
@@ -602,9 +607,9 @@ class AbstractHittingEvaluator(ABC):
         plt.ylabel(y_label)
 
         if self.save_results:
-            plt.savefig(os.path.join(self._result_dir, self._process_name_save + '_ppf.pdf'))
-            plt.savefig(os.path.join(self._result_dir, self._process_name_save + '_ppf.png'))
-            plt.savefig(os.path.join(self._result_dir, self._process_name_save + '_ppf.pgf'))
+            plt.savefig(os.path.join(self._result_dir, self._process_name_save + save_prefix + '_ppf.pdf'))
+            plt.savefig(os.path.join(self._result_dir, self._process_name_save + save_prefix + '_ppf.png'))
+            plt.savefig(os.path.join(self._result_dir, self._process_name_save + save_prefix + '_ppf.pgf'))
         if not self.no_show:
             plt.show()
         plt.close()

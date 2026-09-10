@@ -211,7 +211,7 @@ class AbstractHittingTimeDistribution(AbstractArrivalDistribution, ABC):
         plot_quant = [self.ppf(q) for q in plot_q]
         plt.plot(plot_q, plot_quant)
         plt.xlabel('Confidence level')
-        plt.ylabel('Time t in ' + time_unit)
+        plt.ylabel('Time in ' + time_unit)
 
         if not for_paper:
             plt.title('Quantile Function (Inverse CDF) for ' + self.name)
@@ -493,7 +493,6 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
         :param q: A float, the confidence parameter of the distribution, 0 <= q <= 1.
 
         :returns:
-            t: A np.array of shape [batch_size], the value of the PPF for q.
             candidate_roots: A np.array of shape [batch_size, num_possible_solutions] containing the values of all
                 possible roots.
         """
@@ -636,11 +635,21 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
         if np.any(q > self.q_max):
             logging.warning(
                 'Approximation yields a maximum confidence of {}, '
-                'which is lower than the desired confidence level of {}. Computed values may be wrong.'.format(
+                'which is lower than the desired confidence level of {}. Returning NaN.'.format(
                     np.round(self.q_max, 4), np.round(q, 4)))
 
         # solve the inverse problem
-        t, candidate_roots = self._ppf(q)
+        candidate_roots = self._ppf(q)
+
+        # choose the valid root
+        valid = (np.isfinite(candidate_roots) & (candidate_roots > self._t_L) & (
+                    candidate_roots < self._t_max[:, None]) & (self._q_max[:, None] >= q))
+        err = np.abs(self._cdf(candidate_roots) - q)
+        err = np.where(valid, err, np.inf)
+        idx = np.argmin(err, axis=1)
+        selected = candidate_roots[np.arange(self.batch_size), idx]
+        ok = np.isfinite(err[np.arange(self.batch_size), idx])
+        t = np.where(ok, selected, np.nan)
 
         # test it (but not in range [0.45, 0.55] as numerical issues arise in the vicinity of 0.5)
         if not disable_double_check and (q > 0.55 or q < 0.45):
@@ -732,7 +741,7 @@ class AbstractNoReturnHittingTimeDistribution(AbstractHittingTimeDistribution, A
         """
         t_min = np.atleast_1d(self.ppf(0.00005) if t_min is None else t_min)
         if t_max is None:
-            t_max = np.atleast_1d(self.t_max)
+            t_max = np.atleast_1d(self.t_max.copy())
             t_max[0.99995 < self.q_max] = np.atleast_1d(self.ppf(0.99995))[0.99995 < self.q_max]
         else:
             t_max = np.atleast_1d(t_max)

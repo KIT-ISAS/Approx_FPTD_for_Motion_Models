@@ -31,7 +31,9 @@ class AbstractCAHittingLocationDistribution(AbstractHittingLocationDistribution,
                          **kwargs,
                          )
         
-        self._S_w = np.broadcast_to(S_w, shape=self.batch_size).copy().astype(float)  # this itself raises an error if
+        # Use the hitting-time batch size here: subclasses may not have initialized `_ev` yet, so `self.batch_size`
+        # can be unavailable during cooperative init.
+        self._S_w = np.broadcast_to(S_w, shape=htd.batch_size).copy().astype(float)  # this itself raises an error if
         # not compatible
 
     @property
@@ -83,21 +85,62 @@ class AbstractCAHittingLocationDistribution(AbstractHittingLocationDistribution,
 
         :returns: A np.array of shape [batch_size], the variance of the approximation.  # TODO: Das ist nun nicht unbedingt shape = batchsize, schlimm?
         """
-        # We have a polynomial in the form:
-        # A + B*Ev(t) + C*Ev(t**2) + D*Ev(t**3) + E*Ev(t**4) + F*Ev(t**-1)
-        A = htd.C_L[..., -3, -3] - 2 * htd.C_L[..., -3, -2] * htd.t_L + htd.C_L[..., -2, -2] * htd.t_L ** 2 \
-            + htd.C_L[..., -3, -1] * htd.t_L ** 2 - htd.C_L[..., -2, -1] * htd.t_L ** 3 + 1 / 4 * htd.C_L[
-                ..., -1, -1] * htd.t_L ** 4 - 1 / 20 * S_w * htd.t_L ** 5
-        B = 2 * htd.C_L[..., -3, -2] - 2 * htd.C_L[..., -2, -2] * htd.t_L - 2 * htd.C_L[..., -3, -1] * htd.t_L \
-            + 3 * htd.C_L[..., -2, -1] * htd.t_L ** 2 - htd.C_L[..., -1, -1] * htd.t_L ** 3 + 1 / 4 * S_w * htd.t_L ** 4
-        C = htd.C_L[..., -2, -2] + htd.C_L[..., -3, -1] - 3 * htd.C_L[..., -2, -1] * htd.t_L + 3 / 2 * htd.C_L[
-            ..., -1, -1] * htd.t_L ** 2 - 1 / 2 * S_w * htd.t_L ** 3
-        D = htd.C_L[..., -2, -1] - htd.C_L[..., -1, -1] * htd.t_L + 1 / 2 * S_w * htd.t_L ** 2
+        # E[Var(y | tau)] as A + B E[t] + C E[t^2] + D E[t^3] + E E[t^4] + F E[t^5]
+        A = (htd.C_L[..., -3, -3]
+             - 2 * htd.C_L[..., -3, -2] * htd.t_L
+             + htd.C_L[..., -2, -2] * htd.t_L ** 2
+             + htd.C_L[..., -3, -1] * htd.t_L ** 2
+             - htd.C_L[..., -2, -1] * htd.t_L ** 3
+             + 1 / 4 * htd.C_L[..., -1, -1] * htd.t_L ** 4
+             - 1 / 20 * S_w * htd.t_L ** 5)
+        B = (2 * htd.C_L[..., -3, -2]
+             - 2 * htd.C_L[..., -2, -2] * htd.t_L
+             - 2 * htd.C_L[..., -3, -1] * htd.t_L
+             + 3 * htd.C_L[..., -2, -1] * htd.t_L ** 2
+             - htd.C_L[..., -1, -1] * htd.t_L ** 3
+             + 1 / 4 * S_w * htd.t_L ** 4)
+        C = (htd.C_L[..., -2, -2]
+             + htd.C_L[..., -3, -1]
+             - 3 * htd.C_L[..., -2, -1] * htd.t_L
+             + 3 / 2 * htd.C_L[..., -1, -1] * htd.t_L ** 2
+             - 1 / 2 * S_w * htd.t_L ** 3)
+        D = (htd.C_L[..., -2, -1]
+             - htd.C_L[..., -1, -1] * htd.t_L
+             + 1 / 2 * S_w * htd.t_L ** 2)
         E = 1 / 4 * htd.C_L[..., -1, -1] - 1 / 4 * S_w * htd.t_L
         F = 1 / 20 * S_w
+        ev_var = (A
+                  + B * htd.ev
+                  + C * htd.second_moment
+                  + D * htd.third_moment
+                  + E * htd.fourth_moment
+                  + F * htd.fifth_moment)
 
-        return A + B * htd.ev + C * htd.second_moment + D * htd.third_moment + E * htd.fourth_moment + \
-               F * htd.fifth_moment
+        # Var(E[y | tau]):
+        #   (v)^2 Var(tau)
+        # + v a (E[Delta^3] - E[Delta] E[Delta^2])
+        # + (1/4) a^2 (E[Delta^4] - (E[Delta^2])^2)
+        # with Delta = tau - t_L, v = mean ẏ, a = mean ÿ
+        E_dt = htd.ev - htd.t_L
+        E_dt2 = (htd.second_moment
+                 - 2 * htd.ev * htd.t_L
+                 + htd.t_L ** 2)
+        E_dt3 = (htd.third_moment
+                 - 3 * htd.second_moment * htd.t_L
+                 + 3 * htd.ev * htd.t_L ** 2
+                 - htd.t_L ** 3)
+        E_dt4 = (htd.fourth_moment
+                 - 4 * htd.third_moment * htd.t_L
+                 + 6 * htd.second_moment * htd.t_L ** 2
+                 - 4 * htd.ev * htd.t_L ** 3
+                 + htd.t_L ** 4)
+        var_tau = htd.second_moment - htd.ev ** 2
+        v = htd.x_L[..., -2]
+        a = htd.x_L[..., -1]
+        var_ev = (v ** 2 * var_tau
+                  + v * a * (E_dt3 - E_dt * E_dt2)
+                  + 1 / 4 * a ** 2 * (E_dt4 - E_dt2 ** 2))
+        return ev_var + var_ev
 
     def _ev_t(self, t):
         """The mean function of the motion model in y.
@@ -167,7 +210,7 @@ class AbstractCAHittingLocationDistribution(AbstractHittingLocationDistribution,
     #     return hit_stats
 
 
-class GaussTaylorCAHittingLocationDistribution(AbstractCAHittingLocationDistribution, AbstractGaussTaylorHittingLocationDistribution):
+class GaussTaylorCAHittingLocationDistribution(AbstractGaussTaylorHittingLocationDistribution, AbstractCAHittingLocationDistribution):
     """A simple Gaussian approximation for the distribution in y at the first-passage time problem using a
     Taylor approximation and error propagation that can be used for CA models.
 

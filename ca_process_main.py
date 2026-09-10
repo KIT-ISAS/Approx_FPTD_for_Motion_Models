@@ -163,10 +163,9 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     :param length_unit: A string, the location unit of the process (used for the plot labels).
     """
     # Deterministic predictions
-    ca_temporal_point_predictor = lambda pos_l, v_l, a_l, x_predTo: - v_l[..., 0] / a_l[..., 0] + np.sign(a_l[..., 0]) * \
-                                                                    np.sqrt((v_l[..., 0] / a_l[..., 0]) ** 2 + 2 / a_l[
-                                                                        ..., 0] * (
-                                                                                    x_predTo - pos_l[..., 0]))  # TODO: Stimmt das eigentlich?, die formel nutzen wir auch für wnca
+    ca_temporal_point_predictor = lambda pos_l, v_l, a_l, x_predTo: 2 * (x_predTo - pos_l[..., 0]) / (
+            v_l[..., 0] + np.sqrt(v_l[..., 0] ** 2 + a_l[..., 0] * 2 * (x_predTo - pos_l[..., 0])))
+
     ca_spatial_point_predictor = lambda pos_l, v_l, a_l, dt_pred: dt_pred * v_l[..., 1] + 1 / 2 * dt_pred ** 2 * a_l[
         ..., 1]
     # t_predicted = t_L - x_L[1] / x_L[2] + np.sign(x_L[2]) * \
@@ -249,7 +248,6 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     no_return_htd.plot_valid_regions(theta=t_predicted, save_results=save_results, result_dir=result_dir,
                                      for_paper=True,
                                      no_show=no_show)
-    # approx_model.plot_valid_regions(save_results=save_results, result_dir=_result_dir, for_paper=True, no_show_no_show)
     logging.info('tau_max: {}'.format(no_return_htd.trans_dens_ppf(t_predicted)[0]))
     logging.info('Mass inside invalid region: {}'.format(
         1 - no_return_htd.cdf(t_predicted + no_return_htd.trans_dens_ppf(t_predicted)[0])))
@@ -302,10 +300,10 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     hle.plot_sample_histogram(y_samples)
 
     # Set up the hitting location approaches
-    htd_for_hld = no_return_htd  # we use the same hitting time distribution for all approaches except the uniform and
-    # MC approach
-    gauss_taylor_hld = GaussTaylorCAHittingLocationDistribution(htd_for_hld, S_w,
+    gauss_taylor_hld = GaussTaylorCAHittingLocationDistribution(gauss_taylor_htd, S_w,
                                                                 point_predictor=ca_spatial_point_predictor)
+    htd_for_hld = no_return_htd  # we use the same hitting time distribution for all approaches except the Gauss-Taylor,
+    # uniform, and MC approach
     simple_gauss_hld = SimpleGaussCAHittingLocationDistribution(htd_for_hld, S_w,
                                                                 point_predictor=ca_spatial_point_predictor)
     bayes_mixture_hld = BayesMixtureCAHittingLocationDistribution(htd_for_hld, S_w)
@@ -326,11 +324,11 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     hle.compare_moments(approaches_spatial_ls)
 
     # Calculate wasserstein distance and compare results
-    hle.compare_wasserstein_distances(approaches_spatial_ls, y_samples)
+    # hle.compare_wasserstein_distances(approaches_spatial_ls, y_samples)
     # Calculate the Hellinger distance
     hle.compare_hellinger_distances(approaches_spatial_ls, y_samples)
     # Calculate the first wasserstein distance
-    hle.compare_first_wasserstein_distances(approaches_spatial_ls, y_samples)
+    # hle.compare_first_wasserstein_distances(approaches_spatial_ls, y_samples)
     # Calculate the kolmogorov distance
     hle.compare_kolmogorov_distances(approaches_spatial_ls, y_samples)
 
@@ -396,10 +394,9 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
     :param length_unit: A string, the location unit of the process (used for the plot labels).
     """
     # Deterministic predictions
-    ca_temporal_point_predictor = lambda pos_l, v_l, a_l, x_predTo: - v_l[..., 0] / a_l[..., 0] + np.sign(a_l[..., 0]) * \
-                                                                    np.sqrt((v_l[..., 0] / a_l[..., 0]) ** 2 + 2 / a_l[
-                                                                        ..., 0] * (
-                                                                                    x_predTo - pos_l[..., 0]))
+    ca_temporal_point_predictor = lambda pos_l, v_l, a_l, x_predTo: 2 * (x_predTo - pos_l[..., 0]) / (
+            v_l[..., 0] + np.sqrt(v_l[..., 0] ** 2 + a_l[..., 0] * 2 * (x_predTo - pos_l[..., 0])))
+
     ca_spatial_point_predictor = lambda pos_l, v_l, a_l, dt_pred: dt_pred * v_l[..., 1] + 1 / 2 * dt_pred ** 2 * a_l[
         ..., 1]
     # t_predicted = t_L - x_L[1] / x_L[2] + np.sign(x_L[2]) * \
@@ -568,16 +565,16 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
                                               )
 
     # Set up the hitting location approaches
-    htwe_model_for_hlwe_model = gauss_taylor_htwe  # we use the same hitting time distribution for all approaches except
-    # the uniform and MC approach
     hitting_location_distr_kwargs = {'S_w': hitting_time_distr_kwargs['S_w']}
     gauss_taylor_hlwe = HittingLocationWithExtentsModel(particle_size[1],
-                                                        htwe_model_for_hlwe_model,
+                                                        gauss_taylor_htwe,
                                                         GaussTaylorCAHittingLocationDistribution,
                                                         dict(hitting_location_distr_kwargs,
                                                              point_predictor=ca_spatial_point_predictor),
                                                         name="Gauß-Taylor with extent",
                                                         )
+    htwe_model_for_hlwe_model = gauss_taylor_htwe  # we use the same hitting time distribution for all approaches except
+    # the Gauss-Taylor, uniform, and MC approach
     simple_gauss_hlwe = HittingLocationWithExtentsModel(particle_size[1],
                                                         htwe_model_for_hlwe_model,
                                                         SimpleGaussCAHittingLocationDistribution,

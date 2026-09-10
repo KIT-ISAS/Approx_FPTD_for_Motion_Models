@@ -31,7 +31,9 @@ class AbstractCVHittingLocationDistribution(AbstractHittingLocationDistribution,
                          **kwargs,
                          )
 
-        self._S_w = np.broadcast_to(S_w, shape=self.batch_size).copy().astype(float)  # this itself raises an error if
+        # Use the hitting-time batch size here: subclasses may not have initialized `_ev` yet, so `self.batch_size`
+        # can be unavailable during cooperative init.
+        self._S_w = np.broadcast_to(S_w, shape=htd.batch_size).copy().astype(float)  # this itself raises an error if
         # not compatible
 
     @property
@@ -84,7 +86,8 @@ class AbstractCVHittingLocationDistribution(AbstractHittingLocationDistribution,
                       htd.second_moment - 2 * htd.ev * htd.t_L + htd.t_L ** 2) \
               + S_w / 3 * (
                       htd.third_moment - 3 * htd.second_moment * htd.t_L + 3 * htd.ev * htd.t_L ** 2
-                      - htd.t_L ** 3)
+                      - htd.t_L ** 3) \
+             + htd.x_L[..., -1] ** 2 * htd.var
         return var
 
     # TODO: Eine Plot funktion um den Verlauf der Tracks zu sehen wäre noch sehr hilfreicg
@@ -140,7 +143,7 @@ class AbstractCVHittingLocationDistribution(AbstractHittingLocationDistribution,
         super()._left_hand_indexing(indices, values)
 
 
-class GaussTaylorCVHittingLocationDistribution(AbstractCVHittingLocationDistribution, AbstractGaussTaylorHittingLocationDistribution):
+class GaussTaylorCVHittingLocationDistribution(AbstractGaussTaylorHittingLocationDistribution, AbstractCVHittingLocationDistribution):
     """A simple Gaussian approximation for the distribution in y at the first-passage time problem using a
     Taylor approximation and error propagation that can be used for CV models.
 

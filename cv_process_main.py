@@ -236,7 +236,6 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     no_return_htd.plot_valid_regions(theta=t_predicted, save_results=save_results, result_dir=result_dir,
                                      for_paper=True,
                                      no_show=no_show)
-    # approx_model.plot_valid_regions(save_results=save_results, result_dir=_result_dir, for_paper=True, no_show_no_show)
     logging.info('tau_max: {}'.format(no_return_htd.trans_dens_ppf(t_predicted)[0]))
     logging.info('Mass inside invalid region: {}'.format(
         1 - no_return_htd.cdf(t_predicted + no_return_htd.trans_dens_ppf(t_predicted)[0])))
@@ -289,10 +288,10 @@ def run_experiment(x_L, C_L, t_L, S_w, x_predTo,
     # hle_spatial.plot_sample_histogram(y_samples)
 
     # Set up the hitting location approaches
-    htd_for_hld = no_return_htd  # we use the same hitting time distribution for all approaches except the uniform and
-    # MC approach
-    gauss_taylor_hld = GaussTaylorCVHittingLocationDistribution(htd_for_hld, S_w,
+    gauss_taylor_hld = GaussTaylorCVHittingLocationDistribution(gauss_taylor_htd, S_w,
                                                                 point_predictor=cv_spatial_point_predictor)
+    htd_for_hld = no_return_htd  # we use the same hitting time distribution for all approaches except the Gauss-Taylor,
+    # uniform, and MC approach
     simple_gauss_hld = SimpleGaussCVHittingLocationDistribution(htd_for_hld, S_w,
                                                                 point_predictor=cv_spatial_point_predictor)
     bayes_mixture_hld = BayesMixtureCVHittingLocationDistribution(htd_for_hld, S_w)
@@ -548,16 +547,16 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
                                               )
 
     # Set up the hitting location approaches
-    htwe_model_for_hlwe_model = gauss_taylor_htwe  # we use the same hitting time distribution for all approaches except
-    # the uniform and MC approach
     hitting_location_distr_kwargs = {'S_w': hitting_time_distr_kwargs['S_w']}
     gauss_taylor_hlwe = HittingLocationWithExtentsModel(particle_size[1],
-                                                        htwe_model_for_hlwe_model,
+                                                        gauss_taylor_htwe,
                                                         GaussTaylorCVHittingLocationDistribution,
                                                         dict(hitting_location_distr_kwargs,
                                                              point_predictor=cv_spatial_point_predictor),
                                                         name="Gauß-Taylor with extent",
                                                         )
+    htwe_model_for_hlwe_model = gauss_taylor_htwe  # we use the same hitting time distribution for all approaches except
+    # the Gauss-Taylor, uniform, and MC approach
     simple_gauss_hlwe = HittingLocationWithExtentsModel(particle_size[1],
                                                         htwe_model_for_hlwe_model,
                                                         SimpleGaussCVHittingLocationDistribution,
