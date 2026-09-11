@@ -597,8 +597,8 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
     # Results for spatial uncertainties
     approaches_spatial_ls = [gauss_taylor_hlwe,
                              simple_gauss_hlwe,
-                             # bayes_mixture_hlwe,  # TODO: PPF fehlt!
-                             # bayesian_hlwe,
+                             bayes_mixture_hlwe,
+                             # bayesian_hlwe,  # TODO: PPF fehlt!
                              uniform_hlwe,
                              mc_hlwe]
 
@@ -625,6 +625,7 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, x_predTo,
     hle.plot_calibration(approaches_spatial_ls,
                          y_min_samples - particle_size[1] / 2,
                          y_max_samples + particle_size[1] / 2,
+                         save_prefix='_lateral'
                          )
 
 

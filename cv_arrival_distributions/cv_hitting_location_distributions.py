@@ -398,7 +398,7 @@ class BayesMixtureCVHittingLocationDistribution(AbstractCVHittingLocationDistrib
     the densities in y at different times weighted by the first-passage time probability in a (small) range around
     these times.
     """
-    def __init__(self, htd, S_w, t_min=None, t_max=None, n=100, name='Mixture Method'):
+    def __init__(self, htd, S_w, t_min=None, t_max=None, n=100, name='Mixture method'):
         """Initializes the distribution.
 
         State format:

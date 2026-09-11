@@ -411,14 +411,60 @@ class AbstractBayesMixtureHittingLocationDistribution(AbstractHittingLocationDis
     def ppf(self, q, disable_double_check=False):
         """The quantile function / percent point function (PPF) of the distribution in y at the first-passage time.
 
-         :param q: A float, the confidence parameter of the distribution, 0 <= q <= 1.
-         :param disable_double_check: Boolean, if False, the results for the ppf are inserted into the cdf and
-             double-checked. Disable this to save computation time.
+        Uses Newton's method to find the root of the function F(y) - q = 0, where F is the CDF of the distribution,
+        according to
 
-         :returns: A float or a np.array of shape [batch_size], the value of the PPF for q.
-         """
-        # TODO
-        raise NotImplementedError()
+            y_{n+1} = y_n - (F(y_n) - q) / f(y_n) ,
+
+        where f is the PDF of the distribution.
+
+        :param q: A float, the confidence parameter of the distribution, 0 <= q <= 1.
+        :param disable_double_check: Boolean, if False, the results for the ppf are inserted into the cdf and
+            double-checked. Disable this to save computation time.
+
+        :returns: A float or a np.array of shape [batch_size], the value of the PPF for q.
+        """
+        if not np.isscalar(q):
+            raise ValueError('Currently, only scalar q are supported.')
+        if q <= 0.0 or q >= 1.0:
+            raise ValueError('Confidence level q must be in interval (0, 1).')
+
+        # Gaussian warm start (moments exist in closed form; lateral law is typically near-Gaussian)
+        y = np.atleast_1d(norm.ppf(q, loc=self.ev, scale=self.stddev)).astype(float)  # [batch_size]
+
+        max_iter = 50
+        atol = 1e-8
+        rtol = 1e-6
+        pdf_floor = np.finfo(float).eps
+
+        for _ in range(max_iter):
+            # batch_size > 1 requires shape [sample_size, batch_size]
+            y_in = y.reshape(1, -1)
+            F = np.atleast_1d(np.asarray(self.cdf(y_in), dtype=float))
+            f = np.atleast_1d(np.asarray(self.pdf(y_in), dtype=float))
+
+            residual = F - q
+            if np.all(np.abs(residual) <= atol + rtol * max(q, 1.0 - q)):
+                break
+
+            step = residual / np.maximum(np.abs(f), pdf_floor)
+            y = y - step
+
+        y = np.squeeze(y)
+
+        if not disable_double_check:
+            q_test = np.atleast_1d(np.asarray(self.cdf(np.atleast_1d(y).reshape(1, -1)), dtype=float))
+            y_arr = np.atleast_1d(y)
+            non_valids = np.logical_not(
+                np.logical_or(np.isclose(q, q_test, atol=5e-2, rtol=3e-1), np.isnan(y_arr))
+            )
+            if np.any(non_valids):
+                raise ValueError(
+                    'The PPF for q={0} was computed with high errors '
+                    '(cdf(ppf(q))={1}, y={2}).'.format(q, q_test[non_valids], y_arr[non_valids])
+                )
+
+        return y
 
     def __setitem__(self, indices, values):
         """Assigns elements along the batch shape at the given indices. Use this for fancy indexing
@@ -483,6 +529,7 @@ class AbstractBayesMixtureHittingLocationDistribution(AbstractHittingLocationDis
         hit_stats = {}  # TODO: nicht so
         hit_stats['PDF'] = self.pdf
         hit_stats['CDF'] = self.cdf
+        hit_stats['PPF'] = self.ppf
         hit_stats['EV'] = self.ev
         hit_stats['STDDEV'] = self.stddev
         hit_stats['SKEW'] = self.skew

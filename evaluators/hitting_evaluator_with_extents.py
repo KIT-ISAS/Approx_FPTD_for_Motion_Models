@@ -942,6 +942,7 @@ class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHitt
                          approaches_ls,
                          min_y_samples,
                          max_y_samples,
+                         save_prefix=""
                          ):
         """Plots the calibration of the deflection windows, i.e., the ratio of expects hits vs. the "true" hits in the
         corresponding deflection window.
@@ -951,6 +952,7 @@ class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHitt
             locations.
         :param max_y_samples: A np.array of shape [num_samples] containing samples of the particles' uppermost edge
             locations.
+        :param save_prefix: A string, the prefix of the saved plot.
         """
         fig, axes = plt.subplots(nrows=1, ncols=2)
 
@@ -970,11 +972,11 @@ class HittingLocationEvaluatorWithExtents(HittingLocationEvaluator, AbstractHitt
         # plt.legend()
         if self.save_results:
             plt.savefig(
-                os.path.join(self._result_dir, self._process_name_save + '_calibration_with_extents.pdf'))
+                os.path.join(self._result_dir, self._process_name_save + save_prefix + '_calibration_with_extents.pdf'))
             plt.savefig(
-                os.path.join(self._result_dir, self._process_name_save + '_calibration_with_extents.png'))
+                os.path.join(self._result_dir, self._process_name_save + save_prefix + '_calibration_with_extents.png'))
             plt.savefig(
-                os.path.join(self._result_dir, self._process_name_save + '_calibration_with_extents.pgf'))
+                os.path.join(self._result_dir, self._process_name_save + save_prefix + '_calibration_with_extents.pgf'))
         if not self.no_show:
             plt.show()
 

@@ -166,7 +166,7 @@ def run_experiment(x_L, C_L, t_L, S_w, a_c, x_predTo,
     :param length_unit: A string, the location unit of the process (used for the plot labels).
     """
     # Deterministic predictions
-    wnca_temporal_point_predictor = lambda pos_l, v_l, a_l, x_predTo: 2 * (x_predTo - pos_l[..., 0]) / (
+    wnca_temporal_point_predictor = lambda pos_l, v_l, x_predTo: 2 * (x_predTo - pos_l[..., 0]) / (
             v_l[..., 0] + np.sqrt(v_l[..., 0] ** 2 + a_c * 2 * (x_predTo - pos_l[..., 0])))
 
     cv_spatial_point_predictor = lambda pos_l, v_l, dt_pred: v_l[..., 1] * dt_pred
@@ -423,7 +423,7 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
     :param length_unit: A string, the location unit of the process (used for the plot labels).
     """
     # Deterministic predictions
-    wnca_temporal_point_predictor = lambda pos_l, v_l, a_l, x_predTo: 2 * (x_predTo - pos_l[..., 0]) / (
+    wnca_temporal_point_predictor = lambda pos_l, v_l, x_predTo: 2 * (x_predTo - pos_l[..., 0]) / (
             v_l[..., 0] + np.sqrt(v_l[..., 0] ** 2 + a_c * 2 * (x_predTo - pos_l[..., 0])))
     cv_spatial_point_predictor = lambda pos_l, v_l, dt_pred: v_l[..., 1] * dt_pred
     t_predicted = t_L + wnca_temporal_point_predictor(x_L[[0, 2]], x_L[[1, 3]], x_predTo)
@@ -571,6 +571,7 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
                                                        )
 
     # plot the calibration
+    approaches_temp_ls = approaches_temp_ls[:1] # TODO
     hte.plot_calibration(approaches_temp_ls,
                          t_samples_first_front_arrival,
                          t_samples_first_back_arrival,
@@ -609,7 +610,7 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
                                                         name="Gauß-Taylor with extent",
                                                         )
 
-    htd_for_hld = no_return_htwe  # we use the same hitting time distribution for all approaches except the Gauss-Taylor,
+    htwe_model_for_hlwe_model = no_return_htwe  # we use the same hitting time distribution for all approaches except the Gauss-Taylor,
     # uniform, and MC approach
     simple_gauss_hlwe = HittingLocationWithExtentsModel(particle_size[1],
                                                         htwe_model_for_hlwe_model,
@@ -652,8 +653,8 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
     # Results for spatial uncertainties
     approaches_spatial_ls = [gauss_taylor_hlwe,
                              # simple_gauss_hlwe,
-                             # bayes_mixture_hlwe,  # TODO: PPF fehlt!
-                             # bayesian_hlwe,
+                             bayes_mixture_hlwe,
+                             # bayesian_hlwe,  # TODO: PPF fehlt!
                              uniform_hlwe,
                              # mc_hlwe,
                              ]
@@ -678,9 +679,11 @@ def run_experiment_with_extent(x_L, C_L, t_L, S_w, a_c, x_predTo,
                                                             y_max_samples + particle_size[1] / 2,
                                                             )
     # plot the calibration
+    approaches_spatial_ls = approaches_spatial_ls[:1]  # TODO
     hle.plot_calibration(approaches_spatial_ls,
                          y_min_samples - particle_size[1] / 2,
                          y_max_samples + particle_size[1] / 2,
+                         save_prefix='_lateral'
                          )
 
 
